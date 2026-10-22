@@ -880,7 +880,7 @@ function refreshChambres(){
 
 function renderListe(list){
   const q=chQuery.trim().toLowerCase();
-  const match=c=>!q||[c.nom,c.personnes,c.localisation,c.couchage,...resasDe(c.id).map(r=>r.nom)].some(x=>(x||"").toLowerCase().includes(q));
+  const match=c=>!q||[c.nom,c.localisation,c.couchage,...resasDe(c.id).map(r=>r.nom)].some(x=>(x||"").toLowerCase().includes(q));
   const rooms=chambres.filter(c=>c.type==="chambre");
   const lieux=chambres.filter(c=>c.type!=="chambre");
   const libres=rooms.filter(c=>statut(c).libre);
@@ -1042,7 +1042,6 @@ function renderRoomModal(){
   const st=statusTag(c);if(st)meta.appendChild(st);
   [c.couchage,c.localisation].filter(Boolean).forEach(v=>{const t=el("span","tag");t.textContent=v;meta.appendChild(t);});
   sh.appendChild(meta);
-  if(c.personnes){const p=el("p","muted");p.textContent="Note de l'ancien tableau : "+c.personnes;sh.appendChild(p);}
   if(c.gps&&/^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(c.gps)){
     const a=el("a","map-link","Voir sur la carte ↗");a.href="https://www.google.com/maps?q="+encodeURIComponent(c.gps.replace(/\s+/g,""));a.target="_blank";a.rel="noopener";sh.appendChild(a);
   }
