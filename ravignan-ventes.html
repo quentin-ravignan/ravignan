@@ -98,6 +98,18 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .msg.err{background:var(--bad-soft);color:var(--bad)}
 .msg.ok{background:var(--ok-soft);color:var(--ok)}
 .msg.info{background:var(--accent-soft);color:var(--accent-ink)}
+.hdr-btn{background:transparent;color:var(--hdr-ink);border:1px solid var(--hdr-soft);border-radius:999px;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer}
+.tbl-wrap{overflow-x:auto;margin:0 -4px}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:8px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tbl tr.click{cursor:pointer}
+.tbl tr.click:hover td{background:var(--sunk)}
+.hbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:13px}
+.hbar .bar{grid-column:1/-1}
+.email-row{display:flex;align-items:center;gap:8px;font-size:14px;overflow-wrap:anywhere}
 .confirm{display:flex;flex-direction:column;gap:8px;background:var(--bad-soft);border-radius:12px;padding:12px}
 @media (prefers-reduced-motion:no-preference){.btn,.chip,.pmt,.prod-row{transition:background-color .15s,border-color .15s}}
 </style>
@@ -106,7 +118,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
   <header class="hdr">
     <button class="back" id="btn-back" hidden aria-label="Retour">←</button>
     <h1 id="hdr-title">Domaine de Ravignan</h1>
-    <span class="mark">Armagnac</span>
+    <span class="mark" id="hdr-mark">Armagnac</span>
+    <button class="hdr-btn" id="btn-admin" hidden>Admin</button>
   </header>
   <div id="flash" class="body" style="padding-block:12px 0;flex:none" hidden></div>
   <main class="body" id="main">
@@ -156,6 +169,9 @@ const blankNv=()=>({nom:"",lieu:"",dateDebut:today(),dateFin:today(),vendeur:sto
 const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:""},lignes:[],pmt:"CB",vendeur:store.get(VENDEUR_KEY)});
 let nv=blankNv(), sv=blankSv();
 let saisieProdCard=null, horsOpen=false;
+let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
+const isAdmin=()=>isOwner||(!!myId&&adminIds.includes(myId));
+const LIVE_PAGES=["home","vente","admin"];
 
 const getVente=()=>ventes.find(v=>v.id===venteId);
 const txsOf=vid=>txs.filter(t=>t.venteId===vid).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
@@ -187,14 +203,18 @@ function render(){
     if(page==="saisie")go("vente",venteId);
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Domaine de Ravignan","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction"};
+  const titles={home:"Domaine de Ravignan","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
+  const adm=qs("#btn-admin");adm.hidden=!isAdmin()||page==="admin";adm.onclick=()=>go("admin");
+  qs("#hdr-mark").hidden=!adm.hidden;
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
   if(!db){
     m.appendChild(el("div","empty",dbError||"Chargement des ventes…"));return;
   }
   if(page==="vente"&&!getVente()){page="home";}
-  if(page==="home")renderHome(m);
+  if(page==="admin"&&!isAdmin()){page="home";}
+  if(page==="admin")renderAdmin(m);
+  else if(page==="home")renderHome(m);
   else if(page==="new-vente")renderNewVente(m);
   else if(page==="vente")renderVente(m);
   else if(page==="saisie")renderSaisie(m);
@@ -555,6 +575,145 @@ async function exportCSV(v){
   }
 }
 
+/* ---------- administration ---------- */
+const anneeDe=v=>(v.dateDebut||"").slice(0,4);
+function renderAdmin(m){
+  const annees=[...new Set(ventes.map(anneeDe).filter(Boolean))].sort().reverse();
+  if(adminYear!=="all"&&!annees.includes(adminYear))adminYear="all";
+  const vs=ventes.filter(v=>adminYear==="all"||anneeDe(v)===adminYear)
+    .sort((a,b)=>(b.dateDebut||"").localeCompare(a.dateDebut||""));
+  const ids=new Set(vs.map(v=>v.id));
+  const t=txs.filter(x=>ids.has(x.venteId));
+  const lignes=t.flatMap(x=>(x.lignes||[]).map(l=>({...l,tx:x})));
+  const ca=t.reduce((s,x)=>s+(x.total||0),0);
+  const art=lignes.reduce((s,l)=>s+(l.qte||0),0);
+
+  // filtre par année
+  const chips=el("div","chips");
+  [["all","Toutes les années"],...annees.map(a=>[a,a])].forEach(([k,lab])=>{
+    const c=el("button","chip"+(adminYear===k?" sel":""),esc(lab));c.onclick=()=>{adminYear=k;render();};chips.appendChild(c);
+  });
+  m.appendChild(chips);
+
+  const k=el("div","grid2");
+  [[fmt(ca),"Chiffre d'affaires"],[t.length,"Transactions"],[art,"Articles vendus"],[fmt(t.length?ca/t.length:0),"Panier moyen"]]
+    .forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
+  m.appendChild(k);
+
+  if(downloads&&t.length){const e=el("button","btn ghost full","Exporter toutes les transactions (CSV)");e.onclick=()=>exportGlobal(vs,t);m.appendChild(e);}
+
+  if(!vs.length){m.appendChild(el("div","empty","Aucune vente sur cette période."));renderAdminAcces(m);return;}
+
+  // par vente
+  const cv=el("div","card","<h2>Par vente</h2>");
+  const tb=el("div","tbl-wrap");const table=el("table","tbl",`<thead><tr><th>Vente</th><th class="r">Trans.</th><th class="r">CA</th></tr></thead>`);
+  const body=el("tbody");
+  vs.forEach(v=>{
+    const tv=t.filter(x=>x.venteId===v.id);const s=tv.reduce((a,x)=>a+(x.total||0),0);
+    const tr=el("tr","click",`<td><b>${esc(v.nom)}</b><br><span class="muted">${esc(v.lieu)} · ${esc(periode(v))}${v.cloturee?"":" · <span style=\"color:var(--ok)\">en cours</span>"}</span></td><td class="r">${tv.length}</td><td class="r"><b>${fmt(s)}</b></td>`);
+    tr.onclick=()=>{tab="tx";go("vente",v.id);};
+    body.appendChild(tr);
+  });
+  table.appendChild(body);tb.appendChild(table);cv.appendChild(tb);m.appendChild(cv);
+
+  // par produit
+  const prods={};
+  lignes.forEach(l=>{const key=l.nom+"|"+l.format;const p=prods[key]||(prods[key]={nom:l.nom,format:l.format,qte:0,ca:0});p.qte+=l.qte||0;p.ca+=(l.qte||0)*(l.prix||0);});
+  const pl=Object.values(prods).sort((a,b)=>b.ca-a.ca);
+  if(pl.length){
+    const max=pl[0].ca||1;
+    const cp=el("div","card","<h2>Par produit</h2>");
+    pl.forEach(p=>cp.appendChild(el("div","hbar",`<span style="min-width:0">${esc(p.nom)} <span class="muted">${esc(p.format)}</span></span><span class="num"><b>${fmt(p.ca)}</b> <span class="muted">· ${p.qte}</span></span><div class="bar"><i style="width:${p.ca/max*100}%;background:var(--accent)"></i></div>`)));
+    m.appendChild(cp);
+  }
+
+  // paiement et vendeurs
+  const g=el("div","stack");
+  const parPmt=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+(x.total||0),0)]).filter(x=>x[1]>0);
+  const vend={};t.forEach(x=>{const n=(x.vendeurPrenom||"—").trim();const o=vend[n]||(vend[n]={n:0,ca:0});o.n++;o.ca+=x.total||0;});
+  const blocs=[["Par moyen de paiement",parPmt.map(([l,s])=>[l,fmt(s)])],["Par vendeur",Object.entries(vend).sort((a,b)=>b[1].ca-a[1].ca).map(([n,o])=>[n,`${fmt(o.ca)} <span class="muted">· ${o.n}</span>`])]];
+  blocs.forEach(([titre,rows])=>{
+    if(!rows.length)return;
+    const c=el("div","card",`<h2>${titre}</h2>`);
+    rows.forEach(([a,b])=>c.appendChild(el("div","row",`<span style="font-size:14px;min-width:0">${esc(a)}</span><span class="num" style="font-size:14px">${b}</span>`)));
+    g.appendChild(c);
+  });
+  m.appendChild(g);
+
+  // clients
+  const cl={};
+  t.forEach(x=>{
+    const c=x.client||{};const key=((c.prenom||"")+" "+(c.nom||"")).trim().toLowerCase()+"|"+(c.email||c.tel||"").toLowerCase();
+    const o=cl[key]||(cl[key]={prenom:c.prenom,nom:c.nom,tel:"",email:"",n:0,ca:0,last:""});
+    if(c.tel)o.tel=c.tel;if(c.email)o.email=c.email;o.n++;o.ca+=x.total||0;if((x.date||"")>o.last)o.last=x.date||"";
+  });
+  const cls=Object.values(cl).sort((a,b)=>b.ca-a.ca);
+  if(cls.length){
+    const cc=el("div","card",`<h2>Clients <span class="muted">(${cls.length})</span></h2>`);
+    const w=el("div","tbl-wrap");const tbl=el("table","tbl",`<thead><tr><th>Client</th><th class="r">Achats</th><th class="r">Total</th></tr></thead>`);
+    const b=el("tbody");
+    cls.forEach(c=>b.appendChild(el("tr","",`<td><b>${esc(c.prenom)} ${esc(c.nom)}</b>${c.tel?`<br><span class="muted">${esc(c.tel)}</span>`:""}${c.email?`<br><span class="muted" style="overflow-wrap:anywhere">${esc(c.email)}</span>`:""}</td><td class="r">${c.n}</td><td class="r"><b>${fmt(c.ca)}</b></td>`)));
+    tbl.appendChild(b);w.appendChild(tbl);cc.appendChild(w);m.appendChild(cc);
+  }
+  renderAdminAcces(m);
+}
+
+function renderAdminAcces(m){
+  const c=el("div","card",`<h2>Accès administrateur</h2>
+    <p class="muted">Ces personnes voient le bouton Admin. Elles doivent aussi avoir accès à la page (bouton Partager).${isOwner?"":" Seul le propriétaire de la page peut modifier cette liste."}</p>`);
+  c.appendChild(el("div","email-row",`<span style="flex:1">Propriétaire de la page</span><span class="badge closed">toujours admin</span>`));
+  const liste=el("div","stack");c.appendChild(liste);
+  (async()=>{
+    const ps=userApi&&adminIds.length?await userApi.profiles(adminIds):{};
+    adminIds.forEach(id=>{
+      const r=el("div","email-row");const n=el("span");n.style.cssText="flex:1;min-width:0";
+      n.textContent=(ps[id]&&ps[id].name)||"Personne sans nom visible";r.appendChild(n);
+      if(isOwner){const x=el("button","x","×");x.setAttribute("aria-label","Retirer");x.onclick=()=>saveAdmins(adminIds.filter(a=>a!==id));r.appendChild(x);}
+      liste.appendChild(r);
+    });
+  })();
+  if(isOwner&&userApi){
+    const inp=el("input");inp.id="adm-search";inp.type="search";inp.autocomplete="off";inp.placeholder="Rechercher par email ou nom";
+    inp.style.cssText="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)";
+    const res=el("div","stack");
+    const show=hits=>{
+      res.innerHTML="";
+      hits.filter(h=>!adminIds.includes(h.id)&&!h.isMe).forEach(h=>{
+        const r=el("div","email-row");const n=el("span");n.style.cssText="flex:1;min-width:0";n.textContent=h.name+(h.guest?" (invité)":"");
+        const b=el("button","btn primary sm","Ajouter");b.onclick=()=>saveAdmins([...adminIds,h.id]);
+        r.appendChild(n);r.appendChild(b);res.appendChild(r);
+      });
+      if(inp.value.trim()&&!res.children.length)res.appendChild(el("p","muted","Personne trouvée. Vérifiez que la page lui est déjà partagée."));
+    };
+    inp.onfocus=()=>{userApi.search("").then(show);};
+    inp.oninput=()=>{userApi.search(inp.value.trim()).then(show);};
+    c.appendChild(inp);c.appendChild(res);
+  }
+  m.appendChild(c);
+}
+
+async function saveAdmins(list){
+  if(busy)return;busy=true;
+  try{await db.doc("config/admins").set({ids:list});flash("Liste des administrateurs mise à jour.","ok");}
+  catch(e){flash(dbMessage(e));}
+  finally{busy=false;}
+}
+
+async function exportGlobal(vs,t){
+  const byId=Object.fromEntries(vs.map(v=>[v.id,v]));
+  const rows=[["VENTES RAVIGNAN — "+(adminYear==="all"?"toutes années":adminYear)],[""],
+    ["VENTE","LIEU","DATE","CLIENT","PRENOM","TEL","EMAIL","PRODUIT","FORMAT","QTE","PRIX UNIT.","TOTAL LIGNE","PAIEMENT","VENDEUR"]];
+  [...t].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>{
+    const v=byId[x.venteId]||{};
+    (x.lignes||[]).forEach(l=>rows.push([v.nom||"",v.lieu||"",x.date?new Date(x.date).toLocaleString("fr-FR"):"",x.client?.nom||"",x.client?.prenom||"",x.client?.tel||"",x.client?.email||"",
+      l.nom,l.format,l.qte,Number(l.prix).toFixed(2).replace(".",","),(l.qte*l.prix).toFixed(2).replace(".",","),x.paiement,x.vendeurPrenom||""]));
+  });
+  rows.push([""]);rows.push(["TOTAL CA",t.reduce((s,x)=>s+(x.total||0),0).toFixed(2).replace(".",",")]);
+  const csv="﻿"+rows.map(r=>r.map(c=>'"'+String(c??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  try{await downloads.save({filename:"ravignan-toutes-ventes"+(adminYear==="all"?"":"-"+adminYear)+".csv",data:csv});flash("Fichier exporté.","ok");}
+  catch(e){if(e&&e.code==="declined")return;flash("L'export n'est pas disponible ici.");}
+}
+
 /* ---------- démarrage ---------- */
 (async()=>{
   const [d,u,dl]=await Promise.all([
@@ -564,16 +723,26 @@ async function exportCSV(v){
   ]);
   db=d;downloads=dl;
   if(!db){dbError="Les ventes ne sont accessibles qu'en ouvrant cette page dans Claude, connecté avec un compte invité.";render();return;}
-  if(u){const c=await u.can("data.write");if(c===false)canWrite=false;}
+  if(u){
+    const [c,me]=await Promise.all([u.can("data.write"),u.me()]);
+    if(c===false)canWrite=false;
+    userApi=u;isOwner=!!me.isOwner;myId=me.id;
+  }
   render();
   const onErr=e=>{dbError=dbMessage(e);flash("Connexion aux ventes interrompue. Rechargez la page.");};
+  db.doc("config/admins").onSnapshot(s=>{
+    const d=s.exists?s.data():null;
+    adminIds=Array.isArray(d?.ids)?d.ids.filter(x=>typeof x==="string"):[];
+    if(LIVE_PAGES.includes(page))render();
+    else{qs("#btn-admin").hidden=!isAdmin();qs("#hdr-mark").hidden=isAdmin();}
+  },()=>{});
   db.collection("ventes").onSnapshot(s=>{
     ventes=s.docs.map(x=>({id:x.id,...x.data()}));loaded.ventes=true;
-    if(page==="home"||page==="vente")render();
+    if(LIVE_PAGES.includes(page))render();
   },onErr);
   db.collection("transactions").onSnapshot(s=>{
     txs=s.docs.map(x=>({id:x.id,...x.data()}));loaded.txs=true;
-    if(page==="home"||page==="vente")render();
+    if(LIVE_PAGES.includes(page))render();
     else if(page==="saisie"&&!horsOpen){renderLignes();updateTotal();}
   },onErr);
 })();
