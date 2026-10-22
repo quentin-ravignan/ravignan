@@ -59,6 +59,38 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .floor-h{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:6px}
 .map-link{font-size:12px;color:var(--accent);font-weight:700;text-decoration:none}
 .map-link:hover{text-decoration:underline}
+button.room{font:inherit;color:inherit;text-align:left;cursor:pointer;overflow:hidden}
+button.room:hover{border-color:var(--accent)}
+.room-photo{width:calc(100% + 28px);margin:-12px -14px 4px;aspect-ratio:4/3;object-fit:cover;display:block;max-width:none;background:var(--sunk)}
+.tag.busy{background:var(--bad-soft);color:var(--bad)}
+.plan{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--sunk);touch-action:pan-y}
+.plan.adjust{touch-action:none;outline:2px dashed var(--accent);outline-offset:2px}
+.plan-img{position:absolute;max-width:none;height:auto;display:block;pointer-events:none;user-select:none}
+.pin{position:absolute;transform:translate(-50%,-50%);min-width:24px;height:24px;padding:0 5px;border-radius:999px;border:2px solid #fff;font-size:11px;font-weight:800;color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.45);font-variant-numeric:tabular-nums}
+.pin.free{background:#0d7a52}.pin.busy{background:#b9362a}
+.pin:hover,.pin:focus-visible{z-index:2;transform:translate(-50%,-50%) scale(1.2)}
+.plan.adjust .pin{cursor:grab}.pin.drag{cursor:grabbing;z-index:3}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 10px}
+.leg-item{display:flex;align-items:center;gap:8px;background:none;border:none;padding:4px 2px;font:inherit;font-size:13px;color:var(--fg);cursor:pointer;text-align:left}
+.leg-n{min-width:22px;height:22px;border-radius:999px;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.leg-n.free{background:#0d7a52}.leg-n.busy{background:#b9362a}
+table.planning{border-collapse:separate;border-spacing:2px;font-size:12px;min-width:640px}
+.planning th{font-weight:700;color:var(--muted);font-size:11px;text-align:center;padding:2px}
+.planning th.we{color:var(--accent-ink)}
+.planning .pl-room{text-align:left;position:sticky;left:0;background:var(--bg);z-index:1;min-width:120px}
+.pl-name{background:none;border:none;font:inherit;font-weight:700;color:var(--fg);cursor:pointer;padding:4px 2px;text-align:left}
+.planning td{height:30px;min-width:34px;border-radius:6px;background:var(--sunk);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;max-width:34px;padding:0 4px;color:var(--on-accent)}
+.planning td.occ{background:var(--accent);overflow:visible}
+.planning td.free{cursor:pointer}.planning td.free:hover{background:var(--ok-soft)}
+.modal{position:fixed;inset:0;z-index:30;background:rgba(20,10,0,.45);display:flex;align-items:flex-end;justify-content:center;padding-top:env(safe-area-inset-top,0px)}
+@media (min-width:640px){.modal{align-items:center;padding:24px}}
+.sheet{background:var(--surface);width:100%;max-width:520px;max-height:92vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:18px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px;outline:none}
+@media (min-width:640px){.sheet{border-radius:18px}}
+.sheet-title{font-size:20px;font-weight:800}
+.sheet-sub{margin:0;font-size:14px;font-weight:800}
+.sheet-photo{width:100%;border-radius:12px;aspect-ratio:4/3;object-fit:cover;background:var(--sunk)}
+.resa{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+body.modal-open #flash{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:40;max-width:520px}
 .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)}
 .hdr{background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
 .hdr h1{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-wrap:balance}
@@ -153,6 +185,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="admin" hidden><span class="nav-ico" aria-hidden="true">📊</span>Administration</button>
   </nav>
   <div class="scrim" id="scrim" hidden></div>
+  <div class="modal" id="modal" hidden><div class="sheet" role="dialog" aria-modal="true" tabindex="-1"></div></div>
   <div class="wrap">
     <header class="hdr">
       <button class="menu-btn" id="btn-menu" aria-label="Ouvrir le menu" aria-controls="side" aria-expanded="false">☰</button>
@@ -230,7 +263,8 @@ function updateNav(){
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{setMenu(false);go(b.dataset.nav);});
 qs("#btn-menu").onclick=()=>setMenu(!qs("#side").classList.contains("open"));
 qs("#scrim").onclick=()=>setMenu(false);
-document.addEventListener("keydown",e=>{if(e.key==="Escape")setMenu(false);});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){setMenu(false);if(roomOpenId)closeRoom();}});
+qs("#modal").onclick=e=>{if(e.target.id==="modal")closeRoom();};
 
 const getVente=()=>ventes.find(v=>v.id===venteId);
 const txsOf=vid=>txs.filter(t=>t.venteId===vid).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
@@ -776,36 +810,85 @@ async function exportGlobal(vs,t){
 
 /* ---------- chambres ---------- */
 const ETAGES=[[3,"3e étage"],[2,"2e étage"],[1,"1er étage"]];
-function renderChambres(m){
-  const top=el("div","stack");
-  const s=el("input","search");s.id="ch-search";s.type="search";s.placeholder="Rechercher une chambre ou une personne";s.value=chQuery;
-  s.oninput=()=>{chQuery=s.value;renderChambresList();};
-  top.appendChild(s);
-  const chips=el("div","chips");
-  [["all","Tout"],["3","3e étage"],["2","2e étage"],["1","1er étage"],["libre","Libres"],["lieux","Lieux du domaine"]].forEach(([k,lab])=>{
-    const c=el("button","chip"+(chFilter===k?" sel":""),lab);
-    c.onclick=()=>{chFilter=k;chips.querySelectorAll(".chip").forEach(x=>x.classList.toggle("sel",x===c));renderChambresList();};
-    chips.appendChild(c);
-  });
-  top.appendChild(chips);
-  m.appendChild(top);
-  const list=el("div","stack");list.id="ch-list";m.appendChild(list);
-  renderChambresList();
+let chView="liste", resas=[], sejour={du:"",au:""}, roomOpenId=null, roomForm=null, adjustPins=false, planStart=today(), confirmResa=null;
+const addDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);};
+const nuits=(a,b)=>Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5);
+const frCourt=d=>new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"});
+const overlap=(a1,d1,a2,d2)=>a1<d2&&a2<d1;
+const resasDe=id=>resas.filter(r=>r.chambreId===id).sort((a,b)=>a.arrivee.localeCompare(b.arrivee));
+const sejourOk=()=>sejour.du&&sejour.au&&sejour.du<sejour.au;
+// statut d'une chambre : sur le séjour choisi, sinon pour la nuit de ce soir
+function statut(c){
+  if(c.type!=="chambre")return null;
+  const [du,au]=sejourOk()?[sejour.du,sejour.au]:[today(),addDays(today(),1)];
+  const r=resasDe(c.id).filter(x=>overlap(du,au,x.arrivee,x.depart));
+  return r.length?{libre:false,qui:r.map(x=>x.nom).join(", ")}:{libre:true};
 }
-function renderChambresList(){
-  const list=qs("#ch-list");if(!list)return;list.innerHTML="";
-  if(!loaded.chambres){list.appendChild(el("div","empty","Chargement des chambres…"));return;}
-  if(!chambres.length){list.appendChild(el("div","empty","Aucune chambre enregistrée pour l'instant."));return;}
+const photoUrl=c=>"photos/"+c.id+".jpg";
+
+function renderChambres(m){
+  const tabs=el("div","tabs");
+  [["liste","Liste"],["plan","Plan du château"],["planning","Planning"]].forEach(([k,lab])=>{
+    const b=el("button",chView===k?"active":"",lab);b.onclick=()=>{chView=k;adjustPins=false;render();};tabs.appendChild(b);
+  });
+  m.appendChild(tabs);
+  if(chView!=="planning"){
+    const bar=el("div","card soft sejour",`<div class="grid2">
+      <div class="field"><label for="sj-du">Arrivée</label><input id="sj-du" type="date" value="${esc(sejour.du)}"></div>
+      <div class="field"><label for="sj-au">Départ</label><input id="sj-au" type="date" value="${esc(sejour.au)}"></div></div>`);
+    bar.style.padding="12px";
+    const info=el("p","muted");bar.appendChild(info);
+    const sync=()=>{
+      info.textContent=sejourOk()?`Disponibilités pour ${nuits(sejour.du,sejour.au)} nuit${nuits(sejour.du,sejour.au)>1?"s":""}, du ${frCourt(sejour.du)} au ${frCourt(sejour.au)}.`:"Choisissez des dates pour voir les chambres libres. Sans dates, le statut indique ce soir.";
+    };
+    bar.querySelector("#sj-du").onchange=e=>{sejour.du=e.target.value;if(sejour.du&&(!sejour.au||sejour.au<=sejour.du)){sejour.au=addDays(sejour.du,1);bar.querySelector("#sj-au").value=sejour.au;}sync();refreshChambres();};
+    bar.querySelector("#sj-au").onchange=e=>{sejour.au=e.target.value;sync();refreshChambres();};
+    sync();m.appendChild(bar);
+  }
+  if(chView==="liste"){
+    const s=el("input","search");s.id="ch-search";s.type="search";s.placeholder="Rechercher une chambre ou une personne";s.value=chQuery;
+    s.oninput=()=>{chQuery=s.value;refreshChambres();};
+    m.appendChild(s);
+    const chips=el("div","chips");
+    [["all","Tout"],["3","3e étage"],["2","2e étage"],["1","1er étage"],["libre","Libres"],["lieux","Lieux du domaine"]].forEach(([k,lab])=>{
+      const c=el("button","chip"+(chFilter===k?" sel":""),lab);
+      c.onclick=()=>{chFilter=k;chips.querySelectorAll(".chip").forEach(x=>x.classList.toggle("sel",x===c));refreshChambres();};
+      chips.appendChild(c);
+    });
+    m.appendChild(chips);
+  }
+  if(chView==="planning"){
+    const bar=el("div","row",`<div class="field" style="flex:1"><label for="pl-start">Afficher 14 nuits à partir du</label><input id="pl-start" type="date" value="${esc(planStart)}"></div>`);
+    const prev=el("button","btn ghost sm","← 7 j"),next=el("button","btn ghost sm","7 j →");
+    prev.onclick=()=>{planStart=addDays(planStart,-7);render();};next.onclick=()=>{planStart=addDays(planStart,7);render();};
+    bar.querySelector("#pl-start").onchange=e=>{if(e.target.value){planStart=e.target.value;refreshChambres();}};
+    bar.style.alignItems="flex-end";bar.appendChild(prev);bar.appendChild(next);m.appendChild(bar);
+  }
+  const zone=el("div","stack");zone.id="ch-zone";m.appendChild(zone);
+  refreshChambres();
+}
+function refreshChambres(){
+  const z=qs("#ch-zone");if(z){z.innerHTML="";
+    if(!loaded.chambres)z.appendChild(el("div","empty","Chargement des chambres…"));
+    else if(!chambres.length)z.appendChild(el("div","empty","Aucune chambre enregistrée pour l'instant."));
+    else if(chView==="plan")renderPlan(z);
+    else if(chView==="planning")renderPlanning(z);
+    else renderListe(z);
+  }
+  if(roomOpenId)renderRoomModal();
+}
+
+function renderListe(list){
   const q=chQuery.trim().toLowerCase();
-  const match=c=>!q||[c.nom,c.personnes,c.localisation,c.couchage].some(x=>(x||"").toLowerCase().includes(q));
+  const match=c=>!q||[c.nom,c.personnes,c.localisation,c.couchage,...resasDe(c.id).map(r=>r.nom)].some(x=>(x||"").toLowerCase().includes(q));
   const rooms=chambres.filter(c=>c.type==="chambre");
   const lieux=chambres.filter(c=>c.type!=="chambre");
-  const libres=rooms.filter(c=>!c.personnes);
-  list.appendChild(el("p","muted",`${rooms.length} chambres · ${rooms.length-libres.length} occupées · ${libres.length} libres · ${lieux.length} lieux du domaine`));
+  const libres=rooms.filter(c=>statut(c).libre);
+  list.appendChild(el("p","muted",`${rooms.length} chambres · ${libres.length} libres ${sejourOk()?"sur ces dates":"ce soir"} · ${lieux.length} lieux du domaine`));
   const groups=[];
   ETAGES.forEach(([n,lab])=>{
     if(chFilter!=="all"&&chFilter!=="libre"&&chFilter!==String(n))return;
-    groups.push([lab,rooms.filter(c=>c.etage===n&&(chFilter!=="libre"||!c.personnes))]);
+    groups.push([lab,rooms.filter(c=>c.etage===n&&(chFilter!=="libre"||statut(c).libre))]);
   });
   if(chFilter==="all"||chFilter==="lieux")groups.push(["Lieux du domaine",lieux]);
   let shown=0;
@@ -819,21 +902,218 @@ function renderChambresList(){
   });
   if(!shown)list.appendChild(el("div","empty","Aucun résultat."));
 }
+function roomPhoto(c,cls){
+  const img=el("img",cls);img.src=photoUrl(c);img.alt="Photo : "+c.nom;img.loading="lazy";
+  img.onerror=()=>img.remove();
+  return img;
+}
+function statusTag(c){
+  const s=statut(c);if(!s)return null;
+  const t=el("span","tag "+(s.libre?"free":"busy"));t.textContent=s.libre?"Libre":"Réservée";
+  if(!s.libre)t.title=s.qui;
+  return t;
+}
 function roomCard(c){
-  const card=el("div","room");
+  const card=el("button","room");
+  card.onclick=()=>openRoom(c.id);
+  card.appendChild(roomPhoto(c,"room-photo"));
   const h=el("h3");h.textContent=c.nom;card.appendChild(h);
   const meta=el("div","meta");
+  const st=statusTag(c);if(st)meta.appendChild(st);
   if(c.couchage){const t=el("span","tag bed");t.textContent=c.couchage;meta.appendChild(t);}
   if(c.localisation){const t=el("span","tag");t.textContent=c.localisation;meta.appendChild(t);}
-  if(c.type==="chambre"&&!c.personnes)meta.appendChild(el("span","tag free","Libre"));
   card.appendChild(meta);
-  if(c.personnes){const w=el("p","who");w.textContent=c.personnes;card.appendChild(w);}
-  if(c.gps&&/^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(c.gps)){
-    const a=el("a","map-link","Voir sur la carte ↗");a.href="https://www.google.com/maps?q="+encodeURIComponent(c.gps.replace(/\s+/g,""));a.target="_blank";a.rel="noopener";
-    card.appendChild(a);
-  }
+  const s=statut(c);
+  if(s&&!s.libre){const w=el("p","who");w.textContent=s.qui;card.appendChild(w);}
+  const n=resasDe(c.id).filter(r=>r.depart>today()).length;
+  if(n)card.appendChild(el("p","muted",`${n} réservation${n>1?"s":""} à venir`));
   return card;
 }
+
+/* plan du château : photo aérienne (1500×842) et repères par étage et par côté */
+const PLAN_W=1500, PLAN_H=842, CROP={x:410,y:330,w:450,h:290}; // cadrage sur le château
+const LNG_EST=-0.28312, LNG_OUEST=-0.28356; // côté Balançoire (avant gauche) → côté Cuisine (arrière droite)
+const LNG_COTE={Balançoire:-0.28320,Milieu:-0.28339,Cuisine:-0.28352};
+const Y_ETAGE={1:505,2:474,3:446};
+function posDefaut(c){
+  let lng=null;const g=(c.gps||"").split(",").map(Number);
+  if(g.length===2&&!isNaN(g[1])&&g[1]<0)lng=g[1];
+  if(lng==null)lng=LNG_COTE[c.aile]??LNG_COTE.Milieu;
+  const t=Math.min(1,Math.max(0,(lng-LNG_EST)/(LNG_OUEST-LNG_EST)));
+  const x=470+t*330, y=(Y_ETAGE[c.etage]||505)-0.15*(x-470);
+  return {px:(x-CROP.x)/CROP.w*100,py:(y-CROP.y)/CROP.h*100};
+}
+function renderPlan(z){
+  const rooms=chambres.filter(c=>c.type==="chambre").sort((a,b)=>(a.ordre||0)-(b.ordre||0));
+  const wrap=el("div","plan"+(adjustPins?" adjust":""));
+  wrap.style.aspectRatio=CROP.w+"/"+CROP.h;
+  const img=el("img","plan-img");img.src="chateau.webp";img.alt="Vue aérienne du château de Ravignan";
+  img.style.width=(PLAN_W/CROP.w*100)+"%";img.style.left=(-CROP.x/CROP.w*100)+"%";img.style.top=(-CROP.y/CROP.h*100)+"%";
+  wrap.appendChild(img);
+  const pos=rooms.map(c=>({c,...(typeof c.px==="number"&&typeof c.py==="number"?{px:c.px,py:c.py}:posDefaut(c))}));
+  // écarte les repères superposés quand la position vient du calcul
+  pos.forEach((p,i)=>{let k=0;while(pos.slice(0,i).some(o=>Math.abs(o.px-p.px)<4.5&&Math.abs(o.py-p.py)<6)&&k<8){p.px+=4.6;k++;}});
+  pos.forEach((p,i)=>{
+    const s=statut(p.c);
+    const pin=el("button","pin "+(s.libre?"free":"busy"),String(i+1));
+    pin.style.left=p.px+"%";pin.style.top=p.py+"%";
+    pin.title=p.c.nom+(s.libre?" · libre":" · "+s.qui);
+    pin.setAttribute("aria-label",p.c.nom+(s.libre?", libre":", réservée"));
+    if(adjustPins)dragPin(pin,wrap,p.c);else pin.onclick=()=>openRoom(p.c.id);
+    wrap.appendChild(pin);
+  });
+  z.appendChild(wrap);
+  const tools=el("div","row");
+  tools.appendChild(el("p","muted",adjustPins?"Faites glisser chaque repère sur sa fenêtre. La position est enregistrée au relâchement.":"Repères placés d'après l'étage et le côté de chaque chambre. Touchez un numéro pour ouvrir la chambre."));
+  if(canWrite){const b=el("button","btn ghost sm",adjustPins?"Terminer":"Ajuster les repères");b.onclick=()=>{adjustPins=!adjustPins;refreshChambres();};tools.appendChild(b);}
+  z.appendChild(tools);
+  const leg=el("div","legend");
+  pos.forEach((p,i)=>{
+    const s=statut(p.c);
+    const b=el("button","leg-item",`<span class="leg-n ${s.libre?"free":"busy"}">${i+1}</span>`);
+    const t=el("span");t.textContent=p.c.nom;b.appendChild(t);
+    b.onclick=()=>openRoom(p.c.id);leg.appendChild(b);
+  });
+  z.appendChild(leg);
+}
+function dragPin(pin,wrap,c){
+  pin.onpointerdown=e=>{
+    e.preventDefault();pin.setPointerCapture(e.pointerId);pin.classList.add("drag");
+    const r=wrap.getBoundingClientRect();let px,py;
+    const move=ev=>{px=Math.min(99,Math.max(1,(ev.clientX-r.left)/r.width*100));py=Math.min(99,Math.max(1,(ev.clientY-r.top)/r.height*100));pin.style.left=px+"%";pin.style.top=py+"%";};
+    pin.onpointermove=move;
+    pin.onpointerup=async()=>{
+      pin.onpointermove=null;pin.onpointerup=null;pin.classList.remove("drag");
+      if(px==null)return;
+      try{await db.collection("chambres").doc(c.id).update({px:Math.round(px*100)/100,py:Math.round(py*100)/100});}
+      catch(err){flash(dbMessage(err));}
+    };
+  };
+}
+
+function renderPlanning(z){
+  const rooms=chambres.filter(c=>c.type==="chambre").sort((a,b)=>(b.etage-a.etage)||((a.ordre||0)-(b.ordre||0)));
+  const jours=[...Array(14)].map((_,i)=>addDays(planStart,i));
+  const w=el("div","tbl-wrap");
+  const t=el("table","planning");
+  const head=el("tr");head.appendChild(el("th","pl-room","Chambre"));
+  jours.forEach(d=>{const dt=new Date(d+"T12:00:00");head.appendChild(el("th",[0,6].includes(dt.getDay())?"we":"",`${dt.toLocaleDateString("fr-FR",{weekday:"narrow"})}<br>${dt.getDate()}`));});
+  const th=el("thead");th.appendChild(head);t.appendChild(th);
+  const tb=el("tbody");
+  rooms.forEach(c=>{
+    const tr=el("tr");const n=el("th","pl-room");
+    const nb=el("button","pl-name");nb.textContent=c.nom;nb.onclick=()=>openRoom(c.id);n.appendChild(nb);tr.appendChild(n);
+    const rs=resasDe(c.id);
+    jours.forEach(d=>{
+      const r=rs.find(x=>x.arrivee<=d&&d<x.depart);
+      const td=el("td",r?"occ":"");
+      if(r){td.title=`${r.nom} · ${frCourt(r.arrivee)} → ${frCourt(r.depart)}`;if(r.arrivee===d||d===planStart)td.textContent=r.nom;}
+      else{td.title="Réserver à partir du "+frCourt(d);td.onclick=()=>openRoom(c.id,d);td.classList.add("free");}
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb);w.appendChild(t);z.appendChild(w);
+  z.appendChild(el("p","muted","Chaque colonne est une nuit. Touchez une case vide pour réserver à partir de cette nuit."));
+}
+
+/* fiche chambre et réservation */
+function openRoom(id,arrivee){
+  roomOpenId=id;confirmResa=null;
+  const du=arrivee||(sejourOk()?sejour.du:today());
+  const au=arrivee?addDays(arrivee,1):(sejourOk()?sejour.au:addDays(du,1));
+  roomForm={nom:"",arrivee:du,depart:au,note:""};
+  qs("#modal").hidden=false;document.body.style.overflow="hidden";document.body.classList.add("modal-open");
+  renderRoomModal();
+  setTimeout(()=>qs("#modal .sheet")?.focus(),0);
+}
+function closeRoom(){roomOpenId=null;qs("#modal").hidden=true;document.body.style.overflow="";document.body.classList.remove("modal-open");}
+function renderRoomModal(){
+  const c=chambres.find(x=>x.id===roomOpenId);const sh=qs("#modal .sheet");
+  if(!c){closeRoom();return;}
+  // garde la saisie en cours si le formulaire est déjà affiché
+  const f=sh.querySelector("#rs-nom");
+  if(f){roomForm.nom=f.value;roomForm.arrivee=sh.querySelector("#rs-du").value;roomForm.depart=sh.querySelector("#rs-au").value;roomForm.note=sh.querySelector("#rs-note").value;}
+  sh.innerHTML="";
+  const top=el("div","row");const h=el("h2","sheet-title");h.textContent=c.nom;top.appendChild(h);
+  const x=el("button","x","×");x.setAttribute("aria-label","Fermer");x.onclick=closeRoom;top.appendChild(x);sh.appendChild(top);
+  sh.appendChild(roomPhoto(c,"sheet-photo"));
+  const meta=el("div","meta");
+  const st=statusTag(c);if(st)meta.appendChild(st);
+  [c.couchage,c.localisation].filter(Boolean).forEach(v=>{const t=el("span","tag");t.textContent=v;meta.appendChild(t);});
+  sh.appendChild(meta);
+  if(c.personnes){const p=el("p","muted");p.textContent="Note de l'ancien tableau : "+c.personnes;sh.appendChild(p);}
+  if(c.gps&&/^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(c.gps)){
+    const a=el("a","map-link","Voir sur la carte ↗");a.href="https://www.google.com/maps?q="+encodeURIComponent(c.gps.replace(/\s+/g,""));a.target="_blank";a.rel="noopener";sh.appendChild(a);
+  }
+  if(c.type!=="chambre")return;
+  // réservations
+  const rs=resasDe(c.id).filter(r=>r.depart>addDays(today(),-1));
+  const box=el("div","stack");box.appendChild(el("h3","sheet-sub","Réservations"));
+  if(!rs.length)box.appendChild(el("p","muted","Aucune réservation à venir."));
+  rs.forEach(r=>{
+    const row=el("div","resa");
+    const t=el("div");t.style.minWidth="0";
+    const n=el("p");n.style.fontWeight="700";n.textContent=r.nom;t.appendChild(n);
+    t.appendChild(el("p","muted num",`${esc(frCourt(r.arrivee))} → ${esc(frCourt(r.depart))} · ${nuits(r.arrivee,r.depart)} nuit${nuits(r.arrivee,r.depart)>1?"s":""}`));
+    if(r.note){const no=el("p","muted");no.textContent=r.note;t.appendChild(no);}
+    row.appendChild(t);
+    if(canWrite){
+      if(confirmResa===r.id){
+        const g=el("div","row");
+        const y=el("button","btn danger sm","Annuler la réservation");y.onclick=()=>supprimerResa(r.id);
+        const n2=el("button","btn ghost sm","Garder");n2.onclick=()=>{confirmResa=null;renderRoomModal();};
+        g.appendChild(y);g.appendChild(n2);row.appendChild(g);
+      }else{const d=el("button","link","Annuler");d.onclick=()=>{confirmResa=r.id;renderRoomModal();};row.appendChild(d);}
+    }
+    box.appendChild(row);
+  });
+  sh.appendChild(box);
+  if(!canWrite)return;
+  const form=el("form","card soft",`<h3 class="sheet-sub">Réserver cette chambre</h3>
+    <div class="field"><label for="rs-nom">Pour qui ?</label><input id="rs-nom" required autocomplete="off" placeholder="ex : Tom & Jo"></div>
+    <div class="grid2"><div class="field"><label for="rs-du">Arrivée</label><input id="rs-du" type="date" required></div>
+    <div class="field"><label for="rs-au">Départ</label><input id="rs-au" type="date" required></div></div>
+    <div class="field"><label for="rs-note">Note</label><input id="rs-note" autocomplete="off" placeholder="optionnel (lit bébé, arrivée tardive…)"></div>
+    <p class="muted" id="rs-info"></p>
+    <button class="btn primary full" type="submit" id="rs-ok">Réserver</button>`);
+  form.style.padding="14px";
+  form.querySelector("#rs-nom").value=roomForm.nom;form.querySelector("#rs-du").value=roomForm.arrivee;
+  form.querySelector("#rs-au").value=roomForm.depart;form.querySelector("#rs-note").value=roomForm.note;
+  const info=()=>{const a=form.querySelector("#rs-du").value,b=form.querySelector("#rs-au").value;
+    const conf=a&&b&&a<b?resasDe(c.id).filter(r=>overlap(a,b,r.arrivee,r.depart)):[];
+    const p=form.querySelector("#rs-info");
+    p.style.color=conf.length?"var(--bad)":"";
+    p.textContent=!(a&&b&&a<b)?"Le départ doit être après l'arrivée.":conf.length?"Déjà réservée sur ces dates par "+conf.map(r=>r.nom).join(", ")+".":`${nuits(a,b)} nuit${nuits(a,b)>1?"s":""}, chambre libre.`;
+  };
+  form.querySelector("#rs-du").onchange=e=>{const b=form.querySelector("#rs-au");if(e.target.value&&b.value<=e.target.value)b.value=addDays(e.target.value,1);info();};
+  form.querySelector("#rs-au").onchange=info;
+  form.onsubmit=e=>{e.preventDefault();reserver(c,form);};
+  info();sh.appendChild(form);
+}
+async function reserver(c,form){
+  if(busy)return;
+  const nom=form.querySelector("#rs-nom").value.trim(),a=form.querySelector("#rs-du").value,b=form.querySelector("#rs-au").value,note=form.querySelector("#rs-note").value.trim();
+  if(!nom)return flash("Indiquez pour qui est la réservation.");
+  if(!(a&&b&&a<b))return flash("Le départ doit être après l'arrivée.");
+  const conf=resasDe(c.id).filter(r=>overlap(a,b,r.arrivee,r.depart));
+  if(conf.length)return flash(`${c.nom} est déjà réservée sur ces dates (${conf.map(r=>r.nom).join(", ")}).`);
+  busy=true;form.querySelector("#rs-ok").disabled=true;
+  try{
+    await db.collection("reservations").doc("r"+uid()).set({chambreId:c.id,nom,arrivee:a,depart:b,note,createdAt:new Date().toISOString()});
+    roomForm={nom:"",arrivee:b,depart:addDays(b,1),note:""};
+    const f=qs("#modal .sheet #rs-nom");if(f)f.remove();
+    flash(`${c.nom} réservée pour ${nom}, du ${frCourt(a)} au ${frCourt(b)}`,"ok");
+  }catch(err){flash(dbMessage(err));}
+  finally{busy=false;renderRoomModal();}
+}
+async function supprimerResa(id){
+  if(busy)return;busy=true;
+  try{await db.collection("reservations").doc(id).delete();confirmResa=null;flash("Réservation annulée.","ok");}
+  catch(err){flash(dbMessage(err));}
+  finally{busy=false;renderRoomModal();}
+}
+const renderChambresList=refreshChambres;
 
 /* ---------- démarrage ---------- */
 (async()=>{
@@ -858,7 +1138,11 @@ function roomCard(c){
   },()=>{});
   db.collection("chambres").onSnapshot(s=>{
     chambres=s.docs.map(x=>({id:x.id,...x.data()}));loaded.chambres=true;
-    if(page==="chambres")renderChambresList();
+    if(page==="chambres")refreshChambres();
+  },onErr);
+  db.collection("reservations").onSnapshot(s=>{
+    resas=s.docs.map(x=>({id:x.id,...x.data()})).filter(r=>r.chambreId&&r.arrivee&&r.depart);
+    if(page==="chambres")refreshChambres();
   },onErr);
   db.collection("ventes").onSnapshot(s=>{
     ventes=s.docs.map(x=>({id:x.id,...x.data()}));loaded.ventes=true;
