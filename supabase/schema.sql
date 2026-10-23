@@ -1,0 +1,71 @@
+-- Domaine de Ravignan : base de données Supabase
+-- À exécuter une fois dans Supabase > SQL Editor.
+-- Remplacez l'adresse du premier administrateur à la fin du fichier.
+
+-- Personnes autorisées à se connecter
+create table if not exists public.membres (
+  email      text primary key check (email = lower(email)),
+  role       text not null default 'vendeur' check (role in ('vendeur', 'admin')),
+  created_at timestamptz not null default now()
+);
+
+-- Données de l'app, rangées par collection (ventes, transactions, chambres, reservations…)
+create table if not exists public.docs (
+  collection text not null,
+  id         text not null,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (collection, id)
+);
+alter table public.docs replica identity full;
+
+create or replace function public.mon_email() returns text
+language sql stable as $$ select lower(coalesce(auth.jwt() ->> 'email', '')) $$;
+
+create or replace function public.est_membre() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.membres where email = public.mon_email())
+$$;
+
+create or replace function public.est_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.membres where email = public.mon_email() and role = 'admin')
+$$;
+
+alter table public.membres enable row level security;
+alter table public.docs    enable row level security;
+
+drop policy if exists membres_lecture on public.membres;
+drop policy if exists membres_ajout on public.membres;
+drop policy if exists membres_modif on public.membres;
+drop policy if exists membres_suppr on public.membres;
+create policy membres_lecture on public.membres for select to authenticated
+  using (email = public.mon_email() or public.est_admin());
+create policy membres_ajout on public.membres for insert to authenticated
+  with check (public.est_admin());
+create policy membres_modif on public.membres for update to authenticated
+  using (public.est_admin()) with check (public.est_admin());
+create policy membres_suppr on public.membres for delete to authenticated
+  using (public.est_admin() and email <> public.mon_email());
+
+drop policy if exists docs_lecture on public.docs;
+drop policy if exists docs_ajout on public.docs;
+drop policy if exists docs_modif on public.docs;
+drop policy if exists docs_suppr on public.docs;
+create policy docs_lecture on public.docs for select to authenticated
+  using (public.est_membre());
+create policy docs_ajout on public.docs for insert to authenticated
+  with check (public.est_membre());
+create policy docs_modif on public.docs for update to authenticated
+  using (public.est_membre()) with check (public.est_membre());
+create policy docs_suppr on public.docs for delete to authenticated
+  using (public.est_membre());
+
+-- Mises à jour en direct entre téléphones
+do $$ begin
+  alter publication supabase_realtime add table public.docs;
+exception when duplicate_object then null; end $$;
+
+-- Premier administrateur
+insert into public.membres (email, role) values ('ADRESSE_ADMIN@exemple.fr', 'admin')
+on conflict (email) do update set role = 'admin';
