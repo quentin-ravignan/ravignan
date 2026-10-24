@@ -21,6 +21,7 @@ html,body{height:100%}
   --hdr:#8c3f08; --hdr-ink:#fff7ec; --hdr-soft:#f6d9b2;
   --ok:#0d7a52; --ok-soft:#dcf3e8; --warn:#a76a0c; --bad:#b9362a; --bad-soft:#fbe7e4;
   --shadow:0 1px 3px rgba(60,35,10,.08);
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s0:#b5ada3;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -28,13 +29,13 @@ html,body{height:100%}
   --accent:#e08a3c; --accent-ink:#f2b878; --accent-soft:#33230f; --on-accent:#1a1006;
   --hdr:#3a1f0a; --hdr-ink:#fbeedd; --hdr-soft:#e9b981;
   --ok:#3fcf92; --ok-soft:#12301f; --warn:#e7b04a; --bad:#ff7d6e; --bad-soft:#3b1a15;
-  --shadow:0 1px 3px rgba(0,0,0,.4); color-scheme:dark}}
+  --shadow:0 1px 3px rgba(0,0,0,.4); --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s0:#5c5550; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#16120e; --surface:#211b15; --sunk:#1b1611; --fg:#f2eae0; --muted:#a8998a; --line:#382e25;
   --accent:#e08a3c; --accent-ink:#f2b878; --accent-soft:#33230f; --on-accent:#1a1006;
   --hdr:#3a1f0a; --hdr-ink:#fbeedd; --hdr-soft:#e9b981;
   --ok:#3fcf92; --ok-soft:#12301f; --warn:#e7b04a; --bad:#ff7d6e; --bad-soft:#3b1a15;
-  --shadow:0 1px 3px rgba(0,0,0,.4); color-scheme:dark}
+  --shadow:0 1px 3px rgba(0,0,0,.4); --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s0:#5c5550; color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px;margin:0}
@@ -131,6 +132,69 @@ details.marque summary{display:flex;justify-content:space-between;gap:10px;flex-
 h3.sub{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .actu{display:flex;flex-direction:column;gap:2px;padding:6px 0;border-top:1px solid var(--line)}
 .actu p{margin:0;line-height:1.45}
+.fam-zone{position:relative;height:min(70vh,640px);border:1px solid var(--line);border-radius:14px;background:var(--sunk);overflow:hidden;touch-action:none;cursor:grab}
+.fam-zone:active{cursor:grabbing}
+#fam-svg{width:100%;height:100%;display:block}
+.fam-vide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.fam-lien{fill:none;stroke:var(--muted);stroke-width:1.5}
+.fam-couple{fill:none;stroke:var(--accent);stroke-width:2;stroke-dasharray:4 3}
+.fam-noeud{cursor:pointer}
+.fam-noeud rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.fam-noeud:hover rect,.fam-noeud:focus rect{stroke:var(--accent)}
+.fam-noeud:focus{outline:none}
+.fam-noeud.sel rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5}
+.fam-noeud.incertain rect{stroke-dasharray:5 4}
+.fam-nom{fill:var(--fg);font-size:14px;font-weight:800}
+.fam-dates{fill:var(--muted);font-size:12px}
+.fam-res{display:flex;flex-wrap:wrap;gap:6px}
+.fam-liens{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.fm-ta{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;width:100%;background:var(--surface);color:var(--fg);font-family:inherit}
+.field select[multiple]{padding:6px}
+.fm-ck{font-size:14px;display:flex;align-items:center;gap:6px}
+.hero{position:relative;border-radius:16px;overflow:hidden;min-height:200px;display:flex;align-items:flex-end;background:#2b1a0c}
+.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,10,0,0) 20%,rgba(20,10,0,.78))}
+.hero-txt{position:relative;z-index:1;padding:20px;color:#fff7ec;display:flex;flex-direction:column;gap:4px}
+.hero-txt h2{font-size:22px;font-weight:800;margin:0;text-wrap:balance}
+.hero-txt p{margin:0;max-width:60ch}
+.args-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.arg{display:flex;gap:10px;align-items:flex-start;background:var(--sunk);border-radius:12px;padding:12px}
+.arg p{margin:0;line-height:1.45;font-size:14px}
+.ico{width:28px;height:28px;flex-shrink:0;fill:none;stroke:var(--accent);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+details.mill-d{border-top:1px solid var(--line);padding:8px 0}
+details.mill-d summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+details.mill-d p{margin:6px 0 0;line-height:1.5}
+.mill-an{font-weight:800;font-size:16px}
+.mill-prix{margin-left:auto;font-size:13px;color:var(--muted)}
+.repere{background:var(--sunk);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px}
+.repere h3{margin:0;font-size:14px;font-weight:800}.repere p{margin:0;line-height:1.45;font-size:14px}
+.photos2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.photos2 figure{margin:0;display:flex;flex-direction:column;gap:4px}
+.photos2 img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px}
+.photos2 figcaption{font-size:12px;color:var(--muted)}
+.fig{margin:0;display:flex;flex-direction:column;gap:8px}
+.fig figcaption{font-weight:700;font-size:14px}
+.chart-box{position:relative}
+.chart{width:100%;height:auto;display:block}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .axe{fill:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.chart .ligne{fill:none;stroke-width:2}
+.ligne.s1{stroke:var(--s1)}.pt.s1{fill:var(--s1)}.pt.s2{fill:var(--s2)}
+.chart .pt{stroke:var(--surface);stroke-width:2;cursor:pointer}
+.part{stroke:none;cursor:pointer}.part.s1{fill:var(--s1)}.part.s2{fill:var(--s2)}.part.s3{fill:var(--s3)}.part.s0{fill:var(--s0)}
+.part:hover,.chart .pt:hover{opacity:.8}
+.donut{width:150px;height:150px;flex-shrink:0}
+.donut-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.legende{display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted)}
+.legende span{display:flex;align-items:center;gap:6px}
+.legende-v{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px;flex:1;min-width:150px}
+.legende-v li{display:flex;align-items:center;gap:8px}.legende-v b{margin-left:auto}
+.sw{width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0}.sw.carre{border-radius:3px}
+.sw.s1{background:var(--s1)}.sw.s2{background:var(--s2)}.sw.s3{background:var(--s3)}.sw.s0{background:var(--s0)}
+.tip{position:absolute;transform:translate(-50%,-100%);background:var(--fg);color:var(--bg);font-size:12px;padding:5px 8px;border-radius:6px;pointer-events:none;white-space:nowrap;z-index:5}
+.map-sat{height:min(62vh,520px);border-radius:12px;overflow:hidden;background:#1d2a1d}
+.map-sat .pop b{display:block;font-size:14px}.map-sat .pop span{color:#555;font-size:12px}.map-sat .pop p{margin:6px 0 0;font-size:12px;line-height:1.4}
+.tt-moi{font-weight:800;color:#7a3907}
 .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)}
 .hdr{background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
 .hdr h1{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-wrap:balance}
@@ -227,6 +291,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
     <button class="nav-item" data-nav="region"><span class="nav-ico" aria-hidden="true">🗺️</span>Région et domaines</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
+    <button class="nav-item" data-nav="genealogie"><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie</button>
     <button class="nav-item" data-nav="admin" hidden><span class="nav-ico" aria-hidden="true">📊</span>Administration</button>
     <div class="side-foot"><span id="side-user" class="muted"></span><button class="link" id="btn-logout" hidden>Se déconnecter</button></div>
   </nav>
@@ -293,7 +358,7 @@ let saisieProdCard=null, horsOpen=false;
 let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
 const isAdmin=()=>isOwner;
 const LIVE_PAGES=["home","vente","admin"];
-const TOP_PAGES=["home","chambres","admin","aide","region","benchmark"];
+const TOP_PAGES=["home","chambres","admin","aide","region","benchmark","genealogie"];
 let chambres=[], chFilter="all", chQuery="";
 
 /* ---------- menu ---------- */
@@ -347,14 +412,15 @@ function render(){
     if(page==="saisie")go("vente",venteId);
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",region:"Région et domaines",benchmark:"Benchmark"};
+  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
-  m.classList.toggle("wide",["chambres","admin","aide","region","benchmark"].includes(page));
+  m.classList.toggle("wide",["chambres","admin","aide","region","benchmark","genealogie"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
-  if(page==="aide")renderAide(m);
+  if(page==="genealogie")renderGenealogie(m);
+  else if(page==="aide")renderAide(m);
   else if(page==="region")renderRegion(m);
   else if(page==="benchmark")renderBenchmark(m);
   else if(page==="chambres")renderChambres(m);
@@ -1157,56 +1223,126 @@ function blocSources(z,sources){
 }
 
 /* Aide à la vente */
+// petites icônes au trait, une par argument (même ordre que contenu/aide-vente.json)
+const ICONES=[
+  '<path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/>',                       // famille / maison
+  '<path d="M12 21c-4-3-7-6-7-10a7 7 0 0 1 14 0c0 4-3 7-7 10z"/><path d="M12 7v8"/>', // domaine
+  '<path d="M6 21h12"/><path d="M8 21V9h8v12"/><path d="M10 9V5h4v4"/><path d="M16 13h3v4"/>', // alambic
+  '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',     // millésime
+  '<ellipse cx="12" cy="12" rx="7" ry="9"/><path d="M5 9h14M5 15h14"/>',                // fût
+  '<path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/>',                // prix
+  '<path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/>',                    // rareté
+  '<circle cx="12" cy="9" r="5"/><path d="M9 14l-2 7 5-3 5 3-2-7"/>',                   // médaille
+  '<rect x="4" y="9" width="16" height="11" rx="1"/><path d="M4 13h16M12 9v11M12 9c-2-5-6-4-6-1s6 1 6 1zM12 9c2-5 6-4 6-1s-6 1-6 1z"/>', // cadeau
+  '<path d="M10 3h4v4l2 3v11H8V10l2-3z"/><path d="M8 14h8"/>'                          // bouteille
+];
+const icone=i=>`<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICONES[i%ICONES.length]}</svg>`;
 function renderAide(m){pageContenu(m,"aide-vente",(z,d)=>{
-  if(d.domaine){const c=carte("Le domaine en bref","soft");c.appendChild(txt("p","lead",d.domaine.resume));if(d.domaine.points?.length)c.appendChild(listeSimple(d.domaine.points));z.appendChild(c);}
-  if(d.arguments?.length){const c=carte("Arguments de vente");const o=el("ol","args");d.arguments.forEach(a=>o.appendChild(txt("li","",a)));c.appendChild(o);z.appendChild(c);}
+  const hero=el("div","hero",`<img src="images/chai-bandeau.jpg" alt="Le chai du Château de Ravignan" loading="lazy"><div class="hero-txt"><p class="brand-mark" style="color:#f6d9b2">Aide à la vente</p><h2>Château de Ravignan, Bas-Armagnac</h2><p>Une famille, un domaine, un alambic de 1880. Des millésimes de 1981 à 2016.</p></div>`);
+  z.appendChild(hero);
+  if(d.arguments?.length){
+    const c=carte("Arguments de vente");const g=el("div","args-grid");
+    d.arguments.forEach((a,i)=>{const b=el("div","arg",icone(i));b.appendChild(txt("p","",a));g.appendChild(b);});
+    c.appendChild(g);z.appendChild(c);
+  }
   if(d.objections?.length){
     const c=carte("Répondre aux objections");
-    d.objections.forEach(o=>{const de=el("details","faq");de.appendChild(txt("summary","",o.objection));de.appendChild(txt("p","",o.reponse));c.appendChild(de);});
+    d.objections.forEach(o=>{const de=el("details","faq");de.appendChild(txt("summary","","« "+o.objection+" »"));de.appendChild(txt("p","",o.reponse));c.appendChild(de);});
     z.appendChild(c);
   }
-  // millésimes : notes de dégustation + prix du catalogue
+  // les millésimes : frise âge / prix
   const notes=Object.fromEntries((d.millesimes||[]).map(x=>[String(x.annee),x]));
   const cm=carte("Les millésimes");
+  cm.appendChild(frisePrix());
   MILL.forEach(mi=>{
     const n=notes[mi.an];const age=new Date().getFullYear()-(+mi.an);
-    const b=el("div","mill");
-    const h=el("div","row");h.appendChild(txt("h3","",mi.an+" · "+age+" ans"));
-    h.appendChild(txt("span","num muted",mi.formats.map(f=>f.f+" "+fmt(f.p)).join(" · ")));b.appendChild(h);
-    if(n){b.appendChild(txt("p","",n.note));if(!n.specifique)b.appendChild(txt("p","tag","Profil général selon l'âge"));if(n.source)b.appendChild(lien(n.source,"source"));}
+    const b=el("details","mill-d");
+    const sm=el("summary");sm.appendChild(txt("span","mill-an",mi.an));sm.appendChild(txt("span","muted",age+" ans"));
+    sm.appendChild(txt("span","num mill-prix",mi.formats.map(f=>f.f+" "+fmt(f.p)).join(" · ")));b.appendChild(sm);
+    if(n){b.appendChild(txt("p","",n.note));if(n.source)b.appendChild(lien(n.source,"source"));}
     else b.appendChild(txt("p","muted","Pas encore de note de dégustation."));
     cm.appendChild(b);
   });
   const reperes=(d.millesimes||[]).filter(x=>!x.specifique);
-  if(reperes.length){cm.appendChild(txt("h3","sub","Repères généraux par âge"));reperes.forEach(r=>{const b=el("div","mill");b.appendChild(txt("h3","",r.annee));b.appendChild(txt("p","",r.note));cm.appendChild(b);});}
+  if(reperes.length){cm.appendChild(txt("h3","sub","Repères généraux par âge"));const g=el("div","grid-3c");reperes.forEach(r=>{const b=el("div","repere");b.appendChild(txt("h3","",r.annee));b.appendChild(txt("p","",r.note));g.appendChild(b);});cm.appendChild(g);}
   z.appendChild(cm);
-  if(d.autres_produits?.length){const c=carte("Les autres produits");d.autres_produits.forEach(p=>{const b=el("div","mill");b.appendChild(txt("h3","",p.nom));b.appendChild(txt("p","",p.description));c.appendChild(b);});z.appendChild(c);}
+  if(d.domaine){
+    const c=carte("Le domaine en bref");
+    const ph=el("div","photos2",`<figure><img src="images/alambic.jpg" alt="L'alambic du domaine" loading="lazy"><figcaption>L'alambic ambulant, chaque hiver</figcaption></figure><figure><img src="images/chai.jpg" alt="Les fûts dans le chai" loading="lazy"><figcaption>L'élevage en fûts de chêne</figcaption></figure>`);
+    c.appendChild(ph);c.appendChild(txt("p","lead",d.domaine.resume));if(d.domaine.points?.length)c.appendChild(listeSimple(d.domaine.points));z.appendChild(c);
+  }
+  if(d.autres_produits?.length){const c=carte("Les autres produits");const g=el("div","grid-2c");d.autres_produits.forEach(p=>{const b=el("div","repere");b.appendChild(txt("h3","",p.nom));b.appendChild(txt("p","",p.description));g.appendChild(b);});c.appendChild(g);z.appendChild(c);}
   if(d.positionnement_armagnac?.length){
     const c=carte("Face aux autres armagnacs");const w=el("div","tbl-wrap");const t=el("table","tbl");
     t.innerHTML="<thead><tr><th>Maison</th><th>Style</th><th>Prix indicatif</th><th>Comparé à Ravignan</th></tr></thead>";
-    const tb=el("tbody");d.positionnement_armagnac.forEach(p=>{const tr=el("tr");[p.marque,p.style,p.prix_indicatif,p.comparaison].forEach((v,i)=>{const td=txt("td",i===0?"b":"",v);tr.appendChild(td);});tb.appendChild(tr);});
+    const tb=el("tbody");d.positionnement_armagnac.forEach(p=>{const tr=el("tr");[p.marque,p.style,p.prix_indicatif,p.comparaison].forEach((v,i)=>tr.appendChild(txt("td",i===0?"b":"",v)));tb.appendChild(tr);});
     t.appendChild(tb);w.appendChild(t);c.appendChild(w);z.appendChild(c);
   }
-  if(d.face_aux_autres_alcools?.length){const c=carte("Face aux autres alcools");d.face_aux_autres_alcools.forEach(a=>{const b=el("div","mill");b.appendChild(txt("h3","",a.alcool));b.appendChild(txt("p","",a.argument));c.appendChild(b);});z.appendChild(c);}
+  if(d.face_aux_autres_alcools?.length){const c=carte("Face aux autres alcools");const g=el("div","grid-2c");d.face_aux_autres_alcools.forEach(a=>{const b=el("div","repere");b.appendChild(txt("h3","",a.alcool));b.appendChild(txt("p","",a.argument));g.appendChild(b);});c.appendChild(g);z.appendChild(c);}
   const g=el("div","grid-2c");
   if(d.service?.length){const c=carte("Servir");c.appendChild(listeSimple(d.service));g.appendChild(c);}
   if(d.accords?.length){const c=carte("Accords");c.appendChild(listeSimple(d.accords));g.appendChild(c);}
   if(g.children.length)z.appendChild(g);
   blocSources(z,d.sources);
 });}
+// frise : un point par millésime, âge en abscisse, prix du 70 cl en ordonnée
+function frisePrix(){
+  const pts=MILL.map(mi=>({an:mi.an,age:new Date().getFullYear()-(+mi.an),p:(mi.formats.find(f=>f.f==="70cl")||{}).p})).filter(x=>x.p);
+  return graphLigne({titre:"Prix du 70 cl selon l'âge du millésime",series:[{nom:"Ravignan",cls:"s1",pts:pts.map(x=>({x:x.age,y:x.p,label:x.an}))}],ux:" ans",uy:" €"});
+}
+
+/* graphiques SVG simples (un seul axe, survol avec infobulle) */
+function graphLigne({titre,series,ux,uy,points}){
+  const W=640,H=280,L=48,R=16,T=16,B=36;
+  const all=[...series.flatMap(s=>s.pts),...(points||[]).flatMap(s=>s.pts)];
+  const xmin=Math.floor(Math.min(...all.map(p=>p.x))/5)*5,xmax=Math.ceil(Math.max(...all.map(p=>p.x))/5)*5;
+  const ymax=Math.ceil(Math.max(...all.map(p=>p.y))/50)*50;
+  const X=v=>L+(v-xmin)/(xmax-xmin)*(W-L-R),Y=v=>T+(1-v/ymax)*(H-T-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${esc(titre)}">`;
+  for(let v=0;v<=ymax;v+=ymax/5){s+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axe" x="${L-6}" y="${Y(v)+4}" text-anchor="end">${Math.round(v)}${uy}</text>`;}
+  for(let v=xmin;v<=xmax;v+=5)s+=`<text class="axe" x="${X(v)}" y="${H-12}" text-anchor="middle">${v}${ux}</text>`;
+  series.forEach(se=>{const ps=[...se.pts].sort((a,b)=>a.x-b.x);
+    s+=`<polyline class="ligne ${se.cls}" points="${ps.map(p=>X(p.x)+","+Y(p.y)).join(" ")}"/>`;
+    ps.forEach(p=>s+=`<circle class="pt ${se.cls}" cx="${X(p.x)}" cy="${Y(p.y)}" r="5" data-tip="${esc(se.nom+" "+(p.label||"")+" · "+p.x+ux+" · "+p.y+uy)}"/>`);});
+  (points||[]).forEach(se=>se.pts.forEach(p=>s+=`<rect class="pt ${se.cls}" x="${X(p.x)-5}" y="${Y(p.y)-5}" width="10" height="10" rx="2" data-tip="${esc((p.label||se.nom)+" · "+p.x+ux+" · "+p.y+uy)}"/>`));
+  s+="</svg>";
+  const w=el("figure","fig",`<figcaption>${esc(titre)}</figcaption>`);
+  const box=el("div","chart-box",s);const tip=el("div","tip");tip.hidden=true;box.appendChild(tip);w.appendChild(box);
+  const lg=el("div","legende");[...series,...(points||[])].forEach(se=>lg.appendChild(el("span","",`<i class="sw ${se.cls}${points&&points.includes(se)?" carre":""}"></i>${esc(se.nom)}`)));
+  if(series.length+(points||[]).length>1)w.appendChild(lg);
+  brancherTip(box,tip);return w;
+}
+function graphDonut({titre,parts,note}){
+  const tot=parts.reduce((s,p)=>s+p.v,0);const R=80,r=50,C=100;let a=-Math.PI/2;
+  let s=`<svg viewBox="0 0 200 200" class="donut" role="img" aria-label="${esc(titre)}">`;
+  parts.forEach(p=>{const da=p.v/tot*Math.PI*2,a2=a+da,g=0.012;
+    const P=(rad,t)=>[C+rad*Math.cos(t),C+rad*Math.sin(t)];const [x1,y1]=P(R,a+g),[x2,y2]=P(R,a2-g),[x3,y3]=P(r,a2-g),[x4,y4]=P(r,a+g);const big=da>Math.PI?1:0;
+    s+=`<path class="part ${p.cls}" d="M${x1} ${y1}A${R} ${R} 0 ${big} 1 ${x2} ${y2}L${x3} ${y3}A${r} ${r} 0 ${big} 0 ${x4} ${y4}Z" data-tip="${esc(p.nom+" : "+p.lab)}"/>`;a=a2;});
+  s+="</svg>";
+  const w=el("figure","fig",`<figcaption>${esc(titre)}</figcaption>`);
+  const row=el("div","donut-row");const box=el("div","chart-box",s);const tip=el("div","tip");tip.hidden=true;box.appendChild(tip);row.appendChild(box);
+  const lg=el("ul","legende-v");parts.forEach(p=>lg.appendChild(el("li","",`<i class="sw ${p.cls}"></i><span>${esc(p.nom)}</span><b class="num">${esc(p.lab)}</b>`)));row.appendChild(lg);
+  w.appendChild(row);if(note)w.appendChild(txt("p","muted",note));brancherTip(box,tip);return w;
+}
+function brancherTip(box,tip){
+  const montrer=e=>{const t=e.target.closest("[data-tip]");if(!t){tip.hidden=true;return;}const r=box.getBoundingClientRect();
+    tip.textContent=t.dataset.tip;tip.hidden=false;const x=(e.clientX??r.left+r.width/2)-r.left,y=(e.clientY??r.top)-r.top;
+    tip.style.left=Math.min(Math.max(x,70),r.width-70)+"px";tip.style.top=Math.max(y-12,0)+"px";};
+  box.addEventListener("pointermove",montrer);box.addEventListener("pointerdown",montrer);box.addEventListener("pointerleave",()=>tip.hidden=true);
+}
 
 /* Région et domaines */
-let regionFiltre="tous", regionQuery="";
+let regionFiltre="tous", regionQuery="", carteLeaflet=null;
 function renderRegion(m){pageContenu(m,"region",(z,d)=>{
+  const doms=(d.domaines||[]).filter(x=>typeof x.lat==="number"&&typeof x.lng==="number");
+  if(doms.length)z.appendChild(carteSatellite(doms));
   if(d.appellation){
-    const c=carte("L'appellation Armagnac","soft");c.appendChild(txt("p","lead",d.appellation.resume));
-    (d.appellation.points||[]).forEach(p=>{const b=el("div","mill");b.appendChild(txt("h3","",p.titre));b.appendChild(txt("p","",p.texte));c.appendChild(b);});
-    z.appendChild(c);
     if(d.appellation.chiffres?.length){const k=el("div","kpis");d.appellation.chiffres.forEach(x=>{const e=el("div","kpi");e.appendChild(txt("div","val num",x.valeur));e.appendChild(txt("div","lab",x.libelle));k.appendChild(e);});z.appendChild(k);}
+    const c=carte("L'appellation Armagnac","soft");c.appendChild(txt("p","lead",d.appellation.resume));
+    (d.appellation.points||[]).forEach(p=>{const b=el("details","faq");b.appendChild(txt("summary","",p.titre));b.appendChild(txt("p","",p.texte));c.appendChild(b);});
+    z.appendChild(c);
   }
   if(d.terroirs?.length){const g=el("div","grid-3c");d.terroirs.forEach(t=>{const c=carte(t.nom);c.appendChild(txt("p","",t.sols));c.appendChild(txt("p","muted",t.style));if(t.communes_cles)c.appendChild(txt("p","muted","Communes : "+t.communes_cles));g.appendChild(c);});z.appendChild(g);}
-  const doms=(d.domaines||[]).filter(x=>typeof x.lat==="number"&&typeof x.lng==="number");
-  if(doms.length)z.appendChild(carteDomaines(doms));
   if(d.domaines?.length){
     const c=carte("Les maisons d'armagnac ("+d.domaines.length+")");
     const s=el("input","search");s.type="search";s.placeholder="Rechercher une maison ou une commune";s.value=regionQuery;
@@ -1216,7 +1352,10 @@ function renderRegion(m){pageContenu(m,"region",(z,d)=>{
       d.domaines.filter(x=>(regionFiltre==="tous"||x.terroir===regionFiltre)&&(!q||[x.nom,x.commune,x.particularite].join(" ").toLowerCase().includes(q)))
         .forEach(x=>{const r=el("div","room"+(/ravignan/i.test(x.nom)?" moi":""));r.appendChild(txt("h3","",x.nom));
           const meta=el("div","meta");[x.commune,x.terroir,x.type].filter(Boolean).forEach(v=>meta.appendChild(txt("span","tag",v)));r.appendChild(meta);
-          if(x.particularite)r.appendChild(txt("p","who",x.particularite));if(x.site)r.appendChild(lien(x.site));liste.appendChild(r);});
+          if(x.particularite)r.appendChild(txt("p","who",x.particularite));
+          const act=el("div","row");act.style.justifyContent="flex-start";
+          if(typeof x.lat==="number"){const v=txt("button","link","Voir sur la carte");v.onclick=()=>{carteLeaflet?.flyTo([x.lat,x.lng],13);qs(".map-sat")?.scrollIntoView({behavior:"smooth"});};act.appendChild(v);}
+          if(x.site)act.appendChild(lien(x.site));r.appendChild(act);liste.appendChild(r);});
       if(!liste.children.length)liste.appendChild(el("div","empty","Aucun résultat."));};
     terroirs.forEach(t=>{const b=txt("button","chip"+(regionFiltre===t?" sel":""),t==="tous"?"Toutes":t);b.onclick=()=>{regionFiltre=t;chips.querySelectorAll(".chip").forEach(x=>x.classList.toggle("sel",x===b));dessiner();};chips.appendChild(b);});
     s.oninput=()=>{regionQuery=s.value;dessiner();};
@@ -1226,6 +1365,38 @@ function renderRegion(m){pageContenu(m,"region",(z,d)=>{
   if(d.lieux?.length){const c=carte("Lieux et rendez-vous");d.lieux.forEach(l=>{const b=el("div","mill");b.appendChild(txt("h3","",l.nom));b.appendChild(txt("p","",l.description));c.appendChild(b);});z.appendChild(c);}
   blocSources(z,d.sources);
 });}
+// carte satellite (Leaflet + imagerie Esri), chargée seulement sur cette page
+let leafletPromesse=null;
+function chargerLeaflet(){
+  if(window.L)return Promise.resolve();
+  if(leafletPromesse)return leafletPromesse;
+  leafletPromesse=new Promise((ok,ko)=>{
+    const css=document.createElement("link");css.rel="stylesheet";css.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";document.head.appendChild(css);
+    const js=document.createElement("script");js.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";js.onload=ok;js.onerror=ko;document.head.appendChild(js);
+  });
+  return leafletPromesse;
+}
+function carteSatellite(doms){
+  const c=carte("Carte des maisons d'armagnac");
+  const box=el("div","map-sat");c.appendChild(box);
+  c.appendChild(txt("p","muted","Vue satellite. Touchez un point pour voir la maison ; le point orange est le Château de Ravignan."));
+  chargerLeaflet().then(()=>{
+    if(!box.isConnected)return;
+    carteLeaflet=L.map(box,{scrollWheelZoom:false,attributionControl:true});
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:18,attribution:"Imagerie © Esri, Maxar, Earthstar Geographics"}).addTo(carteLeaflet);
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",{maxZoom:18}).addTo(carteLeaflet);
+    const pts=[];
+    doms.forEach(x=>{const moi=/ravignan/i.test(x.nom);
+      const mk=L.circleMarker([x.lat,x.lng],{radius:moi?11:7,color:"#fff",weight:2,fillColor:moi?"#e08a3c":"#2a78d6",fillOpacity:1}).addTo(carteLeaflet);
+      const div=document.createElement("div");div.className="pop";
+      div.appendChild(txt("b","",x.nom));div.appendChild(txt("span","",[x.commune,x.terroir].filter(Boolean).join(" · ")));if(x.particularite)div.appendChild(txt("p","",x.particularite));
+      mk.bindPopup(div,{maxWidth:260});if(moi){mk.bindTooltip("Château de Ravignan",{permanent:true,direction:"right",className:"tt-moi"});}
+      pts.push([x.lat,x.lng]);});
+    carteLeaflet.fitBounds(pts,{padding:[30,30]});
+    setTimeout(()=>carteLeaflet.invalidateSize(),200);
+  }).catch(()=>{box.replaceWith(carteDomaines(doms));});
+  return c;
+}
 // petite carte schématique : chaque maison placée d'après sa latitude / longitude
 function carteDomaines(doms){
   const c=carte("Carte des maisons");
@@ -1251,6 +1422,19 @@ function carteDomaines(doms){
 let benchQuery="";
 function renderBenchmark(m){pageContenu(m,"benchmark",(z,d)=>{
   if(d.mise_a_jour)z.appendChild(txt("p","muted","Veille mise à jour le "+frDate(d.mise_a_jour)+". Les prix et abonnés sont des relevés publics approximatifs, datés."));
+  const gr=d.graphiques;
+  if(gr){
+    const g=el("div","grid-2c");
+    if(gr.export)g.appendChild(el("div","card")).appendChild(graphDonut({titre:"Marchés export de l'armagnac (en valeur)",parts:gr.export.parts,note:gr.export.note}));
+    if(gr.terroirs)g.appendChild(el("div","card")).appendChild(graphDonut({titre:"Production par terroir",parts:gr.terroirs.parts,note:gr.terroirs.note}));
+    z.appendChild(g);
+    if(gr.prix_age){
+      const rav=MILL.map(mi=>({x:new Date().getFullYear()-(+mi.an),y:(mi.formats.find(f=>f.f==="70cl")||{}).p,label:mi.an})).filter(p=>p.y);
+      const c=el("div","card");
+      c.appendChild(graphLigne({titre:"Prix du 70 cl selon l'âge : Ravignan face à la concurrence",series:[{nom:"Ravignan (prix du domaine)",cls:"s1",pts:rav}],points:[{nom:"Autres maisons (prix relevés en France)",cls:"s2",pts:gr.prix_age.points}],ux:" ans",uy:" €"}));
+      if(gr.prix_age.note)c.appendChild(txt("p","muted",gr.prix_age.note));z.appendChild(c);
+    }
+  }
   if(d.tendances?.length){const c=carte("Tendances du marché","soft");d.tendances.forEach(t=>{const b=el("div","mill");const h=el("div","row");h.appendChild(txt("h3","",t.titre));if(t.date)h.appendChild(txt("span","muted",t.date));b.appendChild(h);b.appendChild(txt("p","",t.texte));if(t.source)b.appendChild(lien(t.source));c.appendChild(b);});z.appendChild(c);}
   const s=el("input","search");s.type="search";s.placeholder="Rechercher une maison";s.value=benchQuery;z.appendChild(s);
   const liste=el("div","stack");z.appendChild(liste);
@@ -1274,6 +1458,204 @@ function carteMarque(x){
   if(x.actualites?.length){c.appendChild(txt("h3","sub","Actualités"));x.actualites.forEach(a=>{const b=el("div","actu");b.appendChild(txt("span","muted",a.date||""));b.appendChild(txt("p","",a.texte));if(a.source)b.appendChild(lien(a.source));c.appendChild(b);});}
   if(x.site)c.appendChild(lien(x.site,"Site officiel"));
   return c;
+}
+
+/* ---------- généalogie ----------
+   Une personne par document de la collection « famille » :
+   {prenom, nom, titre, naissance, lieu_naissance, deces, lieu_deces, role, bio, parents:[id], conjoints:[id], vivant, incertain, source} */
+let famille=[], familleChargee=false, famSel=null, famEdit=null, famVue={x:0,y:0,k:1}, famResume="";
+const NW=176, NH=64, GX=26, GY=96;
+const annee=d=>d?String(d).slice(0,4):"";
+const nomComplet=p=>[p.titre,p.prenom,p.nom].filter(Boolean).join(" ");
+const datesDe=p=>p.vivant?"":(p.naissance||p.deces?`${annee(p.naissance)||"?"} – ${annee(p.deces)||(p.naissance&&+annee(p.naissance)<1925?"?":"")}`:"");
+
+function layoutFamille(){
+  const byId=new Map(famille.map(p=>[p.id,p]));
+  const par=p=>(p.parents||[]).filter(id=>byId.has(id));
+  const conj=p=>(p.conjoints||[]).filter(id=>byId.has(id));
+  // génération : 1 + la plus haute génération des parents ; un conjoint sans parents se cale sur son conjoint
+  const gen=new Map();
+  const g=(p,seen=new Set())=>{
+    if(gen.has(p.id))return gen.get(p.id);
+    if(seen.has(p.id))return 0;seen.add(p.id);
+    const ps=par(p);let v=ps.length?Math.max(...ps.map(id=>g(byId.get(id),seen)))+1:0;
+    gen.set(p.id,v);return v;
+  };
+  famille.forEach(p=>g(p));
+  for(let i=0;i<3;i++)famille.forEach(p=>{if(!par(p).length){const c=conj(p).map(id=>gen.get(id));if(c.length)gen.set(p.id,Math.max(...c));}});
+  // placement génération par génération, sous les parents
+  const pos=new Map();const niveaux=[...new Set(gen.values())].sort((a,b)=>a-b);
+  niveaux.forEach(lv=>{
+    const gens=famille.filter(p=>gen.get(p.id)===lv);
+    const voulu=p=>{const ps=par(p).filter(id=>pos.has(id));if(ps.length)return ps.reduce((s,id)=>s+pos.get(id).x,0)/ps.length;
+      const c=conj(p).find(id=>gens.some(q=>q.id===id)&&par(byId.get(id)).length);if(c){const ps2=par(byId.get(c)).filter(id=>pos.has(id));if(ps2.length)return ps2.reduce((s,id)=>s+pos.get(id).x,0)/ps2.length+0.5;}
+      return 1e9+famille.indexOf(p);};
+    // ordre : par position voulue, puis on colle chaque conjoint à côté
+    const tri=[...gens].sort((a,b)=>voulu(a)-voulu(b)||annee(a.naissance).localeCompare(annee(b.naissance)));
+    const ordre=[];tri.forEach(p=>{if(ordre.includes(p))return;ordre.push(p);conj(p).forEach(id=>{const q=byId.get(id);if(gens.includes(q)&&!ordre.includes(q))ordre.push(q);});});
+    let prev=-Infinity;
+    ordre.forEach(p=>{let v=voulu(p);if(v>1e8)v=prev===-Infinity?0:prev+NW+GX;const x=Math.max(v,prev+NW+GX);pos.set(p.id,{x,y:lv*(NH+GY)});prev=x;});
+  });
+  return {pos,byId,par,conj,gen};
+}
+
+function renderGenealogie(m){
+  if(famResume)m.appendChild(el("div","card soft",`<p class="lead">${esc(famResume)}</p>`));
+  const bar=el("div","row");bar.style.flexWrap="wrap";
+  const s=el("input","search");s.type="search";s.id="fam-search";s.placeholder="Rechercher une personne";s.style.flex="1";s.style.minWidth="200px";
+  const res=el("div","fam-res");
+  s.oninput=()=>{res.innerHTML="";const q=s.value.trim().toLowerCase();if(!q)return;
+    famille.filter(p=>nomComplet(p).toLowerCase().includes(q)).slice(0,8).forEach(p=>{const b=txt("button","chip",nomComplet(p)+(datesDe(p)?" ("+datesDe(p)+")":""));b.onclick=()=>{famSel=p.id;centrerSur(p.id);res.innerHTML="";s.value="";dessinerArbre();ficheFamille();};res.appendChild(b);});};
+  bar.appendChild(s);
+  const zin=el("button","btn ghost sm","+"),zout=el("button","btn ghost sm","−"),zr=el("button","btn ghost sm","Recentrer");
+  zin.setAttribute("aria-label","Zoomer");zout.setAttribute("aria-label","Dézoomer");
+  zin.onclick=()=>zoomer(1.25);zout.onclick=()=>zoomer(0.8);zr.onclick=()=>{ajusterVue();dessinerArbre();};
+  [zin,zout,zr].forEach(b=>bar.appendChild(b));
+  if(isAdmin()){const a=el("button","btn primary sm","+ Ajouter une personne");a.onclick=()=>{famEdit={};famSel=null;ficheFamille();};bar.appendChild(a);}
+  m.appendChild(bar);m.appendChild(res);
+  const zone=el("div","fam-zone");zone.id="fam-zone";
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.id="fam-svg";svg.setAttribute("role","img");svg.setAttribute("aria-label","Arbre généalogique de la famille");
+  zone.appendChild(svg);m.appendChild(zone);
+  m.appendChild(txt("p","muted","Faites glisser pour vous déplacer, molette ou pincement pour zoomer, touchez une personne pour voir sa fiche."));
+  const fiche=el("div","stack");fiche.id="fam-fiche";m.appendChild(fiche);
+  brancherPanZoom(zone);
+  if(!familleChargee){svg.innerHTML="";zone.appendChild(el("div","empty fam-vide","Chargement de l'arbre…"));return;}
+  if(!famille.length){zone.appendChild(el("div","empty fam-vide","L'arbre est vide pour le moment."));ficheFamille();return;}
+  if(famVue.k===1&&famVue.x===0&&famVue.y===0){ajusterVue();
+    // arbre large : on ouvre lisible, centré sur le baron Jean-Hippolyte (mort au château)
+    if(famVue.k<0.55){const c=famille.find(p=>p.id==="jean-hippolyte")||famille[0];famVue.k=0.75;const z=qs("#fam-zone"),p=layoutFamille().pos.get(c.id);
+      famVue.x=z.clientWidth/2-(p.x+NW/2)*famVue.k;famVue.y=z.clientHeight/2-(p.y+NH/2)*famVue.k;}}
+  dessinerArbre();ficheFamille();
+}
+function dessinerArbre(){
+  const svg=qs("#fam-svg");if(!svg)return;
+  const NS="http://www.w3.org/2000/svg";svg.innerHTML="";
+  const {pos,byId,par}=layoutFamille();
+  const g=document.createElementNS(NS,"g");g.setAttribute("transform",`translate(${famVue.x},${famVue.y}) scale(${famVue.k})`);svg.appendChild(g);
+  const ligne=(d,cls)=>{const p=document.createElementNS(NS,"path");p.setAttribute("d",d);p.setAttribute("class",cls);g.appendChild(p);};
+  // liens de couple
+  const fait=new Set();
+  famille.forEach(p=>(p.conjoints||[]).forEach(id=>{const k=[p.id,id].sort().join("|");if(fait.has(k)||!pos.has(id))return;fait.add(k);
+    const a=pos.get(p.id),b=pos.get(id);if(a.y!==b.y)return;const y=a.y+NH/2;ligne(`M${Math.min(a.x,b.x)+NW} ${y} H${Math.max(a.x,b.x)}`,"fam-couple");}));
+  // liens parents → enfants (depuis le milieu du couple de parents)
+  famille.forEach(p=>{const ps=par(p);if(!ps.length)return;const c=pos.get(p.id);
+    const px=ps.map(id=>pos.get(id).x+NW/2);const py=Math.max(...ps.map(id=>pos.get(id).y))+NH;
+    const sx=px.reduce((s,x)=>s+x,0)/px.length, cx=c.x+NW/2, my=c.y-GY/2;
+    ligne(`M${sx} ${py} V${my} H${cx} V${c.y}`,"fam-lien");});
+  famille.forEach(p=>{
+    const {x,y}=pos.get(p.id);const n=document.createElementNS(NS,"g");n.setAttribute("class","fam-noeud"+(p.id===famSel?" sel":"")+(p.incertain?" incertain":""));
+    n.setAttribute("transform",`translate(${x},${y})`);n.setAttribute("tabindex","0");n.setAttribute("role","button");n.setAttribute("aria-label",nomComplet(p));
+    const r=document.createElementNS(NS,"rect");r.setAttribute("width",NW);r.setAttribute("height",NH);r.setAttribute("rx",12);n.appendChild(r);
+    const t1=document.createElementNS(NS,"text");t1.setAttribute("x",12);t1.setAttribute("y",25);t1.setAttribute("class","fam-nom");
+    const nom=[p.prenom,p.nom].filter(Boolean).join(" ");t1.textContent=nom.length>22?nom.slice(0,21)+"…":nom;n.appendChild(t1);
+    const t2=document.createElementNS(NS,"text");t2.setAttribute("x",12);t2.setAttribute("y",46);t2.setAttribute("class","fam-dates");
+    t2.textContent=[p.titre,datesDe(p)].filter(Boolean).join(" · ");n.appendChild(t2);
+    const ti=document.createElementNS(NS,"title");ti.textContent=nomComplet(p);n.appendChild(ti);
+    const choisir=()=>{famSel=p.id;famEdit=null;dessinerArbre();ficheFamille();qs("#fam-fiche")?.scrollIntoView({behavior:"smooth",block:"nearest"});};
+    n.addEventListener("click",e=>{if(!famDrag.bouge)choisir();});n.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();choisir();}};
+    g.appendChild(n);
+  });
+}
+function bornesArbre(){const {pos}=layoutFamille();const xs=[...pos.values()].map(p=>p.x),ys=[...pos.values()].map(p=>p.y);
+  return {x0:Math.min(...xs),x1:Math.max(...xs)+NW,y0:Math.min(...ys),y1:Math.max(...ys)+NH};}
+function ajusterVue(){const z=qs("#fam-zone");if(!z||!famille.length)return;const b=bornesArbre();const W=z.clientWidth,H=z.clientHeight;
+  const k=Math.min(1.2,Math.max(0.25,Math.min((W-40)/(b.x1-b.x0),(H-40)/(b.y1-b.y0))));
+  famVue={k,x:(W-(b.x1-b.x0)*k)/2-b.x0*k,y:(H-(b.y1-b.y0)*k)/2-b.y0*k};}
+function centrerSur(id){const z=qs("#fam-zone");const p=layoutFamille().pos.get(id);if(!z||!p)return;famVue.k=Math.max(famVue.k,0.8);
+  famVue.x=z.clientWidth/2-(p.x+NW/2)*famVue.k;famVue.y=z.clientHeight/2-(p.y+NH/2)*famVue.k;}
+function zoomer(f,cx,cy){const z=qs("#fam-zone");if(!z)return;cx??=z.clientWidth/2;cy??=z.clientHeight/2;
+  const k=Math.min(2.5,Math.max(0.2,famVue.k*f));famVue.x=cx-(cx-famVue.x)*k/famVue.k;famVue.y=cy-(cy-famVue.y)*k/famVue.k;famVue.k=k;dessinerArbre();}
+const famDrag={bouge:false};
+function brancherPanZoom(z){
+  const pts=new Map();let start=null;
+  z.addEventListener("pointerdown",e=>{pts.set(e.pointerId,{x:e.clientX,y:e.clientY});famDrag.bouge=false;
+    if(pts.size===1)start={x:e.clientX,y:e.clientY,vx:famVue.x,vy:famVue.y};
+    if(pts.size===2){const [a,b]=[...pts.values()];start={d:Math.hypot(a.x-b.x,a.y-b.y),k:famVue.k};}});
+  z.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(pts.size===1&&start&&start.vx!=null){const dx=e.clientX-start.x,dy=e.clientY-start.y;if(Math.abs(dx)+Math.abs(dy)>4){famDrag.bouge=true;z.setPointerCapture(e.pointerId);}
+      if(famDrag.bouge){famVue.x=start.vx+dx;famVue.y=start.vy+dy;dessinerArbre();}}
+    else if(pts.size===2&&start&&start.d){famDrag.bouge=true;const [a,b]=[...pts.values()];const r=z.getBoundingClientRect();
+      zoomer(start.k*Math.hypot(a.x-b.x,a.y-b.y)/start.d/famVue.k,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);}});
+  const fin=e=>{pts.delete(e.pointerId);if(!pts.size)start=null;setTimeout(()=>{famDrag.bouge=false;},0);};
+  z.addEventListener("pointerup",fin);z.addEventListener("pointercancel",fin);
+  z.addEventListener("wheel",e=>{e.preventDefault();const r=z.getBoundingClientRect();zoomer(e.deltaY<0?1.12:0.89,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+}
+
+function ficheFamille(){
+  const f=qs("#fam-fiche");if(!f)return;f.innerHTML="";
+  if(famEdit){f.appendChild(formFamille(famEdit));return;}
+  const p=famille.find(x=>x.id===famSel);if(!p)return;
+  const byId=new Map(famille.map(x=>[x.id,x]));
+  const c=el("div","card fam-carte");
+  const h=el("div","row");h.appendChild(txt("h2","sheet-title",nomComplet(p)));
+  const x=el("button","x","×");x.setAttribute("aria-label","Fermer la fiche");x.onclick=()=>{famSel=null;dessinerArbre();ficheFamille();};h.appendChild(x);c.appendChild(h);
+  const vie=[];
+  if(!p.vivant){if(p.naissance)vie.push("Né·e "+(p.naissance.length>4?"le "+frDate(p.naissance):"en "+p.naissance)+(p.lieu_naissance?" à "+p.lieu_naissance:""));
+    if(p.deces)vie.push("Mort·e "+(p.deces.length>4?"le "+frDate(p.deces):"en "+p.deces)+(p.lieu_deces?" à "+p.lieu_deces:""));}
+  if(vie.length)c.appendChild(txt("p","muted",vie.join(" · ")));
+  if(p.role)c.appendChild(txt("p","",p.role));
+  if(p.bio)c.appendChild(txt("p","",p.bio));
+  if(p.incertain)c.appendChild(txt("span","tag","Lien ou date incertains"));
+  const liens=(lab,ids)=>{ids=(ids||[]).filter(id=>byId.has(id));if(!ids.length)return;const r=el("div","fam-liens");r.appendChild(txt("span","muted",lab+" : "));
+    ids.forEach(id=>{const b=txt("button","chip",nomComplet(byId.get(id)));b.onclick=()=>{famSel=id;centrerSur(id);dessinerArbre();ficheFamille();};r.appendChild(b);});c.appendChild(r);};
+  liens("Parents",p.parents);liens("Conjoint·e",p.conjoints);
+  liens("Enfants",famille.filter(q=>(q.parents||[]).includes(p.id)).map(q=>q.id));
+  if(p.source)c.appendChild(lien(p.source,"Source"));
+  if(isAdmin()){const r=el("div","row");r.style.justifyContent="flex-start";
+    const e=el("button","btn ghost sm","Modifier");e.onclick=()=>{famEdit={...p};ficheFamille();};r.appendChild(e);
+    const en=el("button","btn ghost sm","+ Ajouter un enfant");en.onclick=()=>{famEdit={parents:[p.id,...(p.conjoints||[]).slice(0,1)]};ficheFamille();};r.appendChild(en);
+    c.appendChild(r);}
+  f.appendChild(c);
+}
+function formFamille(p){
+  const nouveau=!p.id;const form=el("form","card stack");
+  form.appendChild(txt("h2","",nouveau?"Ajouter une personne":"Modifier "+nomComplet(p)));
+  const champ=(id,lab,val,type="text",ph="")=>{const d=el("div","field");d.appendChild(Object.assign(txt("label","",lab),{htmlFor:"fm-"+id}));
+    const i=el("input");i.id="fm-"+id;i.type=type;i.value=val??"";i.placeholder=ph;i.autocomplete="off";d.appendChild(i);return d;};
+  const g1=el("div","grid2");g1.appendChild(champ("prenom","Prénom",p.prenom));g1.appendChild(champ("nom","Nom",p.nom));form.appendChild(g1);
+  form.appendChild(champ("titre","Titre (comte, abbé…)",p.titre));
+  const g2=el("div","grid2");g2.appendChild(champ("naissance","Naissance (AAAA ou AAAA-MM-JJ)",p.naissance,"text","1795"));g2.appendChild(champ("lieu_naissance","Lieu de naissance",p.lieu_naissance));form.appendChild(g2);
+  const g3=el("div","grid2");g3.appendChild(champ("deces","Décès",p.deces,"text","1858"));g3.appendChild(champ("lieu_deces","Lieu de décès",p.lieu_deces));form.appendChild(g3);
+  form.appendChild(champ("role","Rôle (une phrase)",p.role));
+  const bio=el("div","field");bio.appendChild(Object.assign(txt("label","","Biographie"),{htmlFor:"fm-bio"}));const ta=el("textarea","fm-ta");ta.id="fm-bio";ta.rows=3;ta.value=p.bio||"";bio.appendChild(ta);form.appendChild(bio);
+  const choix=(id,lab,sel)=>{const d=el("div","field");d.appendChild(Object.assign(txt("label","",lab),{htmlFor:"fm-"+id}));
+    const s=el("select");s.id="fm-"+id;s.multiple=true;s.size=5;
+    [...famille].filter(x=>x.id!==p.id).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b))).forEach(x=>{const o=el("option");o.value=x.id;o.textContent=nomComplet(x)+(datesDe(x)?" ("+datesDe(x)+")":"");o.selected=(sel||[]).includes(x.id);s.appendChild(o);});
+    d.appendChild(s);d.appendChild(txt("span","muted","Ctrl ou Cmd + clic pour en choisir plusieurs"));return d;};
+  form.appendChild(choix("parents","Parents",p.parents));form.appendChild(choix("conjoints","Conjoint·e·s",p.conjoints));
+  form.appendChild(champ("source","Source (lien)",p.source,"url","https://…"));
+  const ck=(id,lab,val)=>{const l=el("label","fm-ck");const i=el("input");i.type="checkbox";i.id="fm-"+id;i.checked=!!val;l.appendChild(i);l.appendChild(document.createTextNode(" "+lab));return l;};
+  form.appendChild(ck("vivant","Personne vivante (les dates ne sont pas affichées)",p.vivant));form.appendChild(ck("incertain","Information incertaine",p.incertain));
+  const r=el("div","row");r.style.justifyContent="flex-start";r.style.flexWrap="wrap";
+  const ok=el("button","btn primary sm",nouveau?"Ajouter":"Enregistrer");ok.type="submit";r.appendChild(ok);
+  const an=el("button","btn ghost sm","Annuler");an.type="button";an.onclick=()=>{famEdit=null;ficheFamille();};r.appendChild(an);
+  if(!nouveau){const del=el("button","btn danger sm","Supprimer");del.type="button";
+    del.onclick=()=>{if(del.dataset.ok){supprimerPersonne(p.id);}else{del.dataset.ok="1";del.textContent="Confirmer la suppression";}};r.appendChild(del);}
+  form.appendChild(r);
+  form.onsubmit=async e=>{e.preventDefault();
+    const v=id=>form.querySelector("#fm-"+id).value.trim();const sel=id=>[...form.querySelector("#fm-"+id).selectedOptions].map(o=>o.value);
+    const d={prenom:v("prenom"),nom:v("nom"),titre:v("titre")||null,naissance:v("naissance")||null,lieu_naissance:v("lieu_naissance")||null,deces:v("deces")||null,lieu_deces:v("lieu_deces")||null,
+      role:v("role")||null,bio:form.querySelector("#fm-bio").value.trim()||null,parents:sel("parents"),conjoints:sel("conjoints"),source:v("source")||null,
+      vivant:form.querySelector("#fm-vivant").checked,incertain:form.querySelector("#fm-incertain").checked};
+    if(!d.prenom&&!d.nom)return flash("Indiquez au moins un prénom ou un nom.");
+    const id=p.id||("p"+uid());
+    try{
+      await db.collection("famille").doc(id).set(d);
+      // garde les liens de couple dans les deux sens
+      for(const c of d.conjoints){const q=famille.find(x=>x.id===c);if(q&&!(q.conjoints||[]).includes(id))await db.collection("famille").doc(c).set({...stripId(q),conjoints:[...(q.conjoints||[]),id]});}
+      famEdit=null;famSel=id;flash(nouveau?"Personne ajoutée.":"Fiche enregistrée.","ok");
+    }catch(err){flash(dbMessage(err));}
+  };
+  return form;
+}
+const stripId=q=>{const {id,...r}=q;return r;};
+async function supprimerPersonne(id){
+  try{
+    await db.collection("famille").doc(id).delete();
+    for(const q of famille.filter(x=>(x.parents||[]).includes(id)||(x.conjoints||[]).includes(id)))
+      await db.collection("famille").doc(q.id).set({...stripId(q),parents:(q.parents||[]).filter(x=>x!==id),conjoints:(q.conjoints||[]).filter(x=>x!==id)});
+    famEdit=null;famSel=null;flash("Personne supprimée.","ok");
+  }catch(err){flash(dbMessage(err));}
 }
 
 /* ---------- accès et administrateurs ---------- */
@@ -1428,6 +1810,13 @@ function majPied(){
 function demarrerDonnees(){
   db=makeDb();downloads={save:telecharger};
   const onErr=e=>{flash(dbMessage(e));};
+  db.collection("famille").onSnapshot(s=>{
+    famille=s.docs.map(x=>({id:x.id,...x.data()}));
+    const premier=!familleChargee;familleChargee=true;
+    if(page!=="genealogie")return;
+    if(premier||!qs("#fam-svg"))render();else{dessinerArbre();if(!famEdit)ficheFamille();}
+  },()=>{familleChargee=true;});
+  chargerContenu("genealogie").then(d=>{famResume=d.resume||"";if(page==="genealogie"&&!famEdit)render();}).catch(()=>{});
   db.collection("chambres").onSnapshot(s=>{
     chambres=s.docs.map(x=>({id:x.id,...x.data()}));loaded.chambres=true;
     if(page==="chambres")refreshChambres();

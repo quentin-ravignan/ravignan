@@ -49,7 +49,7 @@ create policy membres_suppr on public.membres for delete to authenticated
   using (public.est_admin() and email <> public.mon_email());
 
 -- Accès aux données :
---  - ventes, transactions, chambres, réservations : lisibles par tout le monde, sans connexion
+--  - ventes, transactions, chambres, réservations, famille : lisibles par tout le monde, sans connexion
 --  - clients (noms complets, téléphones, emails) : lisibles uniquement par les administrateurs
 --  - les visiteurs peuvent créer ventes, transactions, réservations et fiches clients,
 --    clôturer une vente et annuler une réservation ; le reste est réservé aux administrateurs
@@ -58,7 +58,7 @@ drop policy if exists docs_ajout on public.docs;
 drop policy if exists docs_modif on public.docs;
 drop policy if exists docs_suppr on public.docs;
 create policy docs_lecture on public.docs for select to anon, authenticated
-  using (collection in ('chambres', 'reservations', 'ventes', 'transactions') or public.est_admin());
+  using (collection in ('chambres', 'reservations', 'ventes', 'transactions', 'famille') or public.est_admin());
 create policy docs_ajout on public.docs for insert to anon, authenticated
   with check (collection in ('reservations', 'ventes', 'transactions', 'clients') or public.est_admin());
 create policy docs_modif on public.docs for update to anon, authenticated

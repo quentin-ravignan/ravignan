@@ -1,29 +1,643 @@
-{"mise_a_jour":"2026-10-24",
-"tendances":[
-{"titre":"Chine : droits antidumping sur les eaux-de-vie de vin","texte":"Depuis le 5 juillet 2025, la Chine applique un droit moyen de 32,2 % sur les brandies européens, avec un régime de prix minimum. La Chine est le 2e marché de l'armagnac en valeur. Le BNIA et la FEVS ont alerté ensemble sur les effets de ces droits.","date":"juillet 2025","source":"https://www.reussir.fr/vigne/cognac-et-armagnac-des-droits-de-douane-de-322-vers-la-chine"},
-{"titre":"États-Unis : droits de douane et recul des ventes","texte":"Les ventes françaises de vins et spiritueux aux États-Unis ont baissé de 21 % en 2025 (3 Md€). Les États-Unis pèsent environ 12 % des ventes des producteurs gersois (chiffre d'avril 2025). Les exportations françaises de vins et spiritueux reculent de 8 % en 2025, et la FEVS prévoit une nouvelle baisse en 2026.","date":"février 2026","source":"https://www.lsa-conso.fr/wine-paris-les-exportations-francaises-de-vins-et-spiritueux-sont-en-baisse-de-8-en-2025,464376"},
-{"titre":"Chiffre d'affaires de la filière","texte":"Le chiffre d'affaires global de l'armagnac atteint près de 44 M€ en 2024 (BNIA, cité par l'AFP). En 2024, l'export a perdu plus de 15 % en valeur à cause des surtaxes chinoises. Pas encore de chiffre consolidé pour 2025.","date":"avril 2025","source":"https://medias24.com/agence-presse/la-hausse-des-droits-de-douane-aux-etats-unis-fragilise-encore-larmagnac/"},
-{"titre":"Plan Armagnac 2030","texte":"Le BNIA, présidé par Jérôme Delord, vise à doubler la production en 5 ans, sur la base de 10 029 hl d'alcool pur distillés en 2021.","date":null,"source":"https://www.reussir.fr/vigne/larmagnac-veut-doubler-sa-production-dici-5-ans"},
-{"titre":"Blanche et cocktails","texte":"La filière mise sur la mixologie : cocktails à l'armagnac à la Féria de Mont-de-Marsan (22–26 juillet 2026), avec la participation de Ravignan, et soirées Blanche. La Fine Blanche (Château Arton) fête ses 40 ans en octobre 2026 avec une nouvelle Blanche.","date":"juillet 2026","source":"https://www.tourismelandes.com/?p=753510"},
-{"titre":"Premiumisation et vieux millésimes primés","texte":"À l'IWSC 2025, XO et millésimes ont obtenu plusieurs médailles d'or. Le trophée Armagnac est allé au Marquis de Montesquiou XO (98 pts) ; Château de Lacquy 2007 a obtenu Gold Outstanding (98 pts).","date":"2025","source":"https://www.iwsc.net/news/spirits/iwsc-2025-armagnacs-time-to-shine"}],
-"marques":[
-{"nom":"Domaine de Ravignan","positionnement":"Domaine familial de Perquie (Landes), Bas-Armagnac, uniquement en millésimes. Importé aux États-Unis par Skurnik.","medailles":[],"prix":[{"produit":"1993 70 cl (coffret)","prix":"265,10 $ (prix conseillé, en rupture)","ou":"bottleofitaly.com","date":"relevé le 24/10/2026"},{"produit":"2004 70 cl (coffret)","prix":"189,72 $ (prix conseillé, en rupture)","ou":"bottleofitaly.com","date":"relevé le 24/10/2026"},{"produit":"1991 75 cl","prix":"265,99 $","ou":"dandm.com (San Francisco)","date":"relevé le 24/10/2026"}],"evolution_prix":"Aux États-Unis, ces millésimes sont affichés environ 1,5 à 3 fois le prix du domaine (taxes et distribution comprises) : un argument pour les ventes privées.","reseaux":[{"reseau":"Instagram","compte":"@armagnac_ravignan"},{"reseau":"Facebook","compte":"armagnacravignan"},{"reseau":"LinkedIn","compte":"armagnac-ravignan"}],"actualites":[{"date":"22/07/2026","texte":"Cocktails à l'armagnac servis à la Féria de Mont-de-Marsan (22–26 juillet).","source":"https://www.tourismelandes.com/?p=753510"},{"date":"01/05/2026","texte":"Exposition de sculptures en bois de Nicolas de la Barre au château (1er mai–30 septembre 2026).","source":"https://www.armagnac-ravignan.com"},{"date":"24/10/2026","texte":"Participation à « Armagnac en fête » à Labastide-d'Armagnac (24–25 octobre 2026).","source":"https://www.armagnac-ravignan.com"},{"date":"28/11/2026","texte":"Fête de la distillation 2026 (28–29 novembre), programme à venir.","source":"https://www.armagnac-ravignan.com"}],"site":"https://www.armagnac-ravignan.com"},
-{"nom":"Château de Laubade","positionnement":"Grand domaine du Bas-Armagnac (famille Lesgourgues), labellisé Entreprise du patrimoine vivant en 2015. Large gamme : XO, millésimes, Blanche, bruts de fût.","medailles":[{"concours":"Revue des Vins de France – Spiritueux de l'année","annee":"2020","niveau":"Prix"}],"prix":[{"produit":"XO 70 cl","prix":"76–78 £","ou":"jeroboams.co.uk, amathusdrinks.com","date":"relevé le 24/10/2026"},{"produit":"Millésime 1990 70 cl","prix":"129 £","ou":"amathusdrinks.com","date":"relevé le 24/10/2026"},{"produit":"Intemporel 12 ans 70 cl","prix":"61,80 €","ou":"ruedesvignerons.com","date":"relevé le 24/10/2026"}],"evolution_prix":null,"reseaux":[{"reseau":"Instagram","compte":"@laubade"},{"reseau":"Facebook","compte":"ChateauLaubade"},{"reseau":"LinkedIn","compte":"compagnie-famille-lesgourgues"},{"reseau":"YouTube","compte":"@chateau_de_laubade"}],"actualites":[{"date":"2026","texte":"Millésimes anciens (1928, 1992, 1994) proposés aux enchères chez Setdart.","source":"https://www.setdart.com/subasta/displayimage/pid=351485539.html"}],"site":"https://www.chateaudelaubade.com"},
-{"nom":"Darroze","positionnement":"Négociant-éleveur à Roquefort (Landes). Millésimes « Unique Collection » par domaine et « Grands Assemblages ». Nouvelle gamme Mixology.","medailles":[],"prix":[{"produit":"Les Grands Assemblages 20 ans 70 cl","prix":"90–92 £","ou":"thewhiskyexchange.com, hedonism.co.uk","date":"relevé le 24/10/2026"}],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"23/10/2026","texte":"Soirée « Darroze Mixology » à Capbreton avec les cocktails signature Nousté et Luzéa.","source":"https://www.guide-des-landes.com/fr/agenda/gastronomie/capbreton-63/soiree-cocktails-darroze-mixology-au-bar-du-bistro-baya-a-capbreton-170609.html"},{"date":"octobre 2026","texte":"Visites découverte de la Maison Darroze, avec une collection de 200 armagnacs.","source":"https://www.tourismelandes.com/?p=50953"}],"site":null},
-{"nom":"Dartigalongue","positionnement":"Maison familiale de Nogaro depuis 1838 (6e génération Hillion), Bas-Armagnac.","medailles":[],"prix":[{"produit":"VSOP 70 cl 42 %","prix":"47 €","ou":"lesrestos.com","date":"2026"},{"produit":"XO Signature 70 cl","prix":"79 €","ou":"lesrestos.com","date":"2026"},{"produit":"Heritage (plus de 20 ans) 70 cl","prix":"98 €","ou":"lesrestos.com","date":"2026"},{"produit":"Prestige (plus de 30 ans) 70 cl","prix":"122 €","ou":"lesrestos.com","date":"2026"}],"evolution_prix":"Relance de gamme en 2026 : nouvelle structure d'âges (de 4 à 50 ans), degré porté de 40 % à 42 %, nouvel habillage avec le monogramme « HD ».","reseaux":[],"actualites":[{"date":"2026","texte":"Nouvelle gamme d'assemblages créée par Ghislain Laffargue et Benoît Hillion, avec un coffret Experience(s) à 89 €.","source":"https://www.lesrestos.com/restaurant/special/encore-d-autres-boissons-pour-2026"}],"site":null},
-{"nom":"Delord","positionnement":"Maison familiale de Lannepax, fondée en 1893. A racheté le Domaine de Galaubas (75 ha) en 2020. Jérôme Delord préside le BNIA.","medailles":[],"prix":[{"produit":"Brut de fût 2012 Baco 70 cl (coffret bois)","prix":"95 €","ou":"offre de fêtes Delord","date":"décembre 2025"}],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"décembre 2025","texte":"Offre de fin d'année : 25 ans d'âge et Brut de fût 2012 Baco.","source":"https://www.lapassionduvin.com/spiritueux-et-cigares/48606-armagnac-delord"}],"site":null},
-{"nom":"Domaine Boingnères","positionnement":"Référence artisanale du Bas-Armagnac (Le Frêche, Martine Lafitte). Folle blanche, brut de fût.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"juillet 2026","texte":"Un millésime 1985 Cépages Nobles figure parmi les nouveautés de juillet 2026 d'un caviste américain.","source":"https://www.blackwellswines.com/collections/july-2026-new-releases/products/domaine-boingneres-1985-cepages-nobles-bas-armagnac-750ml"}],"site":null},
-{"nom":"Baron de Sigognac","positionnement":"Marque du Domaine de Bordeneuve (Bas-Armagnac), large offre de millésimes pour les cadeaux d'anniversaire.","medailles":[{"concours":"LUXlife Food & Drink Awards","annee":"2024","produit":"Domaine de Bordeneuve","niveau":"Artisan Armagnac Distillery of the Year"}],"prix":[{"produit":"Millésime 1989 70 cl","prix":"93 £","ou":"hedonism.co.uk","date":"relevé le 24/10/2026"},{"produit":"Millésime 1988 70 cl","prix":"95 £","ou":"hedonism.co.uk","date":"relevé le 24/10/2026"},{"produit":"Millésime 1986 70 cl","prix":"94,95 £","ou":"masterofmalt.com","date":"relevé le 24/10/2026"}],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Château du Tariquet","positionnement":"Domaine Grassa (Eauze), Bas-Armagnac 100 % propriété. Grande diffusion en grande surface et à l'export.","medailles":[],"prix":[{"produit":"XO 70 cl","prix":"57–76 € selon la fiche","ou":"bienmanger.com","date":"relevé le 24/10/2026"},{"produit":"XO 70 cl","prix":"48 £ (28 £ en promotion chez Waitrose)","ou":"tanners-wines.co.uk","date":"relevé le 24/10/2026"}],"evolution_prix":null,"reseaux":[{"reseau":"Instagram","compte":"@domaine_tariquet"},{"reseau":"LinkedIn","compte":"domaine-tariquet"}],"actualites":[],"site":"https://www.tariquet.com"},
-{"nom":"Janneau","positionnement":"Grande marque de négoce (Condom). VS, VSOP, XO et millésimes, avec une stratégie duty free.","medailles":[],"prix":[{"produit":"VSOP 70 cl","prix":"41,95 € / 42,99 £","ou":"garrafeiranacional.com, thebottleclub.com","date":"relevé le 24/10/2026"}],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Castarède","positionnement":"Maison de négoce fondée en 1832, Château de Maniban (Mauléon-d'Armagnac). Millésimes depuis 1893, VS à 42,5 %, Blanche.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"14/08/2026","texte":"Reprise par le groupe Maisons & Manufactures (filiale d'Enowe) pour assurer la pérennité de la maison.","source":"https://fusacq.com/buzz/armagnac-castarede-repris-par-le-groupe-maisons-et-manufactures-a260257"}],"site":null},
-{"nom":"Marie Duffau","positionnement":"Marque Bas-Armagnac d'entrée et de milieu de gamme, distillée en alambic à colonne, forte présence en Amérique du Nord.","medailles":[{"concours":"Ultimate Spirits Challenge","annee":"2019","produit":"Hors d'Âge","niveau":"97 pts, Chairman's Trophy"}],"prix":[{"produit":"Napoléon 75 cl","prix":"41,99 $","ou":"détaillants américains","date":"relevé le 24/10/2026"}],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Château de Lacquy","positionnement":"Plus ancienne propriété familiale de l'armagnac (depuis 1711). Folle blanche et baco, bruts de fût, sans additifs.","medailles":[{"concours":"IWSC","annee":"2025","produit":"Millésime 2007 Bas-Armagnac","niveau":"Gold Outstanding (98 pts)"}],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"26/09/2026","texte":"Journée « Chai ouvert ! » avec visite et dégustation gratuite.","source":"https://www.tourismelandes.com/?p=772651"}],"site":null},
-{"nom":"Domaine d'Ognoas","positionnement":"Domaine départemental des Landes (650 ha), avec le plus vieil alambic de Gascogne (1804).","medailles":[{"concours":"Talents de l'Armagnac","annee":"2023","niveau":"médailles"}],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Clés des Ducs","positionnement":"Marque grand public, positionnée sur la grande distribution.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"2026","texte":"XO classé n°1 dans le comparatif armagnac 2026 de Meilleurtest.","source":"https://meilleurtest.fr/comparatif-armagnac/"}],"site":null},
-{"nom":"Larressingle","positionnement":"Maison fondée en 1837, assemblages Ténarèze et Bas-Armagnac. Le propriétaire actuel varie selon les sources.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Samalens","positionnement":"Distillerie de Laujuzan (1882), Bas-Armagnac. Diversifiée en whisky (Tchankat), gin et brandy.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Château de Pellehaut","positionnement":"Domaine Béraut (Montréal-du-Gers, Ténarèze). Folle blanche depuis 1997 ; millésimes 1990 et 2000 mis en bouteille en 2022.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[],"site":null},
-{"nom":"Domaine de Baraillon","positionnement":"Petit domaine artisanal (famille Claverie, 16 ha), apprécié des embouteilleurs indépendants.","medailles":[],"prix":[],"evolution_prix":null,"reseaux":[],"actualites":[{"date":"04/04/2025","texte":"Critique d'un 2002 fini en fût de rhum, vendu comme « eau-de-vie de raisin » par Swell de Spirits.","source":"https://moredramslessdrama.com/2025/04/04/an-armagnac-and-a-not-armagnac-swell-de-spirits/"}],"site":null}],
-"limites":"Aucun nombre d'abonnés n'est accessible publiquement sans connexion aux réseaux : seuls les comptes sont indiqués. Les palmarès 2025-2026 du Concours Général Agricole, de San Francisco, ISW, World Brandy Awards et Spirits Selection n'ont pas été trouvés en ligne pour l'armagnac. Les prix en £ et en $ viennent de cavistes étrangers, relevés le 24/10/2026.",
-"sources":[{"titre":"IWSC 2025 – Armagnac's time to shine","url":"https://www.iwsc.net/news/spirits/iwsc-2025-armagnacs-time-to-shine"},{"titre":"IWSC 2025 Spirits Trophy Winners","url":"https://iwsc.net/news/spirits/iwsc-reveals-2025-spirits-trophy-winners"},{"titre":"Réussir – droits de 32,2 % vers la Chine","url":"https://www.reussir.fr/vigne/cognac-et-armagnac-des-droits-de-douane-de-322-vers-la-chine"},{"titre":"LSA – exportations 2025 en baisse de 8 %","url":"https://www.lsa-conso.fr/wine-paris-les-exportations-francaises-de-vins-et-spiritueux-sont-en-baisse-de-8-en-2025,464376"},{"titre":"Medias24/AFP – droits américains et armagnac","url":"https://medias24.com/agence-presse/la-hausse-des-droits-de-douane-aux-etats-unis-fragilise-encore-larmagnac/"},{"titre":"Réussir – doubler la production","url":"https://www.reussir.fr/vigne/larmagnac-veut-doubler-sa-production-dici-5-ans"},{"titre":"Fusacq – reprise de Castarède","url":"https://fusacq.com/buzz/armagnac-castarede-repris-par-le-groupe-maisons-et-manufactures-a260257"},{"titre":"Les Restos – nouvelle gamme Dartigalongue 2026","url":"https://www.lesrestos.com/restaurant/special/encore-d-autres-boissons-pour-2026"},{"titre":"Site Ravignan","url":"https://www.armagnac-ravignan.com"},{"titre":"Site Laubade","url":"https://www.chateaudelaubade.com"},{"titre":"Site Tariquet","url":"https://www.tariquet.com"},{"titre":"Tourisme Landes – Féria de Mont-de-Marsan 2026","url":"https://www.tourismelandes.com/?p=753510"}]}
+{
+ "mise_a_jour": "2026-10-24",
+ "tendances": [
+  {
+   "titre": "Chine : droits antidumping sur les eaux-de-vie de vin",
+   "texte": "Depuis le 5 juillet 2025, la Chine applique un droit moyen de 32,2 % sur les brandies européens, avec un régime de prix minimum. La Chine est le 2e marché de l'armagnac en valeur. Le BNIA et la FEVS ont alerté ensemble sur les effets de ces droits.",
+   "date": "juillet 2025",
+   "source": "https://www.reussir.fr/vigne/cognac-et-armagnac-des-droits-de-douane-de-322-vers-la-chine"
+  },
+  {
+   "titre": "États-Unis : droits de douane et recul des ventes",
+   "texte": "Les ventes françaises de vins et spiritueux aux États-Unis ont baissé de 21 % en 2025 (3 Md€). Les États-Unis pèsent environ 12 % des ventes des producteurs gersois (chiffre d'avril 2025). Les exportations françaises de vins et spiritueux reculent de 8 % en 2025, et la FEVS prévoit une nouvelle baisse en 2026.",
+   "date": "février 2026",
+   "source": "https://www.lsa-conso.fr/wine-paris-les-exportations-francaises-de-vins-et-spiritueux-sont-en-baisse-de-8-en-2025,464376"
+  },
+  {
+   "titre": "Chiffre d'affaires de la filière",
+   "texte": "Le chiffre d'affaires global de l'armagnac atteint près de 44 M€ en 2024 (BNIA, cité par l'AFP). En 2024, l'export a perdu plus de 15 % en valeur à cause des surtaxes chinoises. Pas encore de chiffre consolidé pour 2025.",
+   "date": "avril 2025",
+   "source": "https://medias24.com/agence-presse/la-hausse-des-droits-de-douane-aux-etats-unis-fragilise-encore-larmagnac/"
+  },
+  {
+   "titre": "Plan Armagnac 2030",
+   "texte": "Le BNIA, présidé par Jérôme Delord, vise à doubler la production en 5 ans, sur la base de 10 029 hl d'alcool pur distillés en 2021.",
+   "date": null,
+   "source": "https://www.reussir.fr/vigne/larmagnac-veut-doubler-sa-production-dici-5-ans"
+  },
+  {
+   "titre": "Blanche et cocktails",
+   "texte": "La filière mise sur la mixologie : cocktails à l'armagnac à la Féria de Mont-de-Marsan (22–26 juillet 2026), avec la participation de Ravignan, et soirées Blanche. La Fine Blanche (Château Arton) fête ses 40 ans en octobre 2026 avec une nouvelle Blanche.",
+   "date": "juillet 2026",
+   "source": "https://www.tourismelandes.com/?p=753510"
+  },
+  {
+   "titre": "Premiumisation et vieux millésimes primés",
+   "texte": "À l'IWSC 2025, XO et millésimes ont obtenu plusieurs médailles d'or. Le trophée Armagnac est allé au Marquis de Montesquiou XO (98 pts) ; Château de Lacquy 2007 a obtenu Gold Outstanding (98 pts).",
+   "date": "2025",
+   "source": "https://www.iwsc.net/news/spirits/iwsc-2025-armagnacs-time-to-shine"
+  }
+ ],
+ "marques": [
+  {
+   "nom": "Domaine de Ravignan",
+   "positionnement": "Domaine familial de Perquie (Landes), Bas-Armagnac, uniquement en millésimes. Importé aux États-Unis par Skurnik.",
+   "medailles": [],
+   "prix": [
+    {
+     "produit": "1993 70 cl (coffret)",
+     "prix": "265,10 $ (prix conseillé, en rupture)",
+     "ou": "bottleofitaly.com",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "2004 70 cl (coffret)",
+     "prix": "189,72 $ (prix conseillé, en rupture)",
+     "ou": "bottleofitaly.com",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "1991 75 cl",
+     "prix": "265,99 $",
+     "ou": "dandm.com (San Francisco)",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": "Aux États-Unis, ces millésimes sont affichés environ 1,5 à 3 fois le prix du domaine (taxes et distribution comprises) : un argument pour les ventes privées.",
+   "reseaux": [
+    {
+     "reseau": "Instagram",
+     "compte": "@armagnac_ravignan"
+    },
+    {
+     "reseau": "Facebook",
+     "compte": "armagnacravignan"
+    },
+    {
+     "reseau": "LinkedIn",
+     "compte": "armagnac-ravignan"
+    }
+   ],
+   "actualites": [
+    {
+     "date": "22/07/2026",
+     "texte": "Cocktails à l'armagnac servis à la Féria de Mont-de-Marsan (22–26 juillet).",
+     "source": "https://www.tourismelandes.com/?p=753510"
+    },
+    {
+     "date": "01/05/2026",
+     "texte": "Exposition de sculptures en bois de Nicolas de la Barre au château (1er mai–30 septembre 2026).",
+     "source": "https://www.armagnac-ravignan.com"
+    },
+    {
+     "date": "24/10/2026",
+     "texte": "Participation à « Armagnac en fête » à Labastide-d'Armagnac (24–25 octobre 2026).",
+     "source": "https://www.armagnac-ravignan.com"
+    },
+    {
+     "date": "28/11/2026",
+     "texte": "Fête de la distillation 2026 (28–29 novembre), programme à venir.",
+     "source": "https://www.armagnac-ravignan.com"
+    }
+   ],
+   "site": "https://www.armagnac-ravignan.com"
+  },
+  {
+   "nom": "Château de Laubade",
+   "positionnement": "Grand domaine du Bas-Armagnac (famille Lesgourgues), labellisé Entreprise du patrimoine vivant en 2015. Large gamme : XO, millésimes, Blanche, bruts de fût.",
+   "medailles": [
+    {
+     "concours": "Revue des Vins de France – Spiritueux de l'année",
+     "annee": "2020",
+     "niveau": "Prix"
+    }
+   ],
+   "prix": [
+    {
+     "produit": "XO 70 cl",
+     "prix": "76–78 £",
+     "ou": "jeroboams.co.uk, amathusdrinks.com",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "Millésime 1990 70 cl",
+     "prix": "129 £",
+     "ou": "amathusdrinks.com",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "Intemporel 12 ans 70 cl",
+     "prix": "61,80 €",
+     "ou": "ruedesvignerons.com",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [
+    {
+     "reseau": "Instagram",
+     "compte": "@laubade"
+    },
+    {
+     "reseau": "Facebook",
+     "compte": "ChateauLaubade"
+    },
+    {
+     "reseau": "LinkedIn",
+     "compte": "compagnie-famille-lesgourgues"
+    },
+    {
+     "reseau": "YouTube",
+     "compte": "@chateau_de_laubade"
+    }
+   ],
+   "actualites": [
+    {
+     "date": "2026",
+     "texte": "Millésimes anciens (1928, 1992, 1994) proposés aux enchères chez Setdart.",
+     "source": "https://www.setdart.com/subasta/displayimage/pid=351485539.html"
+    }
+   ],
+   "site": "https://www.chateaudelaubade.com"
+  },
+  {
+   "nom": "Darroze",
+   "positionnement": "Négociant-éleveur à Roquefort (Landes). Millésimes « Unique Collection » par domaine et « Grands Assemblages ». Nouvelle gamme Mixology.",
+   "medailles": [],
+   "prix": [
+    {
+     "produit": "Les Grands Assemblages 20 ans 70 cl",
+     "prix": "90–92 £",
+     "ou": "thewhiskyexchange.com, hedonism.co.uk",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "23/10/2026",
+     "texte": "Soirée « Darroze Mixology » à Capbreton avec les cocktails signature Nousté et Luzéa.",
+     "source": "https://www.guide-des-landes.com/fr/agenda/gastronomie/capbreton-63/soiree-cocktails-darroze-mixology-au-bar-du-bistro-baya-a-capbreton-170609.html"
+    },
+    {
+     "date": "octobre 2026",
+     "texte": "Visites découverte de la Maison Darroze, avec une collection de 200 armagnacs.",
+     "source": "https://www.tourismelandes.com/?p=50953"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Dartigalongue",
+   "positionnement": "Maison familiale de Nogaro depuis 1838 (6e génération Hillion), Bas-Armagnac.",
+   "medailles": [],
+   "prix": [
+    {
+     "produit": "VSOP 70 cl 42 %",
+     "prix": "47 €",
+     "ou": "lesrestos.com",
+     "date": "2026"
+    },
+    {
+     "produit": "XO Signature 70 cl",
+     "prix": "79 €",
+     "ou": "lesrestos.com",
+     "date": "2026"
+    },
+    {
+     "produit": "Heritage (plus de 20 ans) 70 cl",
+     "prix": "98 €",
+     "ou": "lesrestos.com",
+     "date": "2026"
+    },
+    {
+     "produit": "Prestige (plus de 30 ans) 70 cl",
+     "prix": "122 €",
+     "ou": "lesrestos.com",
+     "date": "2026"
+    }
+   ],
+   "evolution_prix": "Relance de gamme en 2026 : nouvelle structure d'âges (de 4 à 50 ans), degré porté de 40 % à 42 %, nouvel habillage avec le monogramme « HD ».",
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "2026",
+     "texte": "Nouvelle gamme d'assemblages créée par Ghislain Laffargue et Benoît Hillion, avec un coffret Experience(s) à 89 €.",
+     "source": "https://www.lesrestos.com/restaurant/special/encore-d-autres-boissons-pour-2026"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Delord",
+   "positionnement": "Maison familiale de Lannepax, fondée en 1893. A racheté le Domaine de Galaubas (75 ha) en 2020. Jérôme Delord préside le BNIA.",
+   "medailles": [],
+   "prix": [
+    {
+     "produit": "Brut de fût 2012 Baco 70 cl (coffret bois)",
+     "prix": "95 €",
+     "ou": "offre de fêtes Delord",
+     "date": "décembre 2025"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "décembre 2025",
+     "texte": "Offre de fin d'année : 25 ans d'âge et Brut de fût 2012 Baco.",
+     "source": "https://www.lapassionduvin.com/spiritueux-et-cigares/48606-armagnac-delord"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Domaine Boingnères",
+   "positionnement": "Référence artisanale du Bas-Armagnac (Le Frêche, Martine Lafitte). Folle blanche, brut de fût.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "juillet 2026",
+     "texte": "Un millésime 1985 Cépages Nobles figure parmi les nouveautés de juillet 2026 d'un caviste américain.",
+     "source": "https://www.blackwellswines.com/collections/july-2026-new-releases/products/domaine-boingneres-1985-cepages-nobles-bas-armagnac-750ml"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Baron de Sigognac",
+   "positionnement": "Marque du Domaine de Bordeneuve (Bas-Armagnac), large offre de millésimes pour les cadeaux d'anniversaire.",
+   "medailles": [
+    {
+     "concours": "LUXlife Food & Drink Awards",
+     "annee": "2024",
+     "produit": "Domaine de Bordeneuve",
+     "niveau": "Artisan Armagnac Distillery of the Year"
+    }
+   ],
+   "prix": [
+    {
+     "produit": "Millésime 1989 70 cl",
+     "prix": "93 £",
+     "ou": "hedonism.co.uk",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "Millésime 1988 70 cl",
+     "prix": "95 £",
+     "ou": "hedonism.co.uk",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "Millésime 1986 70 cl",
+     "prix": "94,95 £",
+     "ou": "masterofmalt.com",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Château du Tariquet",
+   "positionnement": "Domaine Grassa (Eauze), Bas-Armagnac 100 % propriété. Grande diffusion en grande surface et à l'export.",
+   "medailles": [],
+   "prix": [
+    {
+     "produit": "XO 70 cl",
+     "prix": "57–76 € selon la fiche",
+     "ou": "bienmanger.com",
+     "date": "relevé le 24/10/2026"
+    },
+    {
+     "produit": "XO 70 cl",
+     "prix": "48 £ (28 £ en promotion chez Waitrose)",
+     "ou": "tanners-wines.co.uk",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [
+    {
+     "reseau": "Instagram",
+     "compte": "@domaine_tariquet"
+    },
+    {
+     "reseau": "LinkedIn",
+     "compte": "domaine-tariquet"
+    }
+   ],
+   "actualites": [],
+   "site": "https://www.tariquet.com"
+  },
+  {
+   "nom": "Janneau",
+   "positionnement": "Grande marque de négoce (Condom). VS, VSOP, XO et millésimes, avec une stratégie duty free.",
+   "medailles": [],
+   "prix": [
+    {
+     "produit": "VSOP 70 cl",
+     "prix": "41,95 € / 42,99 £",
+     "ou": "garrafeiranacional.com, thebottleclub.com",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Castarède",
+   "positionnement": "Maison de négoce fondée en 1832, Château de Maniban (Mauléon-d'Armagnac). Millésimes depuis 1893, VS à 42,5 %, Blanche.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "14/08/2026",
+     "texte": "Reprise par le groupe Maisons & Manufactures (filiale d'Enowe) pour assurer la pérennité de la maison.",
+     "source": "https://fusacq.com/buzz/armagnac-castarede-repris-par-le-groupe-maisons-et-manufactures-a260257"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Marie Duffau",
+   "positionnement": "Marque Bas-Armagnac d'entrée et de milieu de gamme, distillée en alambic à colonne, forte présence en Amérique du Nord.",
+   "medailles": [
+    {
+     "concours": "Ultimate Spirits Challenge",
+     "annee": "2019",
+     "produit": "Hors d'Âge",
+     "niveau": "97 pts, Chairman's Trophy"
+    }
+   ],
+   "prix": [
+    {
+     "produit": "Napoléon 75 cl",
+     "prix": "41,99 $",
+     "ou": "détaillants américains",
+     "date": "relevé le 24/10/2026"
+    }
+   ],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Château de Lacquy",
+   "positionnement": "Plus ancienne propriété familiale de l'armagnac (depuis 1711). Folle blanche et baco, bruts de fût, sans additifs.",
+   "medailles": [
+    {
+     "concours": "IWSC",
+     "annee": "2025",
+     "produit": "Millésime 2007 Bas-Armagnac",
+     "niveau": "Gold Outstanding (98 pts)"
+    }
+   ],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "26/09/2026",
+     "texte": "Journée « Chai ouvert ! » avec visite et dégustation gratuite.",
+     "source": "https://www.tourismelandes.com/?p=772651"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Domaine d'Ognoas",
+   "positionnement": "Domaine départemental des Landes (650 ha), avec le plus vieil alambic de Gascogne (1804).",
+   "medailles": [
+    {
+     "concours": "Talents de l'Armagnac",
+     "annee": "2023",
+     "niveau": "médailles"
+    }
+   ],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Clés des Ducs",
+   "positionnement": "Marque grand public, positionnée sur la grande distribution.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "2026",
+     "texte": "XO classé n°1 dans le comparatif armagnac 2026 de Meilleurtest.",
+     "source": "https://meilleurtest.fr/comparatif-armagnac/"
+    }
+   ],
+   "site": null
+  },
+  {
+   "nom": "Larressingle",
+   "positionnement": "Maison fondée en 1837, assemblages Ténarèze et Bas-Armagnac. Le propriétaire actuel varie selon les sources.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Samalens",
+   "positionnement": "Distillerie de Laujuzan (1882), Bas-Armagnac. Diversifiée en whisky (Tchankat), gin et brandy.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Château de Pellehaut",
+   "positionnement": "Domaine Béraut (Montréal-du-Gers, Ténarèze). Folle blanche depuis 1997 ; millésimes 1990 et 2000 mis en bouteille en 2022.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [],
+   "site": null
+  },
+  {
+   "nom": "Domaine de Baraillon",
+   "positionnement": "Petit domaine artisanal (famille Claverie, 16 ha), apprécié des embouteilleurs indépendants.",
+   "medailles": [],
+   "prix": [],
+   "evolution_prix": null,
+   "reseaux": [],
+   "actualites": [
+    {
+     "date": "04/04/2025",
+     "texte": "Critique d'un 2002 fini en fût de rhum, vendu comme « eau-de-vie de raisin » par Swell de Spirits.",
+     "source": "https://moredramslessdrama.com/2025/04/04/an-armagnac-and-a-not-armagnac-swell-de-spirits/"
+    }
+   ],
+   "site": null
+  }
+ ],
+ "limites": "Aucun nombre d'abonnés n'est accessible publiquement sans connexion aux réseaux : seuls les comptes sont indiqués. Les palmarès 2025-2026 du Concours Général Agricole, de San Francisco, ISW, World Brandy Awards et Spirits Selection n'ont pas été trouvés en ligne pour l'armagnac. Les prix en £ et en $ viennent de cavistes étrangers, relevés le 24/10/2026.",
+ "sources": [
+  {
+   "titre": "IWSC 2025 – Armagnac's time to shine",
+   "url": "https://www.iwsc.net/news/spirits/iwsc-2025-armagnacs-time-to-shine"
+  },
+  {
+   "titre": "IWSC 2025 Spirits Trophy Winners",
+   "url": "https://iwsc.net/news/spirits/iwsc-reveals-2025-spirits-trophy-winners"
+  },
+  {
+   "titre": "Réussir – droits de 32,2 % vers la Chine",
+   "url": "https://www.reussir.fr/vigne/cognac-et-armagnac-des-droits-de-douane-de-322-vers-la-chine"
+  },
+  {
+   "titre": "LSA – exportations 2025 en baisse de 8 %",
+   "url": "https://www.lsa-conso.fr/wine-paris-les-exportations-francaises-de-vins-et-spiritueux-sont-en-baisse-de-8-en-2025,464376"
+  },
+  {
+   "titre": "Medias24/AFP – droits américains et armagnac",
+   "url": "https://medias24.com/agence-presse/la-hausse-des-droits-de-douane-aux-etats-unis-fragilise-encore-larmagnac/"
+  },
+  {
+   "titre": "Réussir – doubler la production",
+   "url": "https://www.reussir.fr/vigne/larmagnac-veut-doubler-sa-production-dici-5-ans"
+  },
+  {
+   "titre": "Fusacq – reprise de Castarède",
+   "url": "https://fusacq.com/buzz/armagnac-castarede-repris-par-le-groupe-maisons-et-manufactures-a260257"
+  },
+  {
+   "titre": "Les Restos – nouvelle gamme Dartigalongue 2026",
+   "url": "https://www.lesrestos.com/restaurant/special/encore-d-autres-boissons-pour-2026"
+  },
+  {
+   "titre": "Site Ravignan",
+   "url": "https://www.armagnac-ravignan.com"
+  },
+  {
+   "titre": "Site Laubade",
+   "url": "https://www.chateaudelaubade.com"
+  },
+  {
+   "titre": "Site Tariquet",
+   "url": "https://www.tariquet.com"
+  },
+  {
+   "titre": "Tourisme Landes – Féria de Mont-de-Marsan 2026",
+   "url": "https://www.tourismelandes.com/?p=753510"
+  }
+ ],
+ "graphiques": {
+  "export": {
+   "parts": [
+    {
+     "nom": "Russie",
+     "v": 24,
+     "lab": "24 %",
+     "cls": "s1"
+    },
+    {
+     "nom": "États-Unis",
+     "v": 14,
+     "lab": "14 %",
+     "cls": "s2"
+    },
+    {
+     "nom": "Chine",
+     "v": 8,
+     "lab": "8 %",
+     "cls": "s3"
+    },
+    {
+     "nom": "Autres pays",
+     "v": 54,
+     "lab": "54 %",
+     "cls": "s0"
+    }
+   ],
+   "note": "Source : BNIA cité par l'AFP (2025). Les parts de marché par marque ne sont pas publiées par la filière."
+  },
+  "terroirs": {
+   "parts": [
+    {
+     "nom": "Bas-Armagnac",
+     "v": 62,
+     "lab": "≈ 57 à 67 %",
+     "cls": "s1"
+    },
+    {
+     "nom": "Ténarèze",
+     "v": 36,
+     "lab": "≈ 32 à 40 %",
+     "cls": "s2"
+    },
+    {
+     "nom": "Haut-Armagnac",
+     "v": 2,
+     "lab": "≈ 1 à 2 %",
+     "cls": "s3"
+    }
+   ],
+   "note": "Fourchettes selon les sources (Wikipédia, Tourisme Landes) ; le graphique utilise le milieu de chaque fourchette."
+  },
+  "prix_age": {
+   "points": [
+    {
+     "x": 27,
+     "y": 72,
+     "label": "Darroze Domaine de Pouteou 1999"
+    },
+    {
+     "x": 27,
+     "y": 105,
+     "label": "Château de Laubade 1999"
+    },
+    {
+     "x": 12,
+     "y": 61.8,
+     "label": "Laubade Intemporel 12 ans"
+    },
+    {
+     "x": 10,
+     "y": 79,
+     "label": "Dartigalongue XO Signature (10 ans et plus)"
+    },
+    {
+     "x": 20,
+     "y": 98,
+     "label": "Dartigalongue Heritage (20 ans et plus)"
+    },
+    {
+     "x": 30,
+     "y": 122,
+     "label": "Dartigalongue Prestige (30 ans et plus)"
+    },
+    {
+     "x": 10,
+     "y": 57,
+     "label": "Tariquet XO (10 ans et plus)"
+    }
+   ],
+   "note": "Prix publics relevés en France en 2026 (70 cl). Pour les assemblages, l'âge indiqué est le minimum légal. Les prix relevés à l'étranger, en £ ou en $, ne sont pas reportés ici."
+  }
+ }
+}
