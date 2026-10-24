@@ -104,6 +104,33 @@ table.planning{border-collapse:separate;border-spacing:2px;font-size:12px;min-wi
 .sheet-photo{width:100%;border-radius:12px;aspect-ratio:4/3;object-fit:cover;background:var(--sunk)}
 .resa{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-top:1px solid var(--line);flex-wrap:wrap}
 body.modal-open #flash{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:40;max-width:520px}
+ul.plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;line-height:1.45}
+ol.args{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;line-height:1.45}
+.lead{font-size:15px;line-height:1.55;max-width:70ch}
+.mill{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid var(--line);line-height:1.5}
+.mill:first-of-type{border-top:none}
+.mill h3,.room h3{margin:0}
+.mill h3{font-size:15px;font-weight:800}
+details.faq{border-top:1px solid var(--line);padding:8px 0}
+details.faq summary,details.sources summary,details.marque summary{cursor:pointer;font-weight:700;list-style-position:outside}
+details.faq p{margin:6px 0 0;line-height:1.5}
+.tbl td.b{font-weight:700}
+.grid-2c{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.grid-3c{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.grid-3c .card p,.grid-2c .card p{margin:0;line-height:1.5}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.room.moi,.card.moi{border-color:var(--accent);background:var(--accent-soft)}
+.dmap-wrap{overflow:hidden;border-radius:12px;background:var(--sunk)}
+.dmap{display:block;width:100%;height:auto;max-height:520px}
+.dmap .pt{fill:var(--muted);stroke:var(--surface);stroke-width:2;cursor:pointer}
+.dmap .pt:hover,.dmap g:focus .pt{fill:var(--fg)}
+.dmap .pt.moi{fill:var(--accent)}
+.dmap .pt-lab{fill:var(--accent-ink);font-size:16px;font-weight:800}
+details.marque summary{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.marque-nom{font-size:16px;font-weight:800}
+h3.sub{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.actu{display:flex;flex-direction:column;gap:2px;padding:6px 0;border-top:1px solid var(--line)}
+.actu p{margin:0;line-height:1.45}
 .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)}
 .hdr{background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
 .hdr h1{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-wrap:balance}
@@ -197,6 +224,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="brand"><span class="brand-mark">Armagnac</span><span class="brand-name">Domaine de Ravignan</span></div>
     <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes</button>
     <button class="nav-item" data-nav="chambres"><span class="nav-ico" aria-hidden="true">🛏️</span>Chambres</button>
+    <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
+    <button class="nav-item" data-nav="region"><span class="nav-ico" aria-hidden="true">🗺️</span>Région et domaines</button>
+    <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
     <button class="nav-item" data-nav="admin" hidden><span class="nav-ico" aria-hidden="true">📊</span>Administration</button>
     <div class="side-foot"><span id="side-user" class="muted"></span><button class="link" id="btn-logout" hidden>Se déconnecter</button></div>
   </nav>
@@ -263,7 +293,7 @@ let saisieProdCard=null, horsOpen=false;
 let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
 const isAdmin=()=>isOwner;
 const LIVE_PAGES=["home","vente","admin"];
-const TOP_PAGES=["home","chambres","admin"];
+const TOP_PAGES=["home","chambres","admin","aide","region","benchmark"];
 let chambres=[], chFilter="all", chQuery="";
 
 /* ---------- menu ---------- */
@@ -272,7 +302,7 @@ function setMenu(open){
   qs("#btn-menu").setAttribute("aria-expanded",String(open));
 }
 function updateNav(){
-  const section=page==="chambres"?"chambres":page==="admin"?"admin":"home";
+  const section=TOP_PAGES.includes(page)?page:"home";
   document.querySelectorAll(".nav-item").forEach(b=>{
     b.classList.toggle("active",b.dataset.nav===section);
     b.hidden=false;
@@ -317,14 +347,17 @@ function render(){
     if(page==="saisie")go("vente",venteId);
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres"};
+  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",region:"Région et domaines",benchmark:"Benchmark"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
-  m.classList.toggle("wide",page==="chambres"||page==="admin");
+  m.classList.toggle("wide",["chambres","admin","aide","region","benchmark"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
-  if(page==="chambres")renderChambres(m);
+  if(page==="aide")renderAide(m);
+  else if(page==="region")renderRegion(m);
+  else if(page==="benchmark")renderBenchmark(m);
+  else if(page==="chambres")renderChambres(m);
   else if(page==="admin"){if(isAdmin())renderAdmin(m);else renderAuth(m);}
   else if(page==="home")renderHome(m);
   else if(page==="new-vente")renderNewVente(m);
@@ -1094,6 +1127,154 @@ async function supprimerResa(id){
   finally{busy=false;renderRoomModal();}
 }
 const renderChambresList=refreshChambres;
+
+/* ---------- pages de contenu : aide à la vente, région, benchmark ----------
+   Le contenu vient de contenu/*.json (mis à jour sans toucher au code). */
+const contenus={};
+async function chargerContenu(nom){
+  if(contenus[nom])return contenus[nom];
+  const r=await fetch("contenu/"+nom+".json",{cache:"no-cache"});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return (contenus[nom]=await r.json());
+}
+function pageContenu(m,nom,dessiner){
+  const zone=el("div","stack");zone.appendChild(el("div","empty","Chargement…"));m.appendChild(zone);
+  chargerContenu(nom).then(d=>{if(!zone.isConnected)return;zone.innerHTML="";dessiner(zone,d);})
+    .catch(()=>{zone.innerHTML="";zone.appendChild(el("div","empty","Contenu indisponible pour le moment. Vérifiez la connexion et rechargez la page."));});
+}
+const txt=(tag,cls,t)=>{const e=el(tag,cls);e.textContent=t??"";return e;};
+function lien(url,label){
+  if(!url||!/^https?:\/\//.test(url))return txt("span","muted",label||"");
+  const a=el("a","map-link");a.href=url;a.target="_blank";a.rel="noopener";a.textContent=(label||url.replace(/^https?:\/\/(www\.)?/,"").split("/")[0])+" ↗";return a;
+}
+function carte(titre,cls){const c=el("div","card"+(cls?" "+cls:""));if(titre)c.appendChild(txt("h2","",titre));return c;}
+function listeSimple(items){const u=el("ul","plain");(items||[]).forEach(i=>u.appendChild(txt("li","",i)));return u;}
+function blocSources(z,sources){
+  if(!sources||!sources.length)return;
+  const d=el("details","card sources");d.appendChild(txt("summary","","Sources ("+sources.length+")"));
+  const u=el("ul","plain");sources.forEach(s=>{const li=el("li");li.appendChild(lien(s.url,s.titre||s.url));u.appendChild(li);});
+  d.appendChild(u);z.appendChild(d);
+}
+
+/* Aide à la vente */
+function renderAide(m){pageContenu(m,"aide-vente",(z,d)=>{
+  if(d.domaine){const c=carte("Le domaine en bref","soft");c.appendChild(txt("p","lead",d.domaine.resume));if(d.domaine.points?.length)c.appendChild(listeSimple(d.domaine.points));z.appendChild(c);}
+  if(d.arguments?.length){const c=carte("Arguments de vente");const o=el("ol","args");d.arguments.forEach(a=>o.appendChild(txt("li","",a)));c.appendChild(o);z.appendChild(c);}
+  if(d.objections?.length){
+    const c=carte("Répondre aux objections");
+    d.objections.forEach(o=>{const de=el("details","faq");de.appendChild(txt("summary","",o.objection));de.appendChild(txt("p","",o.reponse));c.appendChild(de);});
+    z.appendChild(c);
+  }
+  // millésimes : notes de dégustation + prix du catalogue
+  const notes=Object.fromEntries((d.millesimes||[]).map(x=>[String(x.annee),x]));
+  const cm=carte("Les millésimes");
+  MILL.forEach(mi=>{
+    const n=notes[mi.an];const age=new Date().getFullYear()-(+mi.an);
+    const b=el("div","mill");
+    const h=el("div","row");h.appendChild(txt("h3","",mi.an+" · "+age+" ans"));
+    h.appendChild(txt("span","num muted",mi.formats.map(f=>f.f+" "+fmt(f.p)).join(" · ")));b.appendChild(h);
+    if(n){b.appendChild(txt("p","",n.note));if(!n.specifique)b.appendChild(txt("p","tag","Profil général selon l'âge"));if(n.source)b.appendChild(lien(n.source,"source"));}
+    else b.appendChild(txt("p","muted","Pas encore de note de dégustation."));
+    cm.appendChild(b);
+  });
+  const reperes=(d.millesimes||[]).filter(x=>!x.specifique);
+  if(reperes.length){cm.appendChild(txt("h3","sub","Repères généraux par âge"));reperes.forEach(r=>{const b=el("div","mill");b.appendChild(txt("h3","",r.annee));b.appendChild(txt("p","",r.note));cm.appendChild(b);});}
+  z.appendChild(cm);
+  if(d.autres_produits?.length){const c=carte("Les autres produits");d.autres_produits.forEach(p=>{const b=el("div","mill");b.appendChild(txt("h3","",p.nom));b.appendChild(txt("p","",p.description));c.appendChild(b);});z.appendChild(c);}
+  if(d.positionnement_armagnac?.length){
+    const c=carte("Face aux autres armagnacs");const w=el("div","tbl-wrap");const t=el("table","tbl");
+    t.innerHTML="<thead><tr><th>Maison</th><th>Style</th><th>Prix indicatif</th><th>Comparé à Ravignan</th></tr></thead>";
+    const tb=el("tbody");d.positionnement_armagnac.forEach(p=>{const tr=el("tr");[p.marque,p.style,p.prix_indicatif,p.comparaison].forEach((v,i)=>{const td=txt("td",i===0?"b":"",v);tr.appendChild(td);});tb.appendChild(tr);});
+    t.appendChild(tb);w.appendChild(t);c.appendChild(w);z.appendChild(c);
+  }
+  if(d.face_aux_autres_alcools?.length){const c=carte("Face aux autres alcools");d.face_aux_autres_alcools.forEach(a=>{const b=el("div","mill");b.appendChild(txt("h3","",a.alcool));b.appendChild(txt("p","",a.argument));c.appendChild(b);});z.appendChild(c);}
+  const g=el("div","grid-2c");
+  if(d.service?.length){const c=carte("Servir");c.appendChild(listeSimple(d.service));g.appendChild(c);}
+  if(d.accords?.length){const c=carte("Accords");c.appendChild(listeSimple(d.accords));g.appendChild(c);}
+  if(g.children.length)z.appendChild(g);
+  blocSources(z,d.sources);
+});}
+
+/* Région et domaines */
+let regionFiltre="tous", regionQuery="";
+function renderRegion(m){pageContenu(m,"region",(z,d)=>{
+  if(d.appellation){
+    const c=carte("L'appellation Armagnac","soft");c.appendChild(txt("p","lead",d.appellation.resume));
+    (d.appellation.points||[]).forEach(p=>{const b=el("div","mill");b.appendChild(txt("h3","",p.titre));b.appendChild(txt("p","",p.texte));c.appendChild(b);});
+    z.appendChild(c);
+    if(d.appellation.chiffres?.length){const k=el("div","kpis");d.appellation.chiffres.forEach(x=>{const e=el("div","kpi");e.appendChild(txt("div","val num",x.valeur));e.appendChild(txt("div","lab",x.libelle));k.appendChild(e);});z.appendChild(k);}
+  }
+  if(d.terroirs?.length){const g=el("div","grid-3c");d.terroirs.forEach(t=>{const c=carte(t.nom);c.appendChild(txt("p","",t.sols));c.appendChild(txt("p","muted",t.style));if(t.communes_cles)c.appendChild(txt("p","muted","Communes : "+t.communes_cles));g.appendChild(c);});z.appendChild(g);}
+  const doms=(d.domaines||[]).filter(x=>typeof x.lat==="number"&&typeof x.lng==="number");
+  if(doms.length)z.appendChild(carteDomaines(doms));
+  if(d.domaines?.length){
+    const c=carte("Les maisons d'armagnac ("+d.domaines.length+")");
+    const s=el("input","search");s.type="search";s.placeholder="Rechercher une maison ou une commune";s.value=regionQuery;
+    const chips=el("div","chips");const liste=el("div","rooms");
+    const terroirs=["tous",...new Set(d.domaines.map(x=>x.terroir).filter(Boolean))];
+    const dessiner=()=>{liste.innerHTML="";const q=regionQuery.toLowerCase();
+      d.domaines.filter(x=>(regionFiltre==="tous"||x.terroir===regionFiltre)&&(!q||[x.nom,x.commune,x.particularite].join(" ").toLowerCase().includes(q)))
+        .forEach(x=>{const r=el("div","room"+(/ravignan/i.test(x.nom)?" moi":""));r.appendChild(txt("h3","",x.nom));
+          const meta=el("div","meta");[x.commune,x.terroir,x.type].filter(Boolean).forEach(v=>meta.appendChild(txt("span","tag",v)));r.appendChild(meta);
+          if(x.particularite)r.appendChild(txt("p","who",x.particularite));if(x.site)r.appendChild(lien(x.site));liste.appendChild(r);});
+      if(!liste.children.length)liste.appendChild(el("div","empty","Aucun résultat."));};
+    terroirs.forEach(t=>{const b=txt("button","chip"+(regionFiltre===t?" sel":""),t==="tous"?"Toutes":t);b.onclick=()=>{regionFiltre=t;chips.querySelectorAll(".chip").forEach(x=>x.classList.toggle("sel",x===b));dessiner();};chips.appendChild(b);});
+    s.oninput=()=>{regionQuery=s.value;dessiner();};
+    c.appendChild(s);c.appendChild(chips);c.appendChild(liste);dessiner();z.appendChild(c);
+  }
+  if(d.mentions_age?.length){const c=carte("Les mentions d'âge");const w=el("div","tbl-wrap");const t=el("table","tbl");const tb=el("tbody");d.mentions_age.forEach(x=>{const tr=el("tr");tr.appendChild(txt("td","b",x.mention));tr.appendChild(txt("td","",x.definition));tb.appendChild(tr);});t.appendChild(tb);w.appendChild(t);c.appendChild(w);z.appendChild(c);}
+  if(d.lieux?.length){const c=carte("Lieux et rendez-vous");d.lieux.forEach(l=>{const b=el("div","mill");b.appendChild(txt("h3","",l.nom));b.appendChild(txt("p","",l.description));c.appendChild(b);});z.appendChild(c);}
+  blocSources(z,d.sources);
+});}
+// petite carte schématique : chaque maison placée d'après sa latitude / longitude
+function carteDomaines(doms){
+  const c=carte("Carte des maisons");
+  const lats=doms.map(x=>x.lat),lngs=doms.map(x=>x.lng);
+  const pad=0.08,minLat=Math.min(...lats)-pad,maxLat=Math.max(...lats)+pad,minLng=Math.min(...lngs)-pad,maxLng=Math.max(...lngs)+pad;
+  const W=800,kx=Math.cos((minLat+maxLat)/2*Math.PI/180),H=Math.round(W*(maxLat-minLat)/((maxLng-minLng)*kx));
+  const X=l=>(l-minLng)/(maxLng-minLng)*W,Y=l=>(maxLat-l)/(maxLat-minLat)*H;
+  const NS="http://www.w3.org/2000/svg";const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.setAttribute("class","dmap");svg.setAttribute("role","img");svg.setAttribute("aria-label","Carte schématique des maisons d'armagnac");
+  const info=txt("p","muted","Touchez un point pour voir la maison. Le point orange est Ravignan.");
+  doms.forEach(x=>{
+    const moi=/ravignan/i.test(x.nom);const g=document.createElementNS(NS,"g");g.setAttribute("tabindex","0");
+    const ci=document.createElementNS(NS,"circle");ci.setAttribute("cx",X(x.lng));ci.setAttribute("cy",Y(x.lat));ci.setAttribute("r",moi?10:6);ci.setAttribute("class",moi?"pt moi":"pt");
+    const ti=document.createElementNS(NS,"title");ti.textContent=x.nom+" · "+(x.commune||"");ci.appendChild(ti);g.appendChild(ci);
+    if(moi){const t=document.createElementNS(NS,"text");t.setAttribute("x",X(x.lng)+14);t.setAttribute("y",Y(x.lat)+5);t.setAttribute("class","pt-lab");t.textContent="Ravignan";g.appendChild(t);}
+    const voir=()=>{info.textContent=x.nom+" — "+[x.commune,x.terroir].filter(Boolean).join(", ")+(x.particularite?" · "+x.particularite:"");};
+    g.onclick=voir;g.onkeydown=e=>{if(e.key==="Enter")voir();};svg.appendChild(g);
+  });
+  const w=el("div","dmap-wrap");w.appendChild(svg);c.appendChild(w);c.appendChild(info);return c;
+}
+
+/* Benchmark */
+let benchQuery="";
+function renderBenchmark(m){pageContenu(m,"benchmark",(z,d)=>{
+  if(d.mise_a_jour)z.appendChild(txt("p","muted","Veille mise à jour le "+frDate(d.mise_a_jour)+". Les prix et abonnés sont des relevés publics approximatifs, datés."));
+  if(d.tendances?.length){const c=carte("Tendances du marché","soft");d.tendances.forEach(t=>{const b=el("div","mill");const h=el("div","row");h.appendChild(txt("h3","",t.titre));if(t.date)h.appendChild(txt("span","muted",t.date));b.appendChild(h);b.appendChild(txt("p","",t.texte));if(t.source)b.appendChild(lien(t.source));c.appendChild(b);});z.appendChild(c);}
+  const s=el("input","search");s.type="search";s.placeholder="Rechercher une maison";s.value=benchQuery;z.appendChild(s);
+  const liste=el("div","stack");z.appendChild(liste);
+  const dessiner=()=>{liste.innerHTML="";const q=benchQuery.toLowerCase();
+    (d.marques||[]).filter(x=>!q||x.nom.toLowerCase().includes(q)).forEach(x=>liste.appendChild(carteMarque(x)));
+    if(!liste.children.length)liste.appendChild(el("div","empty","Aucun résultat."));};
+  s.oninput=()=>{benchQuery=s.value;dessiner();};dessiner();
+  if(d.limites)z.appendChild(txt("p","muted",d.limites));
+  blocSources(z,d.sources);
+});}
+function carteMarque(x){
+  const c=el("details","card marque"+(/ravignan/i.test(x.nom)?" moi":""));
+  const sm=el("summary");sm.appendChild(txt("span","marque-nom",x.nom));
+  const nb=(x.medailles||[]).length;const resume=[nb?nb+" médaille"+(nb>1?"s":""):null,(x.actualites||[]).length?(x.actualites.length+" actualité"+(x.actualites.length>1?"s":"")):null].filter(Boolean).join(" · ");
+  if(resume)sm.appendChild(txt("span","muted",resume));c.appendChild(sm);
+  if(x.positionnement)c.appendChild(txt("p","",x.positionnement));
+  if(x.medailles?.length){c.appendChild(txt("h3","sub","Médailles"));const u=el("ul","plain");x.medailles.forEach(md=>u.appendChild(txt("li","",[md.annee,md.concours,md.niveau,md.produit].filter(Boolean).join(" · "))));c.appendChild(u);}
+  if(x.prix?.length){c.appendChild(txt("h3","sub","Prix relevés"));const u=el("ul","plain");x.prix.forEach(p=>u.appendChild(txt("li","",[p.produit,p.prix,p.ou,p.date].filter(Boolean).join(" · "))));c.appendChild(u);}
+  if(x.evolution_prix)c.appendChild(txt("p","muted","Évolution des prix : "+x.evolution_prix));
+  if(x.reseaux?.length){c.appendChild(txt("h3","sub","Réseaux sociaux"));const u=el("ul","plain");x.reseaux.forEach(r=>u.appendChild(txt("li","",[r.reseau,r.compte,r.abonnes,r.date].filter(Boolean).join(" · "))));c.appendChild(u);}
+  if(x.actualites?.length){c.appendChild(txt("h3","sub","Actualités"));x.actualites.forEach(a=>{const b=el("div","actu");b.appendChild(txt("span","muted",a.date||""));b.appendChild(txt("p","",a.texte));if(a.source)b.appendChild(lien(a.source));c.appendChild(b);});}
+  if(x.site)c.appendChild(lien(x.site,"Site officiel"));
+  return c;
+}
 
 /* ---------- accès et administrateurs ---------- */
 function renderAdminAcces(m){
