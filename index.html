@@ -275,7 +275,7 @@ function updateNav(){
   const section=page==="chambres"?"chambres":page==="admin"?"admin":"home";
   document.querySelectorAll(".nav-item").forEach(b=>{
     b.classList.toggle("active",b.dataset.nav===section);
-    b.hidden=authState!=="ok"||(b.dataset.nav==="admin"&&!isAdmin());
+    b.hidden=false;
   });
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{setMenu(false);go(b.dataset.nav);});
@@ -285,6 +285,9 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){setMenu(false);if(r
 qs("#modal").onclick=e=>{if(e.target.id==="modal")closeRoom();};
 
 const getVente=()=>ventes.find(v=>v.id===venteId);
+let clients=new Map();
+const clientOf=x=>clients.get(x.id)||x.client||{};
+const nomClient=x=>{const c=clientOf(x);return (c.nom?`${c.prenom||""} ${c.nom}`:`${c.prenom||""}${c.initiale?" "+c.initiale+".":""}`).trim()||"Client";};
 const txsOf=vid=>txs.filter(t=>t.venteId===vid).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
 const venduDe=(vid,refId)=>txsOf(vid).reduce((s,t)=>s+(t.lignes||[]).filter(l=>l.refId===refId).reduce((a,l)=>a+(l.qte||0),0),0);
 
@@ -296,7 +299,7 @@ function flash(text,kind="err"){
 }
 function dbMessage(e){
   const c=e&&e.code;
-  if(c==="invalid_argument")return "Vous n'avez pas les droits pour cette action. Demandez à un administrateur.";
+  if(c==="invalid_argument")return "Cette action est réservée aux administrateurs.";
   if(c==="quota_exceeded")return "La base est pleine. Supprimez d'anciennes ventes avant d'en ajouter.";
   return "L'enregistrement a échoué. Vérifiez la connexion et réessayez.";
 }
@@ -319,11 +322,10 @@ function render(){
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
   m.classList.toggle("wide",page==="chambres"||page==="admin");
-  if(authState!=="ok"||!db){renderAuth(m);return;}
+  if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
-  if(page==="admin"&&!isAdmin()){page="home";}
   if(page==="chambres")renderChambres(m);
-  else if(page==="admin")renderAdmin(m);
+  else if(page==="admin"){if(isAdmin())renderAdmin(m);else renderAuth(m);}
   else if(page==="home")renderHome(m);
   else if(page==="new-vente")renderNewVente(m);
   else if(page==="vente")renderVente(m);
@@ -475,7 +477,7 @@ function renderVente(m){
     const b=el("button","btn go full","+ Transaction");
     b.onclick=()=>{sv=blankSv();horsOpen=false;go("saisie",v.id);};actions.appendChild(b);
   }
-  if(downloads){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);actions.appendChild(e);}
+  if(downloads&&isAdmin()){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);actions.appendChild(e);}
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
   if(!v.cloturee&&canWrite){
@@ -508,9 +510,9 @@ function renderTxList(m,t){
   [...t].reverse().forEach(x=>{
     const heure=x.date?new Date(x.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
     let h=`<div class="row" style="align-items:flex-start">
-      <div style="min-width:0"><p style="font-weight:700">${esc(x.client?.prenom)} ${esc(x.client?.nom)}</p>
-      ${x.client?.tel?`<p class="muted">📞 ${esc(x.client.tel)}</p>`:""}
-      ${x.client?.email?`<p class="muted" style="overflow-wrap:anywhere">✉️ ${esc(x.client.email)}</p>`:""}
+      <div style="min-width:0"><p style="font-weight:700">${esc(nomClient(x))}</p>
+      ${clientOf(x).tel?`<p class="muted">📞 ${esc(clientOf(x).tel)}</p>`:""}
+      ${clientOf(x).email?`<p class="muted" style="overflow-wrap:anywhere">✉️ ${esc(clientOf(x).email)}</p>`:""}
       <p class="muted">${esc(heure)}${x.vendeurPrenom?" · par "+esc(x.vendeurPrenom):""}</p></div>
       <div style="text-align:right"><p class="num" style="font-weight:800;color:var(--accent-ink);font-size:16px">${fmt(x.total)}</p>
       <span class="badge closed">${esc(x.paiement)}</span></div></div>`;
@@ -650,11 +652,15 @@ async function submitTx(){
   }
   const id="t"+uid();
   const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:l.prix,...(l.libre?{libre:true}:{})}));
-  const tx={venteId:v.id,client:{prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim()},
+  const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim()};
+  // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
+  const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString()};
   busy=true;updateTotal();
   try{
     await db.collection("transactions").doc(id).set(tx);
+    try{await db.collection("clients").doc(id).set({...contact,venteId:v.id,date:tx.date});}
+    catch(e){flash("Vente enregistrée, mais les coordonnées du client n'ont pas pu l'être.");}
     store.set(VENDEUR_KEY,sv.vendeur.trim());
     if(!txs.find(x=>x.id===id))txs.push({id,...tx});
     sv=blankSv();horsOpen=false;
@@ -668,7 +674,7 @@ async function exportCSV(v){
   const rows=[["VENTE RAVIGNAN"],["Nom",v.nom],["Lieu",v.lieu],["Période",periode(v)],["Vendeur principal",v.vendeurPrincipal||""],[""],
     ["DATE","CLIENT","PRENOM","TEL","EMAIL","PRODUIT","FORMAT","QTE","PRIX UNIT.","TOTAL LIGNE","PAIEMENT","VENDEUR"]];
   t.forEach(x=>(x.lignes||[]).forEach((l,i)=>rows.push([
-    i===0&&x.date?new Date(x.date).toLocaleString("fr-FR"):"",i===0?x.client?.nom:"",i===0?x.client?.prenom:"",i===0?x.client?.tel||"":"",i===0?x.client?.email||"":"",
+    i===0&&x.date?new Date(x.date).toLocaleString("fr-FR"):"",i===0?clientOf(x).nom:"",i===0?clientOf(x).prenom:"",i===0?clientOf(x).tel||"":"",i===0?clientOf(x).email||"":"",
     l.nom,l.format,l.qte,Number(l.prix).toFixed(2).replace(".",","),(l.qte*l.prix).toFixed(2).replace(".",","),i===0?x.paiement:"",i===0?x.vendeurPrenom||"":""])));
   rows.push([""]);
   PMTS.forEach(([p])=>{const s=t.filter(x=>x.paiement===p).reduce((a,x)=>a+(x.total||0),0);if(s)rows.push(["Total "+p,s.toFixed(2).replace(".",",")]);});
@@ -753,7 +759,7 @@ function renderAdmin(m){
   // clients
   const cl={};
   t.forEach(x=>{
-    const c=x.client||{};const key=((c.prenom||"")+" "+(c.nom||"")).trim().toLowerCase()+"|"+(c.email||c.tel||"").toLowerCase();
+    const c=clientOf(x);const key=((c.prenom||"")+" "+(c.nom||"")).trim().toLowerCase()+"|"+(c.email||c.tel||"").toLowerCase();
     const o=cl[key]||(cl[key]={prenom:c.prenom,nom:c.nom,tel:"",email:"",n:0,ca:0,last:""});
     if(c.tel)o.tel=c.tel;if(c.email)o.email=c.email;o.n++;o.ca+=x.total||0;if((x.date||"")>o.last)o.last=x.date||"";
   });
@@ -774,7 +780,7 @@ async function exportGlobal(vs,t){
     ["VENTE","LIEU","DATE","CLIENT","PRENOM","TEL","EMAIL","PRODUIT","FORMAT","QTE","PRIX UNIT.","TOTAL LIGNE","PAIEMENT","VENDEUR"]];
   [...t].sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(x=>{
     const v=byId[x.venteId]||{};
-    (x.lignes||[]).forEach(l=>rows.push([v.nom||"",v.lieu||"",x.date?new Date(x.date).toLocaleString("fr-FR"):"",x.client?.nom||"",x.client?.prenom||"",x.client?.tel||"",x.client?.email||"",
+    (x.lignes||[]).forEach(l=>rows.push([v.nom||"",v.lieu||"",x.date?new Date(x.date).toLocaleString("fr-FR"):"",clientOf(x).nom||"",clientOf(x).prenom||"",clientOf(x).tel||"",clientOf(x).email||"",
       l.nom,l.format,l.qte,Number(l.prix).toFixed(2).replace(".",","),(l.qte*l.prix).toFixed(2).replace(".",","),x.paiement,x.vendeurPrenom||""]));
   });
   rows.push([""]);rows.push(["TOTAL CA",t.reduce((s,x)=>s+(x.total||0),0).toFixed(2).replace(".",",")]);
@@ -940,7 +946,7 @@ function renderPlan(z){
   z.appendChild(wrap);
   const tools=el("div","row");
   tools.appendChild(el("p","muted",adjustPins?"Faites glisser chaque repère sur sa fenêtre. La position est enregistrée au relâchement.":"Repères placés d'après l'étage et le côté de chaque chambre. Touchez un numéro pour ouvrir la chambre."));
-  if(canWrite){const b=el("button","btn ghost sm",adjustPins?"Terminer":"Ajuster les repères");b.onclick=()=>{adjustPins=!adjustPins;refreshChambres();};tools.appendChild(b);}
+  if(isAdmin()){const b=el("button","btn ghost sm",adjustPins?"Terminer":"Ajuster les repères");b.onclick=()=>{adjustPins=!adjustPins;refreshChambres();};tools.appendChild(b);}
   z.appendChild(tools);
   const leg=el("div","legend");
   pos.forEach((p,i)=>{
@@ -1164,7 +1170,8 @@ function makeDb(){
   const docRef=(c,id)=>({
     async get(){if(!cache[c])await load(c);const d=cache[c].get(id);return {id,exists:!!d,data:()=>d};},
     async set(data){
-      const {error}=await sb.from("docs").upsert({collection:c,id,data,updated_at:new Date().toISOString()});
+      let {error}=await sb.from("docs").insert({collection:c,id,data});
+      if(error&&error.code==="23505")({error}=await sb.from("docs").update({data,updated_at:new Date().toISOString()}).eq("collection",c).eq("id",id));
       if(error)throw err(error);(cache[c]||(cache[c]=new Map())).set(id,data);emit(c);
     },
     async update(patch){
@@ -1199,12 +1206,12 @@ function renderAuth(m){
   if(authState==="loading"){m.appendChild(el("div","empty","Connexion…"));return;}
   const c=el("form","card login");
   if(authState==="denied"){
-    c.innerHTML=`<h2>Accès non autorisé</h2><p class="muted">L'adresse <b>${esc(myEmail)}</b> n'est pas dans la liste des membres. Demandez à un administrateur de vous ajouter, puis reconnectez-vous.</p>`;
+    c.innerHTML=`<h2>Accès non autorisé</h2><p class="muted">L'adresse <b>${esc(myEmail)}</b> n'est pas administrateur. Les ventes et les chambres restent accessibles sans connexion depuis le menu.</p>`;
     const b=el("button","btn ghost full","Se connecter avec une autre adresse");b.type="button";b.onclick=logout;c.appendChild(b);
     m.appendChild(c);return;
   }
-  c.innerHTML=`<p class="brand-mark">Armagnac</p><h2 style="font-size:22px">Domaine de Ravignan</h2>
-    <p class="muted">Entrez votre adresse email. Vous recevrez un lien pour vous connecter, sans mot de passe.</p>
+  c.innerHTML=`<p class="brand-mark">Administration</p><h2 style="font-size:22px">Accès administrateur</h2>
+    <p class="muted">Entrez votre adresse email d'administrateur. Vous recevrez un lien pour vous connecter, sans mot de passe. Les ventes et les chambres sont accessibles sans connexion.</p>
     <div class="field"><label for="login-email">Adresse email</label><input id="login-email" type="email" required autocomplete="email" placeholder="prenom@exemple.fr"></div>
     <button class="btn primary full" type="submit" id="login-go">Recevoir le lien de connexion</button>
     ${authMsg?`<div class="msg ${authMsg.startsWith("✓")?"ok":"err"}">${esc(authMsg.replace(/^✓ /,""))}</div>`:""}`;
@@ -1212,7 +1219,7 @@ function renderAuth(m){
     e.preventDefault();
     const email=c.querySelector("#login-email").value.trim().toLowerCase();
     const btn=c.querySelector("#login-go");btn.disabled=true;
-    const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});
+    const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});
     authMsg=error?(/rate|seconds/i.test(error.message)?"Trop de demandes. Attendez une minute avant de redemander un lien.":"Envoi impossible : "+error.message)
       :"✓ Lien envoyé à "+email+". Ouvrez l'email sur cet appareil et cliquez sur le lien.";
     render();
@@ -1229,17 +1236,16 @@ function telecharger({filename,data}){
 }
 
 /* ---------- démarrage ---------- */
-let started=false;
-async function demarrer(session){
-  if(!session){authState="login";render();return;}
-  myEmail=(session.user.email||"").toLowerCase();
-  const {data,error}=await sb.from("membres").select("role").eq("email",myEmail).maybeSingle();
-  if(error||!data){authState="denied";render();return;}
-  isOwner=data.role==="admin";canWrite=true;authState="ok";
-  qs("#side-user").textContent=myEmail;qs("#btn-logout").hidden=false;
-  if(started){render();return;}started=true;
+// Ventes et chambres : ouvertes à tous, sans connexion.
+// Administration : connexion par lien email, réservée aux adresses « admin » de la table membres.
+let clientsAbonne=false;
+const arriveeParLien=/access_token|error_description/.test(location.hash);
+function majPied(){
+  qs("#side-user").textContent=myEmail?"Connecté : "+myEmail:"";
+  qs("#btn-logout").hidden=!myEmail;
+}
+function demarrerDonnees(){
   db=makeDb();downloads={save:telecharger};
-  render();
   const onErr=e=>{flash(dbMessage(e));};
   db.collection("chambres").onSnapshot(s=>{
     chambres=s.docs.map(x=>({id:x.id,...x.data()}));loaded.chambres=true;
@@ -1258,13 +1264,29 @@ async function demarrer(session){
     if(LIVE_PAGES.includes(page))render();
     else if(page==="saisie"&&!horsOpen){renderLignes();updateTotal();}
   },onErr);
+  render();
 }
-let enCours=false;
-sb.auth.onAuthStateChange((ev,session)=>{
-  if((ev==="INITIAL_SESSION"||ev==="SIGNED_IN")&&!started&&!enCours){
-    enCours=true;setTimeout(()=>demarrer(session).finally(()=>{enCours=false;}),0);
+async function verifierSession(session){
+  if(!session){myEmail="";isOwner=false;authState="login";majPied();render();return;}
+  myEmail=(session.user.email||"").toLowerCase();
+  const {data}=await sb.from("membres").select("role").eq("email",myEmail).maybeSingle();
+  isOwner=!!data&&data.role==="admin";
+  authState=isOwner?"ok":"denied";majPied();
+  if(isOwner&&!clientsAbonne){
+    clientsAbonne=true;
+    db.collection("clients").onSnapshot(s=>{
+      clients=new Map(s.docs.map(x=>[x.id,x.data()]));
+      if(LIVE_PAGES.includes(page))render();
+    },()=>{});
   }
-  if(ev==="SIGNED_OUT"){authState="login";render();}
+  // arrivée par le lien de connexion : ouvrir directement l'administration
+  if(arriveeParLien&&page!=="admin"){page="admin";}
+  if(location.hash)history.replaceState(null,"",location.pathname);
+  render();
+}
+demarrerDonnees();
+sb.auth.onAuthStateChange((ev,session)=>{
+  if(ev==="INITIAL_SESSION"||ev==="SIGNED_IN"||ev==="SIGNED_OUT")setTimeout(()=>verifierSession(session),0);
 });
 </script>
 </body>

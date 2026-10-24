@@ -2,7 +2,7 @@
 -- À exécuter une fois dans Supabase > SQL Editor.
 -- Remplacez l'adresse du premier administrateur à la fin du fichier.
 
--- Personnes autorisées à se connecter
+-- Administrateurs (connexion par lien email)
 create table if not exists public.membres (
   email      text primary key check (email = lower(email)),
   role       text not null default 'vendeur' check (role in ('vendeur', 'admin')),
@@ -48,18 +48,24 @@ create policy membres_modif on public.membres for update to authenticated
 create policy membres_suppr on public.membres for delete to authenticated
   using (public.est_admin() and email <> public.mon_email());
 
+-- Accès aux données :
+--  - ventes, transactions, chambres, réservations : lisibles par tout le monde, sans connexion
+--  - clients (noms complets, téléphones, emails) : lisibles uniquement par les administrateurs
+--  - les visiteurs peuvent créer ventes, transactions, réservations et fiches clients,
+--    clôturer une vente et annuler une réservation ; le reste est réservé aux administrateurs
 drop policy if exists docs_lecture on public.docs;
 drop policy if exists docs_ajout on public.docs;
 drop policy if exists docs_modif on public.docs;
 drop policy if exists docs_suppr on public.docs;
-create policy docs_lecture on public.docs for select to authenticated
-  using (public.est_membre());
-create policy docs_ajout on public.docs for insert to authenticated
-  with check (public.est_membre());
-create policy docs_modif on public.docs for update to authenticated
-  using (public.est_membre()) with check (public.est_membre());
-create policy docs_suppr on public.docs for delete to authenticated
-  using (public.est_membre());
+create policy docs_lecture on public.docs for select to anon, authenticated
+  using (collection in ('chambres', 'reservations', 'ventes', 'transactions') or public.est_admin());
+create policy docs_ajout on public.docs for insert to anon, authenticated
+  with check (collection in ('reservations', 'ventes', 'transactions', 'clients') or public.est_admin());
+create policy docs_modif on public.docs for update to anon, authenticated
+  using (collection = 'ventes' or public.est_admin())
+  with check (collection = 'ventes' or public.est_admin());
+create policy docs_suppr on public.docs for delete to anon, authenticated
+  using (collection = 'reservations' or public.est_admin());
 
 -- Mises à jour en direct entre téléphones
 do $$ begin
