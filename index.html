@@ -145,6 +145,9 @@ h3.sub{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.06
 .fam-noeud.sel rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5}
 .fam-noeud.incertain rect{stroke-dasharray:5 4}
 .fam-nom{fill:var(--fg);font-size:14px;font-weight:800}
+.fam-av{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.fam-ini{fill:var(--accent-ink);font-size:13px;font-weight:800}
+.fam-photo{width:96px;height:96px;border-radius:50%;object-fit:cover}
 .fam-dates{fill:var(--muted);font-size:12px}
 .fam-res{display:flex;flex-wrap:wrap;gap:6px}
 .fam-liens{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -1491,7 +1494,7 @@ function layoutFamille(){
       const c=conj(p).find(id=>gens.some(q=>q.id===id)&&par(byId.get(id)).length);if(c){const ps2=par(byId.get(c)).filter(id=>pos.has(id));if(ps2.length)return ps2.reduce((s,id)=>s+pos.get(id).x,0)/ps2.length+0.5;}
       return 1e9+famille.indexOf(p);};
     // ordre : par position voulue, puis on colle chaque conjoint à côté
-    const tri=[...gens].sort((a,b)=>voulu(a)-voulu(b)||annee(a.naissance).localeCompare(annee(b.naissance)));
+    const tri=[...gens].sort((a,b)=>voulu(a)-voulu(b)||(a.ordre??99)-(b.ordre??99)||annee(a.naissance).localeCompare(annee(b.naissance)));
     const ordre=[];tri.forEach(p=>{if(ordre.includes(p))return;ordre.push(p);conj(p).forEach(id=>{const q=byId.get(id);if(gens.includes(q)&&!ordre.includes(q))ordre.push(q);});});
     let prev=-Infinity;
     ordre.forEach(p=>{let v=voulu(p);if(v>1e8)v=prev===-Infinity?0:prev+NW+GX;const x=Math.max(v,prev+NW+GX);pos.set(p.id,{x,y:lv*(NH+GY)});prev=x;});
@@ -1546,9 +1549,17 @@ function dessinerArbre(){
     const {x,y}=pos.get(p.id);const n=document.createElementNS(NS,"g");n.setAttribute("class","fam-noeud"+(p.id===famSel?" sel":"")+(p.incertain?" incertain":""));
     n.setAttribute("transform",`translate(${x},${y})`);n.setAttribute("tabindex","0");n.setAttribute("role","button");n.setAttribute("aria-label",nomComplet(p));
     const r=document.createElementNS(NS,"rect");r.setAttribute("width",NW);r.setAttribute("height",NH);r.setAttribute("rx",12);n.appendChild(r);
-    const t1=document.createElementNS(NS,"text");t1.setAttribute("x",12);t1.setAttribute("y",25);t1.setAttribute("class","fam-nom");
-    const nom=[p.prenom,p.nom].filter(Boolean).join(" ");t1.textContent=nom.length>22?nom.slice(0,21)+"…":nom;n.appendChild(t1);
-    const t2=document.createElementNS(NS,"text");t2.setAttribute("x",12);t2.setAttribute("y",46);t2.setAttribute("class","fam-dates");
+    // portrait : photo si une adresse est renseignée, sinon les initiales
+    const cid="av-"+p.id.replace(/[^a-z0-9-]/gi,"");
+    const cp=document.createElementNS(NS,"clipPath");cp.id=cid;const cc=document.createElementNS(NS,"circle");cc.setAttribute("cx",30);cc.setAttribute("cy",NH/2);cc.setAttribute("r",20);cp.appendChild(cc);n.appendChild(cp);
+    const fond=document.createElementNS(NS,"circle");fond.setAttribute("cx",30);fond.setAttribute("cy",NH/2);fond.setAttribute("r",20);fond.setAttribute("class","fam-av");n.appendChild(fond);
+    const ini=document.createElementNS(NS,"text");ini.setAttribute("x",30);ini.setAttribute("y",NH/2+5);ini.setAttribute("text-anchor","middle");ini.setAttribute("class","fam-ini");
+    ini.textContent=((p.prenom||"").charAt(0)+((p.nom||"").replace(/^(de |d'|du |de la )/i,"").charAt(0)||"")).toUpperCase();n.appendChild(ini);
+    if(p.photo&&String(p.photo).startsWith("https://")){const im=document.createElementNS(NS,"image");im.setAttribute("href",p.photo);im.setAttribute("x",10);im.setAttribute("y",NH/2-20);im.setAttribute("width",40);im.setAttribute("height",40);
+      im.setAttribute("preserveAspectRatio","xMidYMid slice");im.setAttribute("clip-path","url(#"+cid+")");n.appendChild(im);}
+    const t1=document.createElementNS(NS,"text");t1.setAttribute("x",58);t1.setAttribute("y",27);t1.setAttribute("class","fam-nom");
+    const nom=[p.prenom,p.nom].filter(Boolean).join(" ");t1.textContent=nom.length>15?nom.slice(0,14)+"…":nom;n.appendChild(t1);
+    const t2=document.createElementNS(NS,"text");t2.setAttribute("x",58);t2.setAttribute("y",46);t2.setAttribute("class","fam-dates");
     t2.textContent=[p.titre,datesDe(p)].filter(Boolean).join(" · ");n.appendChild(t2);
     const ti=document.createElementNS(NS,"title");ti.textContent=nomComplet(p);n.appendChild(ti);
     const choisir=()=>{famSel=p.id;famEdit=null;dessinerArbre();ficheFamille();qs("#fam-fiche")?.scrollIntoView({behavior:"smooth",block:"nearest"});};
@@ -1600,6 +1611,7 @@ function ficheFamille(){
     ids.forEach(id=>{const b=txt("button","chip",nomComplet(byId.get(id)));b.onclick=()=>{famSel=id;centrerSur(id);dessinerArbre();ficheFamille();};r.appendChild(b);});c.appendChild(r);};
   liens("Parents",p.parents);liens("Conjoint·e",p.conjoints);
   liens("Enfants",famille.filter(q=>(q.parents||[]).includes(p.id)).map(q=>q.id));
+  if(p.photo&&String(p.photo).startsWith("https://")){const im=el("img","fam-photo");im.src=p.photo;im.alt="Portrait de "+nomComplet(p);im.onerror=()=>im.remove();c.insertBefore(im,c.children[1]);}
   if(p.source)c.appendChild(lien(p.source,"Source"));
   if(isAdmin()){const r=el("div","row");r.style.justifyContent="flex-start";
     const e=el("button","btn ghost sm","Modifier");e.onclick=()=>{famEdit={...p};ficheFamille();};r.appendChild(e);
@@ -1623,6 +1635,8 @@ function formFamille(p){
     [...famille].filter(x=>x.id!==p.id).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b))).forEach(x=>{const o=el("option");o.value=x.id;o.textContent=nomComplet(x)+(datesDe(x)?" ("+datesDe(x)+")":"");o.selected=(sel||[]).includes(x.id);s.appendChild(o);});
     d.appendChild(s);d.appendChild(txt("span","muted","Ctrl ou Cmd + clic pour en choisir plusieurs"));return d;};
   form.appendChild(choix("parents","Parents",p.parents));form.appendChild(choix("conjoints","Conjoint·e·s",p.conjoints));
+  form.appendChild(champ("photo","Photo (adresse d'une image en https)",p.photo,"url","https://…/portrait.jpg"));
+  form.appendChild(champ("ordre","Rang dans la fratrie (1, 2, 3…)",p.ordre,"number"));
   form.appendChild(champ("source","Source (lien)",p.source,"url","https://…"));
   const ck=(id,lab,val)=>{const l=el("label","fm-ck");const i=el("input");i.type="checkbox";i.id="fm-"+id;i.checked=!!val;l.appendChild(i);l.appendChild(document.createTextNode(" "+lab));return l;};
   form.appendChild(ck("vivant","Personne vivante (les dates ne sont pas affichées)",p.vivant));form.appendChild(ck("incertain","Information incertaine",p.incertain));
@@ -1635,7 +1649,7 @@ function formFamille(p){
   form.onsubmit=async e=>{e.preventDefault();
     const v=id=>form.querySelector("#fm-"+id).value.trim();const sel=id=>[...form.querySelector("#fm-"+id).selectedOptions].map(o=>o.value);
     const d={prenom:v("prenom"),nom:v("nom"),titre:v("titre")||null,naissance:v("naissance")||null,lieu_naissance:v("lieu_naissance")||null,deces:v("deces")||null,lieu_deces:v("lieu_deces")||null,
-      role:v("role")||null,bio:form.querySelector("#fm-bio").value.trim()||null,parents:sel("parents"),conjoints:sel("conjoints"),source:v("source")||null,
+      role:v("role")||null,bio:form.querySelector("#fm-bio").value.trim()||null,parents:sel("parents"),conjoints:sel("conjoints"),source:v("source")||null,photo:v("photo")||null,ordre:v("ordre")?+v("ordre"):null,
       vivant:form.querySelector("#fm-vivant").checked,incertain:form.querySelector("#fm-incertain").checked};
     if(!d.prenom&&!d.nom)return flash("Indiquez au moins un prénom ou un nom.");
     const id=p.id||("p"+uid());
