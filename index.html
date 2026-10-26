@@ -198,6 +198,8 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .map-sat{height:min(62vh,520px);border-radius:12px;overflow:hidden;background:#1d2a1d}
 .map-sat .pop b{display:block;font-size:14px}.map-sat .pop span{color:#555;font-size:12px}.map-sat .pop p{margin:6px 0 0;font-size:12px;line-height:1.4}
 .tt-moi{font-weight:800;color:#7a3907}
+.crm-tbl td{vertical-align:middle}
+.crm-tbl .tag{margin:1px 2px}
 .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)}
 .hdr{background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
 .hdr h1{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-wrap:balance}
@@ -295,6 +297,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="region"><span class="nav-ico" aria-hidden="true">🗺️</span>Région et domaines</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
     <button class="nav-item" data-nav="genealogie"><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie</button>
+    <button class="nav-item" data-nav="clients" hidden><span class="nav-ico" aria-hidden="true">👥</span>Clients</button>
     <button class="nav-item" data-nav="admin" hidden><span class="nav-ico" aria-hidden="true">📊</span>Administration</button>
     <div class="side-foot"><span id="side-user" class="muted"></span><button class="link" id="btn-logout" hidden>Se déconnecter</button></div>
   </nav>
@@ -361,7 +364,7 @@ let saisieProdCard=null, horsOpen=false;
 let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
 const isAdmin=()=>isOwner;
 const LIVE_PAGES=["home","vente","admin"];
-const TOP_PAGES=["home","chambres","admin","aide","region","benchmark","genealogie"];
+const TOP_PAGES=["home","chambres","admin","aide","region","benchmark","genealogie","clients"];
 let chambres=[], chFilter="all", chQuery="";
 
 /* ---------- menu ---------- */
@@ -373,7 +376,7 @@ function updateNav(){
   const section=TOP_PAGES.includes(page)?page:"home";
   document.querySelectorAll(".nav-item").forEach(b=>{
     b.classList.toggle("active",b.dataset.nav===section);
-    b.hidden=false;
+    b.hidden=b.dataset.nav==="clients"&&!isAdmin();
   });
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{setMenu(false);go(b.dataset.nav);});
@@ -415,14 +418,15 @@ function render(){
     if(page==="saisie")go("vente",venteId);
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie"};
+  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
-  m.classList.toggle("wide",["chambres","admin","aide","region","benchmark","genealogie"].includes(page));
+  m.classList.toggle("wide",["chambres","admin","aide","region","benchmark","genealogie","clients"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
-  if(page==="genealogie")renderGenealogie(m);
+  if(page==="clients"){if(isAdmin())renderClients(m);else renderAuth(m);}
+  else if(page==="genealogie")renderGenealogie(m);
   else if(page==="aide")renderAide(m);
   else if(page==="region")renderRegion(m);
   else if(page==="benchmark")renderBenchmark(m);
@@ -1695,6 +1699,203 @@ async function supprimerPersonne(id){
       await db.collection("famille").doc(q.id).set({...stripId(q),parents:(q.parents||[]).filter(x=>x!==id),conjoints:(q.conjoints||[]).filter(x=>x!==id)});
     famEdit=null;famSel=null;flash("Personne supprimée.","ok");
   }catch(err){flash(dbMessage(err));}
+}
+
+/* ---------- clients (CRM, réservé aux administrateurs) ----------
+   Collection « crm » : une fiche par client (clé = email, sinon nom + téléphone).
+   {prenom, nom, email, tel, adresse, cp, ville, pays, sources:[], newsletter, tags:[], notes,
+    achats:[{date, source, ref, produits:[{nom,qte,prix}], total}]}
+   Les ventes saisies dans l'app (collection « clients » + « transactions ») s'ajoutent à l'affichage. */
+let crm=[], crmCharge=false, crmAbonne=false, crmQuery="", crmFiltre="tous", crmTri="total", crmSel=null, crmImport=null;
+const normEmail=e=>String(e||"").trim().toLowerCase();
+const normTxt=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const cleClient=c=>normEmail(c.email)?"e:"+normEmail(c.email):"n:"+normTxt((c.prenom||"")+" "+(c.nom||""))+(c.tel?"|"+String(c.tel).replace(/\D/g,"").slice(-9):"");
+const idCrm=cle=>"c"+[...cle].reduce((h,ch)=>(h*31+ch.charCodeAt(0))>>>0,7).toString(36)+cle.replace(/[^a-z0-9]/g,"").slice(0,24);
+
+function abonnerCrm(){
+  if(crmAbonne||!isAdmin())return;crmAbonne=true;
+  db.collection("crm").onSnapshot(s=>{crm=s.docs.map(x=>({id:x.id,...x.data()}));crmCharge=true;if(page==="clients"&&!crmImport)render();},e=>flash(dbMessage(e)));
+}
+// fusion : fiches CRM + acheteurs des ventes privées
+function clientsFusion(){
+  const map=new Map();
+  crm.forEach(c=>map.set(cleClient(c),{...c,achats:[...(c.achats||[])],sources:[...(c.sources||[])]}));
+  txs.forEach(t=>{
+    const c=clients.get(t.id);if(!c)return;
+    const k=cleClient(c);let f=map.get(k);
+    // rattache aussi par nom quand l'email manque d'un côté
+    if(!f&&!normEmail(c.email)){for(const v of map.values()){if(normTxt(v.prenom+" "+v.nom)===normTxt(c.prenom+" "+c.nom)){f=v;break;}}}
+    if(!f){f={id:null,prenom:c.prenom,nom:c.nom,email:c.email,tel:c.tel,sources:[],achats:[],tags:[]};map.set(k,f);}
+    if(!f.email&&c.email)f.email=c.email;if(!f.tel&&c.tel)f.tel=c.tel;
+    if(!f.sources.includes("Ventes privées"))f.sources.push("Ventes privées");
+    const v=ventes.find(x=>x.id===t.venteId);
+    f.achats.push({date:t.date,source:"Ventes privées",ref:v?v.nom:"",produits:(t.lignes||[]).map(l=>({nom:(l.nom+" "+(l.format||"")).trim(),qte:l.qte,prix:l.prix})),total:t.total||0,paiement:t.paiement});
+  });
+  return [...map.values()].map(c=>{
+    const achats=c.achats.filter(a=>a.total||a.produits?.length).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
+    const total=achats.reduce((s,a)=>s+(+a.total||0),0);
+    return {...c,achats,total,nbAchats:achats.length,dernier:achats[0]?.date||null};
+  });
+}
+
+function renderClients(m){
+  abonnerCrm();
+  if(!crmCharge||!loaded.txs){m.appendChild(el("div","empty","Chargement des clients…"));return;}
+  if(crmImport){renderImport(m);return;}
+  const tous=clientsFusion();
+  const acheteurs=tous.filter(c=>c.nbAchats);
+  const ca=acheteurs.reduce((s,c)=>s+c.total,0);
+  const k=el("div","kpis");
+  [[tous.length,"Contacts"],[acheteurs.length,"Acheteurs"],[fmt(ca),"Chiffre d'affaires"],[fmt(acheteurs.length?ca/acheteurs.length:0),"Dépense moyenne"],[tous.filter(c=>c.newsletter).length,"Abonnés newsletter"]]
+    .forEach(([v,l])=>{const e=el("div","kpi");e.appendChild(txt("div","val num",String(v)));e.appendChild(txt("div","lab",l));k.appendChild(e);});
+  m.appendChild(k);
+  const bar=el("div","row");bar.style.flexWrap="wrap";
+  const s=el("input","search");s.type="search";s.id="crm-q";s.placeholder="Rechercher un nom, un email, une ville, un produit…";s.value=crmQuery;s.style.flex="1";s.style.minWidth="220px";
+  bar.appendChild(s);
+  const imp=el("button","btn ghost sm","Importer Mailchimp / Squarespace");imp.onclick=()=>{crmImport={};render();};bar.appendChild(imp);
+  const nv=el("button","btn primary sm","+ Nouveau client");nv.onclick=()=>{crmSel={nouveau:true};render();};bar.appendChild(nv);
+  m.appendChild(bar);
+  const chips=el("div","chips");
+  [["tous","Tous"],["acheteurs","Acheteurs"],["newsletter","Newsletter"],["Ventes privées","Ventes privées"],["Squarespace","Squarespace"],["Mailchimp","Mailchimp"],["sans","Jamais acheté"]].forEach(([kk,l])=>{
+    const b=txt("button","chip"+(crmFiltre===kk?" sel":""),l);b.onclick=()=>{crmFiltre=kk;render();};chips.appendChild(b);});
+  const tri=el("select");tri.setAttribute("aria-label","Trier");tri.style.cssText="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface);margin-left:auto";
+  [["total","Plus gros clients"],["recent","Achat le plus récent"],["nom","Nom (A→Z)"]].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;o.selected=crmTri===v;tri.appendChild(o);});
+  tri.onchange=()=>{crmTri=tri.value;dessinerListe();};
+  const ligne=el("div","row");ligne.style.flexWrap="wrap";ligne.appendChild(chips);ligne.appendChild(tri);m.appendChild(ligne);
+  const zone=el("div","stack");m.appendChild(zone);
+  const fiche=el("div","stack");fiche.id="crm-fiche";
+  const filtrer=()=>{const q=normTxt(crmQuery);
+    return tous.filter(c=>{
+      if(crmFiltre==="acheteurs"&&!c.nbAchats)return false;if(crmFiltre==="sans"&&c.nbAchats)return false;
+      if(crmFiltre==="newsletter"&&!c.newsletter)return false;
+      if(["Ventes privées","Squarespace","Mailchimp"].includes(crmFiltre)&&!(c.sources||[]).includes(crmFiltre))return false;
+      if(!q)return true;
+      return normTxt([c.prenom,c.nom,c.email,c.tel,c.ville,c.cp,(c.tags||[]).join(" "),c.notes,...c.achats.flatMap(a=>(a.produits||[]).map(p=>p.nom))].join(" ")).includes(q);
+    }).sort((a,b)=>crmTri==="nom"?normTxt(a.nom+a.prenom).localeCompare(normTxt(b.nom+b.prenom)):crmTri==="recent"?String(b.dernier||"").localeCompare(String(a.dernier||"")):b.total-a.total);};
+  const dessinerListe=()=>{zone.innerHTML="";const l=filtrer();
+    const bar2=el("div","row");bar2.appendChild(txt("p","muted",l.length+" client"+(l.length>1?"s":"")));
+    const ex=el("button","link","Exporter cette liste (CSV)");ex.onclick=()=>exporterCrm(l);bar2.appendChild(ex);zone.appendChild(bar2);
+    if(!l.length){zone.appendChild(el("div","empty",tous.length?"Aucun client ne correspond.":"Aucun client pour l'instant. Importez vos contacts Mailchimp et vos commandes Squarespace, ou saisissez des ventes."));return;}
+    const w=el("div","tbl-wrap");const t=el("table","tbl crm-tbl");
+    t.innerHTML="<thead><tr><th>Client</th><th>Ville</th><th class='r'>Achats</th><th class='r'>Total</th><th>Dernier achat</th><th>Origine</th></tr></thead>";
+    const tb=el("tbody");
+    l.slice(0,500).forEach(c=>{const tr=el("tr","click");
+      const td1=el("td");td1.appendChild(txt("b","",[c.prenom,c.nom].filter(Boolean).join(" ")||c.email||"Sans nom"));if(c.email)td1.appendChild(el("br"));if(c.email)td1.appendChild(txt("span","muted",c.email));
+      tr.appendChild(td1);tr.appendChild(txt("td","",c.ville||""));tr.appendChild(txt("td","r",String(c.nbAchats||"")));tr.appendChild(txt("td","r",c.total?fmt(c.total):""));
+      tr.appendChild(txt("td","",c.dernier?frDate(String(c.dernier).slice(0,10)):""));
+      const td6=el("td");(c.sources||[]).forEach(src=>td6.appendChild(txt("span","tag",src)));if(c.newsletter)td6.appendChild(txt("span","tag free","Newsletter"));tr.appendChild(td6);
+      tr.onclick=()=>{crmSel=c;dessinerFiche();fiche.scrollIntoView({behavior:"smooth"});};tb.appendChild(tr);});
+    t.appendChild(tb);w.appendChild(t);zone.appendChild(w);
+    if(l.length>500)zone.appendChild(txt("p","muted","Seuls les 500 premiers sont affichés : affinez la recherche."));};
+  const dessinerFiche=()=>{fiche.innerHTML="";if(crmSel)fiche.appendChild(ficheClient(crmSel,()=>{crmSel=null;dessinerFiche();}));};
+  s.oninput=()=>{crmQuery=s.value;dessinerListe();};
+  dessinerListe();m.appendChild(fiche);dessinerFiche();
+}
+
+function ficheClient(c,fermer){
+  const nouveau=!!c.nouveau;const f=el("form","card stack");
+  const h=el("div","row");h.appendChild(txt("h2","sheet-title",nouveau?"Nouveau client":[c.prenom,c.nom].filter(Boolean).join(" ")||c.email));
+  const x=el("button","x","×");x.type="button";x.setAttribute("aria-label","Fermer");x.onclick=fermer;h.appendChild(x);f.appendChild(h);
+  if(!nouveau&&c.nbAchats){f.appendChild(txt("p","muted",`${c.nbAchats} achat${c.nbAchats>1?"s":""} · ${fmt(c.total)} au total · dernier le ${frDate(String(c.dernier).slice(0,10))}`));}
+  const champ=(id,lab,val,type="text")=>{const d=el("div","field");const l=txt("label","",lab);l.htmlFor="cr-"+id;d.appendChild(l);const i=el("input");i.id="cr-"+id;i.type=type;i.value=val??"";i.autocomplete="off";d.appendChild(i);return d;};
+  const g1=el("div","grid2");g1.appendChild(champ("prenom","Prénom",c.prenom));g1.appendChild(champ("nom","Nom",c.nom));f.appendChild(g1);
+  const g2=el("div","grid2");g2.appendChild(champ("email","Email",c.email,"email"));g2.appendChild(champ("tel","Téléphone",c.tel,"tel"));f.appendChild(g2);
+  f.appendChild(champ("adresse","Adresse",c.adresse));
+  const g3=el("div","grid3");g3.appendChild(champ("cp","Code postal",c.cp));g3.appendChild(champ("ville","Ville",c.ville));g3.appendChild(champ("pays","Pays",c.pays));f.appendChild(g3);
+  f.appendChild(champ("tags","Étiquettes (séparées par des virgules)",(c.tags||[]).join(", ")));
+  const nd=el("div","field");const nl=txt("label","","Notes");nl.htmlFor="cr-notes";nd.appendChild(nl);const ta=el("textarea","fm-ta");ta.id="cr-notes";ta.rows=3;ta.value=c.notes||"";nd.appendChild(ta);f.appendChild(nd);
+  const ck=el("label","fm-ck");const cb=el("input");cb.type="checkbox";cb.id="cr-newsletter";cb.checked=!!c.newsletter;ck.appendChild(cb);ck.appendChild(document.createTextNode(" Abonné·e à la newsletter"));f.appendChild(ck);
+  const r=el("div","row");r.style.justifyContent="flex-start";const ok=el("button","btn primary sm",nouveau?"Créer":"Enregistrer");ok.type="submit";r.appendChild(ok);f.appendChild(r);
+  f.onsubmit=async e=>{e.preventDefault();const v=id=>f.querySelector("#cr-"+id).value.trim();
+    const base=c.id?crm.find(x=>x.id===c.id)||{}:{};
+    const d={...stripId(base),prenom:v("prenom"),nom:v("nom"),email:normEmail(v("email")),tel:v("tel"),adresse:v("adresse"),cp:v("cp"),ville:v("ville"),pays:v("pays"),
+      tags:v("tags").split(",").map(t=>t.trim()).filter(Boolean),notes:f.querySelector("#cr-notes").value.trim(),newsletter:f.querySelector("#cr-newsletter").checked,
+      sources:base.sources||[],achats:base.achats||[],maj:new Date().toISOString()};
+    if(!d.prenom&&!d.nom&&!d.email)return flash("Indiquez au moins un nom ou un email.");
+    try{await db.collection("crm").doc(c.id||idCrm(cleClient(d))).set(d);crmSel=null;flash("Fiche client enregistrée.","ok");render();}catch(err){flash(dbMessage(err));}};
+  if(!nouveau&&c.achats?.length){
+    const h3=txt("h3","sub","Historique des achats");f.appendChild(h3);
+    c.achats.forEach(a=>{const b=el("div","actu");
+      const top=el("div","row");top.appendChild(txt("b","",(a.date?frDate(String(a.date).slice(0,10)):"Date inconnue")+" · "+a.source+(a.ref?" · "+a.ref:"")));top.appendChild(txt("b","num",fmt(a.total)));b.appendChild(top);
+      if(a.produits?.length)b.appendChild(txt("p","muted",a.produits.map(p=>(p.qte>1?p.qte+" × ":"")+p.nom).join(", ")));f.appendChild(b);});
+  }
+  return f;
+}
+
+function exporterCrm(liste){
+  const rows=[["Prénom","Nom","Email","Téléphone","Adresse","Code postal","Ville","Pays","Newsletter","Origine","Étiquettes","Nb achats","Total €","Dernier achat","Notes"]];
+  liste.forEach(c=>rows.push([c.prenom,c.nom,c.email,c.tel,c.adresse,c.cp,c.ville,c.pays,c.newsletter?"oui":"non",(c.sources||[]).join(" / "),(c.tags||[]).join(", "),c.nbAchats,(c.total||0).toFixed(2).replace(".",","),c.dernier?String(c.dernier).slice(0,10):"",c.notes]));
+  const csv="﻿"+rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  downloads.save({filename:"ravignan-clients.csv",data:csv});
+}
+
+/* import CSV : Mailchimp (export d'audience) et Squarespace (commandes ou clients) */
+function lireCsv(texte){
+  texte=texte.replace(/^﻿/,"");const sep=(texte.split("\n")[0].match(/;/g)||[]).length>(texte.split("\n")[0].match(/,/g)||[]).length?";":",";
+  const lignes=[];let champ="",ligne=[],q=false;
+  for(let i=0;i<texte.length;i++){const ch=texte[i];
+    if(q){if(ch==='"'){if(texte[i+1]==='"'){champ+='"';i++;}else q=false;}else champ+=ch;}
+    else if(ch==='"')q=true;else if(ch===sep){ligne.push(champ);champ="";}
+    else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&texte[i+1]==="\n")i++;ligne.push(champ);champ="";if(ligne.some(v=>v!==""))lignes.push(ligne);ligne=[];}
+    else champ+=ch;}
+  ligne.push(champ);if(ligne.some(v=>v!==""))lignes.push(ligne);
+  const tete=lignes.shift()||[];return lignes.map(l=>Object.fromEntries(tete.map((h,i)=>[h.trim(),(l[i]??"").trim()])));
+}
+const col=(r,...noms)=>{for(const n of noms){const k=Object.keys(r).find(x=>x.toLowerCase()===n.toLowerCase());if(k&&r[k])return r[k];}return "";};
+function analyserImport(rows){
+  const h=Object.keys(rows[0]||{}).map(x=>x.toLowerCase());
+  const contacts=new Map();
+  const ajout=(c,achat)=>{const k=cleClient(c);if(k==="n:")return;const f=contacts.get(k)||{...c,sources:[],achats:[],tags:[]};
+    for(const kk of ["prenom","nom","email","tel","adresse","cp","ville","pays"])if(!f[kk]&&c[kk])f[kk]=c[kk];
+    if(c.newsletter)f.newsletter=true;(c.tags||[]).forEach(t=>{if(!f.tags.includes(t))f.tags.push(t);});
+    if(!f.sources.includes(c.source))f.sources.push(c.source);
+    if(achat){const ex=f.achats.find(a=>a.ref===achat.ref&&a.source===achat.source);if(ex){ex.produits.push(...achat.produits);if(!ex.total&&achat.total)ex.total=achat.total;}else f.achats.push(achat);}
+    contacts.set(k,f);};
+  let type="inconnu";
+  if(h.includes("email address")&&(h.includes("first name")||h.includes("member_rating")||h.includes("optin_time"))){type="Mailchimp";
+    rows.forEach(r=>ajout({source:"Mailchimp",email:normEmail(col(r,"Email Address")),prenom:col(r,"First Name","FNAME"),nom:col(r,"Last Name","LNAME"),tel:col(r,"Phone Number","PHONE"),
+      adresse:col(r,"Address","ADDRESS"),newsletter:true,tags:col(r,"TAGS").replace(/"/g,"").split(",").map(t=>t.trim()).filter(Boolean)}));}
+  else if(h.includes("order id")||h.includes("lineitem name")){type="Squarespace (commandes)";
+    // les lignes suivantes d'une même commande peuvent laisser le client vide : on reprend celui de la commande
+    const parCommande=new Map();
+    rows.forEach(r=>{const oid=col(r,"Order ID");const prec=parCommande.get(oid);
+      if(prec&&!col(r,"Email")&&!col(r,"Billing Name"))Object.assign(r,prec);else if(oid)parCommande.set(oid,{Email:col(r,"Email"),"Billing Name":col(r,"Billing Name"),"Billing Phone":col(r,"Billing Phone"),"Billing City":col(r,"Billing City"),"Billing Zip":col(r,"Billing Zip"),"Billing Country":col(r,"Billing Country"),"Billing Address1":col(r,"Billing Address1")});
+      const nomc=col(r,"Billing Name","Shipping Name");const [p,...n]=nomc.split(" ");
+      const qte=+col(r,"Lineitem quantity")||1,prix=+String(col(r,"Lineitem price")).replace(",",".")||0;
+      ajout({source:"Squarespace",email:normEmail(col(r,"Email")),prenom:p||"",nom:n.join(" "),tel:col(r,"Billing Phone","Shipping Phone"),
+        adresse:col(r,"Billing Address1","Shipping Address1"),cp:col(r,"Billing Zip","Shipping Zip"),ville:col(r,"Billing City","Shipping City"),pays:col(r,"Billing Country","Shipping Country"),
+        newsletter:/yes|oui|true/i.test(col(r,"Accepts Marketing"))},
+        {source:"Squarespace",ref:"Commande "+col(r,"Order ID"),date:col(r,"Paid at","Created at"),produits:col(r,"Lineitem name")?[{nom:col(r,"Lineitem name"),qte,prix}]:[],total:+String(col(r,"Total")).replace(",",".")||0});});}
+  else if(h.includes("email")&&(h.includes("first name")||h.includes("last name"))){type="Squarespace (clients)";
+    rows.forEach(r=>ajout({source:"Squarespace",email:normEmail(col(r,"Email")),prenom:col(r,"First Name"),nom:col(r,"Last Name"),tel:col(r,"Phone","Phone Number"),
+      ville:col(r,"City","Billing City"),pays:col(r,"Country","Billing Country"),newsletter:/yes|oui|true|subscribed/i.test(col(r,"Accepts Marketing","Subscribed","Email Marketing"))}));}
+  return {type,contacts:[...contacts.values()]};
+}
+function renderImport(m){
+  const c=carte("Importer des clients");
+  c.appendChild(txt("p","","Choisissez un export CSV de Mailchimp (contacts de l'audience) ou de Squarespace (commandes ou liste de clients). Les clients déjà connus sont complétés sans doublon : même email, même fiche."));
+  const fi=el("input");fi.type="file";fi.accept=".csv,text/csv";fi.id="crm-fichier";c.appendChild(fi);
+  const res=el("div","stack");c.appendChild(res);
+  const an=el("button","btn ghost sm","Annuler");an.onclick=()=>{crmImport=null;render();};
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;res.innerHTML="";
+    const rows=lireCsv(await f.text());const {type,contacts}=analyserImport(rows);
+    if(type==="inconnu"||!contacts.length){res.appendChild(txt("p","msg err","Format non reconnu. Utilisez l'export de contacts Mailchimp ou l'export de commandes / clients Squarespace."));return;}
+    const deja=new Set(crm.map(cleClient));const nouveaux=contacts.filter(x=>!deja.has(cleClient(x))).length;
+    res.appendChild(txt("p","msg info",`${type} : ${rows.length} lignes, ${contacts.length} clients (${nouveaux} nouveaux, ${contacts.length-nouveaux} à compléter), ${contacts.reduce((s,x)=>s+x.achats.length,0)} commandes.`));
+    const go=el("button","btn primary sm","Importer");res.appendChild(go);
+    go.onclick=async()=>{go.disabled=true;let n=0;const etat=txt("p","muted","");res.appendChild(etat);
+      for(const x of contacts){const k=cleClient(x);const ex=crm.find(y=>cleClient(y)===k);
+        const d=ex?{...stripId(ex)}:{prenom:"",nom:"",email:"",tel:"",adresse:"",cp:"",ville:"",pays:"",tags:[],notes:"",sources:[],achats:[],newsletter:false};
+        for(const kk of ["prenom","nom","email","tel","adresse","cp","ville","pays"])if(!d[kk]&&x[kk])d[kk]=x[kk];
+        if(x.newsletter)d.newsletter=true;d.tags=[...new Set([...(d.tags||[]),...x.tags])];d.sources=[...new Set([...(d.sources||[]),...x.sources])];
+        const refs=new Set((d.achats||[]).map(a=>a.source+a.ref));d.achats=[...(d.achats||[]),...x.achats.filter(a=>!refs.has(a.source+a.ref))];d.maj=new Date().toISOString();
+        try{await db.collection("crm").doc(ex?ex.id:idCrm(k)).set(d);n++;}catch(err){flash(dbMessage(err));break;}
+        if(n%20===0)etat.textContent=n+" / "+contacts.length+"…";}
+      etat.textContent="";flash(n+" clients importés.","ok");crmImport=null;render();};};
+  c.appendChild(an);m.appendChild(c);
+  const aide=carte("Où trouver ces fichiers ?");
+  aide.appendChild(listeSimple(["Mailchimp : Audience → Tous les contacts → Exporter l'audience → Exporter en CSV (le fichier arrive dans un .zip, prenez « subscribed_… .csv »).","Squarespace, commandes : Commerce → Commandes → Télécharger CSV (toutes les commandes).","Squarespace, clients : Commerce → Profils (ou Contacts) → Exporter."]));
+  m.appendChild(aide);
 }
 
 /* ---------- accès et administrateurs ---------- */
