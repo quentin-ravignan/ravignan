@@ -52,7 +52,8 @@ create policy membres_suppr on public.membres for delete to authenticated
 --  - ventes, transactions, chambres, réservations, famille : lisibles par tout le monde, sans connexion
 --  - clients (noms complets, téléphones, emails) : lisibles uniquement par les administrateurs
 --  - les visiteurs peuvent créer ventes, transactions, réservations et fiches clients,
---    clôturer une vente et annuler une réservation ; le reste est réservé aux administrateurs
+--    clôturer une vente, annuler une réservation et modifier les fiches de la généalogie ;
+--    le reste (suppressions, chambres, config) est réservé aux administrateurs
 drop policy if exists docs_lecture on public.docs;
 drop policy if exists docs_ajout on public.docs;
 drop policy if exists docs_modif on public.docs;
@@ -60,12 +61,21 @@ drop policy if exists docs_suppr on public.docs;
 create policy docs_lecture on public.docs for select to anon, authenticated
   using (collection in ('chambres', 'reservations', 'ventes', 'transactions', 'famille') or public.est_admin());
 create policy docs_ajout on public.docs for insert to anon, authenticated
-  with check (collection in ('reservations', 'ventes', 'transactions', 'clients') or public.est_admin());
+  with check (collection in ('reservations', 'ventes', 'transactions', 'clients', 'famille') or public.est_admin());
 create policy docs_modif on public.docs for update to anon, authenticated
-  using (collection = 'ventes' or public.est_admin())
-  with check (collection = 'ventes' or public.est_admin());
+  using (collection in ('ventes', 'famille') or public.est_admin())
+  with check (collection in ('ventes', 'famille') or public.est_admin());
 create policy docs_suppr on public.docs for delete to anon, authenticated
   using (collection = 'reservations' or public.est_admin());
+
+-- Photos de la généalogie (Storage) : lecture publique, envoi d'images jusqu'à 2 Mo
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('portraits', 'portraits', true, 2097152, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = 2097152, allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp'];
+drop policy if exists portraits_lecture on storage.objects;
+drop policy if exists portraits_ajout on storage.objects;
+create policy portraits_lecture on storage.objects for select to anon, authenticated using (bucket_id = 'portraits');
+create policy portraits_ajout on storage.objects for insert to anon, authenticated with check (bucket_id = 'portraits');
 
 -- Mises à jour en direct entre téléphones
 do $$ begin

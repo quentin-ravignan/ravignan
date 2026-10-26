@@ -1514,7 +1514,7 @@ function renderGenealogie(m){
   zin.setAttribute("aria-label","Zoomer");zout.setAttribute("aria-label","Dézoomer");
   zin.onclick=()=>zoomer(1.25);zout.onclick=()=>zoomer(0.8);zr.onclick=()=>{ajusterVue();dessinerArbre();};
   [zin,zout,zr].forEach(b=>bar.appendChild(b));
-  if(isAdmin()){const a=el("button","btn primary sm","+ Ajouter une personne");a.onclick=()=>{famEdit={};famSel=null;ficheFamille();};bar.appendChild(a);}
+  {const a=el("button","btn primary sm","+ Ajouter une personne");a.onclick=()=>{famEdit={};famSel=null;ficheFamille();qs("#fam-fiche")?.scrollIntoView({behavior:"smooth"});};bar.appendChild(a);}
   m.appendChild(bar);m.appendChild(res);
   const zone=el("div","fam-zone");zone.id="fam-zone";
   const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.id="fam-svg";svg.setAttribute("role","img");svg.setAttribute("aria-label","Arbre généalogique de la famille");
@@ -1613,8 +1613,8 @@ function ficheFamille(){
   liens("Enfants",famille.filter(q=>(q.parents||[]).includes(p.id)).map(q=>q.id));
   if(p.photo&&String(p.photo).startsWith("https://")){const im=el("img","fam-photo");im.src=p.photo;im.alt="Portrait de "+nomComplet(p);im.onerror=()=>im.remove();c.insertBefore(im,c.children[1]);}
   if(p.source)c.appendChild(lien(p.source,"Source"));
-  if(isAdmin()){const r=el("div","row");r.style.justifyContent="flex-start";
-    const e=el("button","btn ghost sm","Modifier");e.onclick=()=>{famEdit={...p};ficheFamille();};r.appendChild(e);
+  {const r=el("div","row");r.style.justifyContent="flex-start";
+    const e=el("button","btn primary sm","Modifier cette fiche");e.onclick=()=>{famEdit={...p};ficheFamille();};r.appendChild(e);
     const en=el("button","btn ghost sm","+ Ajouter un enfant");en.onclick=()=>{famEdit={parents:[p.id,...(p.conjoints||[]).slice(0,1)]};ficheFamille();};r.appendChild(en);
     c.appendChild(r);}
   f.appendChild(c);
@@ -1635,7 +1635,20 @@ function formFamille(p){
     [...famille].filter(x=>x.id!==p.id).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b))).forEach(x=>{const o=el("option");o.value=x.id;o.textContent=nomComplet(x)+(datesDe(x)?" ("+datesDe(x)+")":"");o.selected=(sel||[]).includes(x.id);s.appendChild(o);});
     d.appendChild(s);d.appendChild(txt("span","muted","Ctrl ou Cmd + clic pour en choisir plusieurs"));return d;};
   form.appendChild(choix("parents","Parents",p.parents));form.appendChild(choix("conjoints","Conjoint·e·s",p.conjoints));
-  form.appendChild(champ("photo","Photo (adresse d'une image en https)",p.photo,"url","https://…/portrait.jpg"));
+  const ph=el("div","field fm-photo");ph.appendChild(txt("label","","Photo"));
+  const apercu=el("div","row");apercu.style.justifyContent="flex-start";
+  const img=el("img","fam-photo");img.alt="";img.hidden=!p.photo;if(p.photo)img.src=p.photo;apercu.appendChild(img);
+  const fi=el("input");fi.type="file";fi.accept="image/*";fi.id="fm-fichier";fi.hidden=true;
+  const pick=el("button","btn ghost sm",p.photo?"Changer la photo":"Ajouter une photo");pick.type="button";pick.onclick=()=>fi.click();apercu.appendChild(pick);
+  if(p.photo){const rm=el("button","link","Retirer");rm.type="button";rm.onclick=()=>{form.querySelector("#fm-photo").value="";img.hidden=true;};apercu.appendChild(rm);}
+  const etat=txt("span","muted","");apercu.appendChild(etat);
+  ph.appendChild(apercu);ph.appendChild(fi);
+  const url=el("input");url.type="hidden";url.id="fm-photo";url.value=p.photo||"";ph.appendChild(url);
+  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;etat.textContent="Envoi…";pick.disabled=true;
+    try{const u=await envoyerPortrait(f,p.id||"nouveau");url.value=u;img.src=u;img.hidden=false;etat.textContent="Photo prête, pensez à enregistrer.";}
+    catch(e){etat.textContent="";flash("Envoi de la photo impossible : "+(e.message||e));}
+    finally{pick.disabled=false;}};
+  form.appendChild(ph);
   form.appendChild(champ("ordre","Rang dans la fratrie (1, 2, 3…)",p.ordre,"number"));
   form.appendChild(champ("source","Source (lien)",p.source,"url","https://…"));
   const ck=(id,lab,val)=>{const l=el("label","fm-ck");const i=el("input");i.type="checkbox";i.id="fm-"+id;i.checked=!!val;l.appendChild(i);l.appendChild(document.createTextNode(" "+lab));return l;};
@@ -1643,7 +1656,7 @@ function formFamille(p){
   const r=el("div","row");r.style.justifyContent="flex-start";r.style.flexWrap="wrap";
   const ok=el("button","btn primary sm",nouveau?"Ajouter":"Enregistrer");ok.type="submit";r.appendChild(ok);
   const an=el("button","btn ghost sm","Annuler");an.type="button";an.onclick=()=>{famEdit=null;ficheFamille();};r.appendChild(an);
-  if(!nouveau){const del=el("button","btn danger sm","Supprimer");del.type="button";
+  if(!nouveau&&isAdmin()){const del=el("button","btn danger sm","Supprimer");del.type="button";
     del.onclick=()=>{if(del.dataset.ok){supprimerPersonne(p.id);}else{del.dataset.ok="1";del.textContent="Confirmer la suppression";}};r.appendChild(del);}
   form.appendChild(r);
   form.onsubmit=async e=>{e.preventDefault();
@@ -1663,6 +1676,18 @@ function formFamille(p){
   return form;
 }
 const stripId=q=>{const {id,...r}=q;return r;};
+async function envoyerPortrait(fichier,id){
+  if(!String(fichier.type).startsWith("image/"))throw new Error("ce fichier n'est pas une image");
+  const bmp=await createImageBitmap(fichier);
+  const c=Math.min(bmp.width,bmp.height),t=Math.min(480,c);
+  const cv=document.createElement("canvas");cv.width=t;cv.height=t;
+  cv.getContext("2d").drawImage(bmp,(bmp.width-c)/2,(bmp.height-c)/2,c,c,0,0,t,t);
+  const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.85));
+  const chemin=id.replace(/[^a-z0-9-]/gi,"")+"-"+Date.now()+".jpg";
+  const {error}=await sb.storage.from("portraits").upload(chemin,blob,{contentType:"image/jpeg",upsert:false});
+  if(error)throw error;
+  return sb.storage.from("portraits").getPublicUrl(chemin).data.publicUrl;
+}
 async function supprimerPersonne(id){
   try{
     await db.collection("famille").doc(id).delete();
