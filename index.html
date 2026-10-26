@@ -145,6 +145,10 @@ h3.sub{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.06
 .fam-noeud.sel rect{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2.5}
 .fam-noeud.incertain rect{stroke-dasharray:5 4}
 .fam-nom{fill:var(--fg);font-size:14px;font-weight:800}
+.fam-badges rect{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.fam-badges text{font-size:15px}
+.fam-badges .coeur,.badge-coeur{fill:#e0609a;color:#c2407a}
+.badge-coeur{background:#fde4ef}
 .fam-av{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
 .fam-ini{fill:var(--accent-ink);font-size:13px;font-weight:800}
 .fam-photo{width:96px;height:96px;border-radius:50%;object-fit:cover}
@@ -199,6 +203,13 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .map-sat .pop b{display:block;font-size:14px}.map-sat .pop span{color:#555;font-size:12px}.map-sat .pop p{margin:6px 0 0;font-size:12px;line-height:1.4}
 .tt-moi{font-weight:800;color:#7a3907}
 .crm-tbl td{vertical-align:middle}
+.origines{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+.logo-src{width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo-src img{width:15px;height:15px}
+.logo-src.mailchimp{background:#ffe01b}
+.logo-src.squarespace{background:#fff;border:1px solid #d0d0d0}
+.logo-src.vp{background:var(--accent-soft)}
+.logo-src.vp svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .crm-tbl .tag{margin:1px 2px}
 .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)}
 .hdr{background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
@@ -1472,6 +1483,7 @@ function carteMarque(x){
    {prenom, nom, titre, naissance, lieu_naissance, deces, lieu_deces, role, bio, parents:[id], conjoints:[id], vivant, incertain, source} */
 let famille=[], familleChargee=false, famSel=null, famEdit=null, famVue={x:0,y:0,k:1}, famResume="";
 const NW=176, NH=64, GX=26, GY=96;
+const BADGES={voilier:{ico:"⛵",lab:"Voile"},surf:{ico:"🏄",lab:"Surf"},coeur:{ico:"♥",lab:"Disparu·e, dans nos cœurs",cls:"coeur"},chat:{ico:"🐈",lab:"Chat"}};
 const annee=d=>d?String(d).slice(0,4):"";
 const nomComplet=p=>[p.titre,p.prenom,p.nom].filter(Boolean).join(" ");
 const datesDe=p=>p.vivant?"":(p.naissance||p.deces?`${annee(p.naissance)||"?"} – ${annee(p.deces)||(p.naissance&&+annee(p.naissance)<1925?"?":"")}`:"");
@@ -1563,6 +1575,11 @@ function dessinerArbre(){
       im.setAttribute("preserveAspectRatio","xMidYMid slice");im.setAttribute("clip-path","url(#"+cid+")");n.appendChild(im);}
     const t1=document.createElementNS(NS,"text");t1.setAttribute("x",58);t1.setAttribute("y",27);t1.setAttribute("class","fam-nom");
     const nom=[p.prenom,p.nom].filter(Boolean).join(" ");t1.textContent=nom.length>15?nom.slice(0,14)+"…":nom;n.appendChild(t1);
+    const bs=(p.badges||[]).filter(k=>BADGES[k]);
+    if(bs.length){const w=bs.length*22+8,g2=document.createElementNS(NS,"g");g2.setAttribute("class","fam-badges");g2.setAttribute("transform",`translate(${NW-w-8},-12)`);
+      const bg=document.createElementNS(NS,"rect");bg.setAttribute("width",w);bg.setAttribute("height",24);bg.setAttribute("rx",12);g2.appendChild(bg);
+      bs.forEach((k,i)=>{const t=document.createElementNS(NS,"text");t.setAttribute("x",15+i*22);t.setAttribute("y",17);t.setAttribute("text-anchor","middle");if(BADGES[k].cls)t.setAttribute("class",BADGES[k].cls);t.textContent=BADGES[k].ico;g2.appendChild(t);});
+      n.appendChild(g2);}
     const t2=document.createElementNS(NS,"text");t2.setAttribute("x",58);t2.setAttribute("y",46);t2.setAttribute("class","fam-dates");
     t2.textContent=[p.titre,datesDe(p)].filter(Boolean).join(" · ");n.appendChild(t2);
     const ti=document.createElementNS(NS,"title");ti.textContent=nomComplet(p);n.appendChild(ti);
@@ -1608,6 +1625,7 @@ function ficheFamille(){
   if(!p.vivant){if(p.naissance)vie.push("Né·e "+(p.naissance.length>4?"le "+frDate(p.naissance):"en "+p.naissance)+(p.lieu_naissance?" à "+p.lieu_naissance:""));
     if(p.deces)vie.push("Mort·e "+(p.deces.length>4?"le "+frDate(p.deces):"en "+p.deces)+(p.lieu_deces?" à "+p.lieu_deces:""));}
   if(vie.length)c.appendChild(txt("p","muted",vie.join(" · ")));
+  if(p.badges?.length){const w=el("div","fam-liens");p.badges.filter(k=>BADGES[k]).forEach(k=>{const t=el("span","tag badge-"+k);t.textContent=BADGES[k].ico+" "+BADGES[k].lab;w.appendChild(t);});c.appendChild(w);}
   if(p.role)c.appendChild(txt("p","",p.role));
   if(p.bio)c.appendChild(txt("p","",p.bio));
   if(p.incertain)c.appendChild(txt("span","tag","Lien ou date incertains"));
@@ -1656,6 +1674,9 @@ function formFamille(p){
   form.appendChild(champ("ordre","Rang dans la fratrie (1, 2, 3…)",p.ordre,"number"));
   form.appendChild(champ("source","Source (lien)",p.source,"url","https://…"));
   const ck=(id,lab,val)=>{const l=el("label","fm-ck");const i=el("input");i.type="checkbox";i.id="fm-"+id;i.checked=!!val;l.appendChild(i);l.appendChild(document.createTextNode(" "+lab));return l;};
+  const bw=el("div","fam-liens");bw.appendChild(txt("span","muted","Logos : "));
+  Object.entries(BADGES).forEach(([k,b])=>{const l=el("label","fm-ck");const i=el("input");i.type="checkbox";i.className="fm-badge";i.value=k;i.checked=(p.badges||[]).includes(k);l.appendChild(i);l.appendChild(document.createTextNode(" "+b.ico+" "+b.lab));bw.appendChild(l);});
+  form.appendChild(bw);
   form.appendChild(ck("vivant","Personne vivante (les dates ne sont pas affichées)",p.vivant));form.appendChild(ck("incertain","Information incertaine",p.incertain));
   const r=el("div","row");r.style.justifyContent="flex-start";r.style.flexWrap="wrap";
   const ok=el("button","btn primary sm",nouveau?"Ajouter":"Enregistrer");ok.type="submit";r.appendChild(ok);
@@ -1666,7 +1687,7 @@ function formFamille(p){
   form.onsubmit=async e=>{e.preventDefault();
     const v=id=>form.querySelector("#fm-"+id).value.trim();const sel=id=>[...form.querySelector("#fm-"+id).selectedOptions].map(o=>o.value);
     const d={prenom:v("prenom"),nom:v("nom"),titre:v("titre")||null,naissance:v("naissance")||null,lieu_naissance:v("lieu_naissance")||null,deces:v("deces")||null,lieu_deces:v("lieu_deces")||null,
-      role:v("role")||null,bio:form.querySelector("#fm-bio").value.trim()||null,parents:sel("parents"),conjoints:sel("conjoints"),source:v("source")||null,photo:v("photo")||null,ordre:v("ordre")?+v("ordre"):null,
+      role:v("role")||null,bio:form.querySelector("#fm-bio").value.trim()||null,parents:sel("parents"),conjoints:sel("conjoints"),source:v("source")||null,photo:v("photo")||null,badges:[...form.querySelectorAll(".fm-badge:checked")].map(i=>i.value),ordre:v("ordre")?+v("ordre"):null,
       vivant:form.querySelector("#fm-vivant").checked,incertain:form.querySelector("#fm-incertain").checked};
     if(!d.prenom&&!d.nom)return flash("Indiquez au moins un prénom ou un nom.");
     const id=p.id||("p"+uid());
@@ -1701,6 +1722,7 @@ async function supprimerPersonne(id){
   }catch(err){flash(dbMessage(err));}
 }
 
+function chargerScript(src){return new Promise((ok,ko)=>{if(document.querySelector('script[src="'+src+'"]'))return ok();const e=document.createElement("script");e.src=src;e.onload=ok;e.onerror=ko;document.head.appendChild(e);});}
 /* ---------- clients (CRM, réservé aux administrateurs) ----------
    Collection « crm » : une fiche par client (clé = email, sinon nom + téléphone).
    {prenom, nom, email, tel, adresse, cp, ville, pays, sources:[], newsletter, tags:[], notes,
@@ -1734,10 +1756,20 @@ function clientsFusion(){
   return [...map.values()].map(c=>{
     const achats=c.achats.filter(a=>a.total||a.produits?.length).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
     const total=achats.reduce((s,a)=>s+(+a.total||0),0);
-    return {...c,achats,total,nbAchats:achats.length,dernier:achats[0]?.date||null};
+    return {...c,achats,total,nbAchats:achats.reduce((s,a)=>s+(a.nb||1),0),dernier:achats[0]?.date||null};
   });
 }
 
+const LOGOS={Mailchimp:"https://cdn.jsdelivr.net/npm/simple-icons@11.14.0/icons/mailchimp.svg",Squarespace:"https://cdn.jsdelivr.net/npm/simple-icons@11.14.0/icons/squarespace.svg"};
+function badgesOrigine(c){
+  const w=el("span","origines");
+  (c.sources||[]).forEach(src=>{
+    if(LOGOS[src]){const b=el("span","logo-src "+src.toLowerCase());b.title=src;const i=el("img");i.src=LOGOS[src];i.alt=src;b.appendChild(i);w.appendChild(b);}
+    else{const b=el("span","logo-src vp",'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 3h4v4l2 3v11H8V10l2-3z"/><path d="M8 14h8"/></svg>');b.title=src;w.appendChild(b);}
+  });
+  if(c.newsletter)w.appendChild(txt("span","tag free","Newsletter"));
+  return w;
+}
 function renderClients(m){
   abonnerCrm();
   if(!crmCharge||!loaded.txs){m.appendChild(el("div","empty","Chargement des clients…"));return;}
@@ -1783,7 +1815,7 @@ function renderClients(m){
       const td1=el("td");td1.appendChild(txt("b","",[c.prenom,c.nom].filter(Boolean).join(" ")||c.email||"Sans nom"));if(c.email)td1.appendChild(el("br"));if(c.email)td1.appendChild(txt("span","muted",c.email));
       tr.appendChild(td1);tr.appendChild(txt("td","",c.ville||""));tr.appendChild(txt("td","r",String(c.nbAchats||"")));tr.appendChild(txt("td","r",c.total?fmt(c.total):""));
       tr.appendChild(txt("td","",c.dernier?frDate(String(c.dernier).slice(0,10)):""));
-      const td6=el("td");(c.sources||[]).forEach(src=>td6.appendChild(txt("span","tag",src)));if(c.newsletter)td6.appendChild(txt("span","tag free","Newsletter"));tr.appendChild(td6);
+      const td6=el("td");td6.appendChild(badgesOrigine(c));tr.appendChild(td6);
       tr.onclick=()=>{crmSel=c;dessinerFiche();fiche.scrollIntoView({behavior:"smooth"});};tb.appendChild(tr);});
     t.appendChild(tb);w.appendChild(t);zone.appendChild(w);
     if(l.length>500)zone.appendChild(txt("p","muted","Seuls les 500 premiers sont affichés : affinez la recherche."));};
@@ -1796,6 +1828,7 @@ function ficheClient(c,fermer){
   const nouveau=!!c.nouveau;const f=el("form","card stack");
   const h=el("div","row");h.appendChild(txt("h2","sheet-title",nouveau?"Nouveau client":[c.prenom,c.nom].filter(Boolean).join(" ")||c.email));
   const x=el("button","x","×");x.type="button";x.setAttribute("aria-label","Fermer");x.onclick=fermer;h.appendChild(x);f.appendChild(h);
+  if(!nouveau)f.appendChild(badgesOrigine(c));
   if(!nouveau&&c.nbAchats){f.appendChild(txt("p","muted",`${c.nbAchats} achat${c.nbAchats>1?"s":""} · ${fmt(c.total)} au total · dernier le ${frDate(String(c.dernier).slice(0,10))}`));}
   const champ=(id,lab,val,type="text")=>{const d=el("div","field");const l=txt("label","",lab);l.htmlFor="cr-"+id;d.appendChild(l);const i=el("input");i.id="cr-"+id;i.type=type;i.value=val??"";i.autocomplete="off";d.appendChild(i);return d;};
   const g1=el("div","grid2");g1.appendChild(champ("prenom","Prénom",c.prenom));g1.appendChild(champ("nom","Nom",c.nom));f.appendChild(g1);
@@ -1816,7 +1849,7 @@ function ficheClient(c,fermer){
   if(!nouveau&&c.achats?.length){
     const h3=txt("h3","sub","Historique des achats");f.appendChild(h3);
     c.achats.forEach(a=>{const b=el("div","actu");
-      const top=el("div","row");top.appendChild(txt("b","",(a.date?frDate(String(a.date).slice(0,10)):"Date inconnue")+" · "+a.source+(a.ref?" · "+a.ref:"")));top.appendChild(txt("b","num",fmt(a.total)));b.appendChild(top);
+      const top=el("div","row");top.appendChild(txt("b","",(a.date?(a.nb>1?"Dernière le ":"")+frDate(String(a.date).slice(0,10)):"Date inconnue")+" · "+a.source+(a.ref?" · "+a.ref:"")));top.appendChild(txt("b","num",fmt(a.total)));b.appendChild(top);
       if(a.produits?.length)b.appendChild(txt("p","muted",a.produits.map(p=>(p.qte>1?p.qte+" × ":"")+p.nom).join(", ")));f.appendChild(b);});
   }
   return f;
@@ -1842,17 +1875,44 @@ function lireCsv(texte){
   const tete=lignes.shift()||[];return lignes.map(l=>Object.fromEntries(tete.map((h,i)=>[h.trim(),(l[i]??"").trim()])));
 }
 const col=(r,...noms)=>{for(const n of noms){const k=Object.keys(r).find(x=>x.toLowerCase()===n.toLowerCase());if(k&&r[k])return r[k];}return "";};
-function analyserImport(rows){
+const nombre=v=>{v=String(v||"").replace(/[^\d,.-]/g,"");if(v.includes(",")&&v.includes("."))v=v.replace(/\./g,"").replace(",",".");else v=v.replace(",",".");return +v||0;};
+const MOIS={janvier:1,"février":2,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,"août":8,aout:8,septembre:9,octobre:10,novembre:11,"décembre":12,decembre:12};
+const dateIso=v=>{v=String(v||"").trim();const fr=v.match(/^(\d{1,2})\s+([a-zéûô]+)\s+(\d{4})/i);if(fr&&MOIS[fr[2].toLowerCase()])return fr[3]+"-"+String(MOIS[fr[2].toLowerCase()]).padStart(2,"0")+"-"+fr[1].padStart(2,"0");const m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);if(m)return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");const d=new Date(v);return isNaN(d)?null:d.toISOString().slice(0,10);};
+function analyserImport(rows,nomFichier=""){
   const h=Object.keys(rows[0]||{}).map(x=>x.toLowerCase());
   const contacts=new Map();
-  const ajout=(c,achat)=>{const k=cleClient(c);if(k==="n:")return;const f=contacts.get(k)||{...c,sources:[],achats:[],tags:[]};
+  const ajout=(c,achat)=>{const k=cleClient(c);if(k==="n:")return;const f=contacts.get(k)||{...c,sources:[],achats:[],tags:[],notes:""};
+    if(c.notes&&!String(f.notes||"").includes(c.notes))f.notes=[f.notes,c.notes].filter(Boolean).join(" · ");
     for(const kk of ["prenom","nom","email","tel","adresse","cp","ville","pays"])if(!f[kk]&&c[kk])f[kk]=c[kk];
     if(c.newsletter)f.newsletter=true;(c.tags||[]).forEach(t=>{if(!f.tags.includes(t))f.tags.push(t);});
     if(!f.sources.includes(c.source))f.sources.push(c.source);
     if(achat){const ex=f.achats.find(a=>a.ref===achat.ref&&a.source===achat.source);if(ex){ex.produits.push(...achat.produits);if(!ex.total&&achat.total)ex.total=achat.total;}else f.achats.push(achat);}
     contacts.set(k,f);};
   let type="inconnu";
-  if(h.includes("email address")&&(h.includes("first name")||h.includes("member_rating")||h.includes("optin_time"))){type="Mailchimp";
+  const fichier=nomFichier.toLowerCase();
+  if(h.includes("adresse email")||(h.includes("email address")&&h.includes("member_rating")&&h.some(x=>x.startsWith("part - ")||x.startsWith("pros - ")))){
+    const statut=fichier.includes("unsubscribed")?"Désabonné":fichier.includes("cleaned")?"Email invalide":"";
+    type="Mailchimp"+(statut?" ("+statut.toLowerCase()+"s)":" (abonnés)");
+    const groupes=Object.keys(rows[0]||{}).filter(k=>/^(part|pros)\s*-/i.test(k.trim()));
+    rows.forEach(r=>{
+      const tags=groupes.filter(g=>r[g]).map(g=>(/^pros/i.test(g.trim())?"Pro : ":"")+g.replace(/^(part|pros)\s*-\s*/i,"").trim());
+      col(r,"TAGS").replace(/"/g,"").split(",").map(t=>t.trim()).filter(Boolean).forEach(t=>tags.push(t));
+      if(statut)tags.push(statut);
+      const ev=col(r,"Nom de la vente ou évènement");if(ev)tags.push(ev);
+      const notes=[col(r,"Entreprise")&&"Entreprise : "+col(r,"Entreprise"),col(r,"Commentaire_libre"),col(r,"Comment avez-vous connu Ravignan ?")&&"A connu Ravignan : "+col(r,"Comment avez-vous connu Ravignan ?")].filter(Boolean).join(" · ");
+      ajout({source:"Mailchimp",email:normEmail(col(r,"Adresse email","Email Address")),prenom:col(r,"Prénom","First Name"),nom:col(r,"Nom de famille","Last Name"),
+        tel:col(r,"Numéro de téléphone","Phone Number"),adresse:col(r,"Address"),pays:col(r,"CC"),newsletter:!statut,tags,notes});});
+  }
+  else if(h.includes("e-mail")&&h.includes("nombre de commandes")){type="Squarespace (clients)";
+    rows.forEach(r=>{const nb=+col(r,"Nombre de commandes")||0;
+      ajout({source:"Squarespace",email:normEmail(col(r,"E-mail")),prenom:col(r,"Prénom"),nom:col(r,"Nom de famille"),
+        tel:col(r,"Numéro de téléphone associé à la facturation","Numéro de téléphone associé à la livraison","Numéro de téléphone"),
+        adresse:[col(r,"Adresse de facturation 1","Adresse de livraison 1"),col(r,"Adresse de facturation 2","Adresse de livraison 2")].filter(Boolean).join(", "),
+        cp:col(r,"Code postal de facturation","Code postal de livraison"),ville:col(r,"Ville de facturation","Ville de livraison"),pays:col(r,"Pays de facturation","Pays de livraison"),
+        newsletter:/^(oui|yes|true|vrai)/i.test(col(r,"Accepte les communications marketing par e-mail")),tags:[]},
+        nb?{source:"Squarespace",ref:"Boutique en ligne · "+nb+" commande"+(nb>1?"s":""),nb,date:dateIso(col(r,"Date de la dernière commande")),produits:[],total:nombre(col(r,"Total des dépenses"))}:null);});
+  }
+  else if(h.includes("email address")&&(h.includes("first name")||h.includes("member_rating")||h.includes("optin_time"))){type="Mailchimp";
     rows.forEach(r=>ajout({source:"Mailchimp",email:normEmail(col(r,"Email Address")),prenom:col(r,"First Name","FNAME"),nom:col(r,"Last Name","LNAME"),tel:col(r,"Phone Number","PHONE"),
       adresse:col(r,"Address","ADDRESS"),newsletter:true,tags:col(r,"TAGS").replace(/"/g,"").split(",").map(t=>t.trim()).filter(Boolean)}));}
   else if(h.includes("order id")||h.includes("lineitem name")){type="Squarespace (commandes)";
@@ -1874,24 +1934,46 @@ function analyserImport(rows){
 function renderImport(m){
   const c=carte("Importer des clients");
   c.appendChild(txt("p","","Choisissez un export CSV de Mailchimp (contacts de l'audience) ou de Squarespace (commandes ou liste de clients). Les clients déjà connus sont complétés sans doublon : même email, même fiche."));
-  const fi=el("input");fi.type="file";fi.accept=".csv,text/csv";fi.id="crm-fichier";c.appendChild(fi);
+  const fi=el("input");fi.type="file";fi.accept=".csv,.zip,text/csv,application/zip";fi.multiple=true;fi.id="crm-fichier";c.appendChild(fi);
+  c.appendChild(txt("p","muted","Vous pouvez choisir plusieurs fichiers à la fois, et directement le .zip exporté par Mailchimp."));
   const res=el("div","stack");c.appendChild(res);
   const an=el("button","btn ghost sm","Annuler");an.onclick=()=>{crmImport=null;render();};
-  fi.onchange=async()=>{const f=fi.files[0];if(!f)return;res.innerHTML="";
-    const rows=lireCsv(await f.text());const {type,contacts}=analyserImport(rows);
-    if(type==="inconnu"||!contacts.length){res.appendChild(txt("p","msg err","Format non reconnu. Utilisez l'export de contacts Mailchimp ou l'export de commandes / clients Squarespace."));return;}
+  fi.onchange=async()=>{if(!fi.files.length)return;res.innerHTML="";res.appendChild(txt("p","muted","Lecture des fichiers…"));
+    const fichiers=[];
+    for(const f of fi.files){
+      if(/\.zip$/i.test(f.name)){await chargerScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");const z=await JSZip.loadAsync(f);
+        for(const n of Object.keys(z.files).filter(n=>/\.csv$/i.test(n)))fichiers.push({nom:n,texte:await z.files[n].async("string")});}
+      else fichiers.push({nom:f.name,texte:await f.text()});}
+    const types=[],tousContacts=new Map();
+    // les abonnés d'abord : leur statut newsletter l'emporte
+    fichiers.sort((a,b)=>(/unsub|cleaned/i.test(a.nom)?1:0)-(/unsub|cleaned/i.test(b.nom)?1:0));
+    for(const f of fichiers){const rows=lireCsv(f.texte);const a=analyserImport(rows,f.nom);types.push(a.type+" : "+rows.length+" lignes");
+      a.contacts.forEach(x=>{const k=cleClient(x);const prev=tousContacts.get(k);
+        if(!prev){tousContacts.set(k,x);return;}
+        for(const kk of ["prenom","nom","email","tel","adresse","cp","ville","pays"])if(!prev[kk]&&x[kk])prev[kk]=x[kk];
+        prev.newsletter=prev.newsletter||x.newsletter;prev.tags=[...new Set([...prev.tags,...x.tags])];prev.sources=[...new Set([...prev.sources,...x.sources])];
+        if(x.notes&&!String(prev.notes||"").includes(x.notes))prev.notes=[prev.notes,x.notes].filter(Boolean).join(" · ");prev.achats.push(...x.achats);});}
+    const contacts=[...tousContacts.values()];res.innerHTML="";
+    if(!contacts.length||types.every(t=>t.startsWith("inconnu"))){res.appendChild(txt("p","msg err","Format non reconnu. Utilisez l'export d'audience Mailchimp ou l'export de clients / commandes Squarespace."));return;}
+    res.appendChild(listeSimple(types));
     const deja=new Set(crm.map(cleClient));const nouveaux=contacts.filter(x=>!deja.has(cleClient(x))).length;
-    res.appendChild(txt("p","msg info",`${type} : ${rows.length} lignes, ${contacts.length} clients (${nouveaux} nouveaux, ${contacts.length-nouveaux} à compléter), ${contacts.reduce((s,x)=>s+x.achats.length,0)} commandes.`));
+    res.appendChild(txt("p","msg info",`Au total : ${contacts.length} clients (${nouveaux} nouveaux, ${contacts.length-nouveaux} à compléter), ${contacts.reduce((s,x)=>s+x.achats.length,0)} commandes.`));
     const go=el("button","btn primary sm","Importer");res.appendChild(go);
     go.onclick=async()=>{go.disabled=true;let n=0;const etat=txt("p","muted","");res.appendChild(etat);
-      for(const x of contacts){const k=cleClient(x);const ex=crm.find(y=>cleClient(y)===k);
+      const existants=new Map(crm.map(y=>[cleClient(y),y]));const lot=[];
+      const envoyer=async()=>{if(!lot.length)return;const {error}=await sb.from("docs").upsert(lot.splice(0),{onConflict:"collection,id"});if(error)throw error;};
+      try{for(const x of contacts){const k=cleClient(x);const ex=existants.get(k);
         const d=ex?{...stripId(ex)}:{prenom:"",nom:"",email:"",tel:"",adresse:"",cp:"",ville:"",pays:"",tags:[],notes:"",sources:[],achats:[],newsletter:false};
         for(const kk of ["prenom","nom","email","tel","adresse","cp","ville","pays"])if(!d[kk]&&x[kk])d[kk]=x[kk];
         if(x.newsletter)d.newsletter=true;d.tags=[...new Set([...(d.tags||[]),...x.tags])];d.sources=[...new Set([...(d.sources||[]),...x.sources])];
         const refs=new Set((d.achats||[]).map(a=>a.source+a.ref));d.achats=[...(d.achats||[]),...x.achats.filter(a=>!refs.has(a.source+a.ref))];d.maj=new Date().toISOString();
-        try{await db.collection("crm").doc(ex?ex.id:idCrm(k)).set(d);n++;}catch(err){flash(dbMessage(err));break;}
-        if(n%20===0)etat.textContent=n+" / "+contacts.length+"…";}
-      etat.textContent="";flash(n+" clients importés.","ok");crmImport=null;render();};};
+        if(!d.notes&&x.notes)d.notes=x.notes;
+        lot.push({collection:"crm",id:ex?ex.id:idCrm(k),data:d,updated_at:new Date().toISOString()});n++;
+        if(lot.length>=200){await envoyer();etat.textContent=n+" / "+contacts.length+"…";}}
+        await envoyer();}
+      catch(err){flash("Import interrompu après "+n+" fiches : "+(err.message||err));go.disabled=false;return;}
+      const {data}=await sb.from("docs").select("id,data").eq("collection","crm");crm=(data||[]).map(r=>({id:r.id,...r.data}));
+      flash(n+" fiches clients importées ou complétées.","ok");crmImport=null;render();};};
   c.appendChild(an);m.appendChild(c);
   const aide=carte("Où trouver ces fichiers ?");
   aide.appendChild(listeSimple(["Mailchimp : Audience → Tous les contacts → Exporter l'audience → Exporter en CSV (le fichier arrive dans un .zip, prenez « subscribed_… .csv »).","Squarespace, commandes : Commerce → Commandes → Télécharger CSV (toutes les commandes).","Squarespace, clients : Commerce → Profils (ou Contacts) → Exporter."]));
