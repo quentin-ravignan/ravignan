@@ -213,6 +213,11 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .map-sat .pop b{display:block;font-size:14px}.map-sat .pop span{color:#555;font-size:12px}.map-sat .pop p{margin:6px 0 0;font-size:12px;line-height:1.4}
 .tt-moi{font-weight:800;color:#7a3907}
 .crm-tbl td{vertical-align:middle}
+.client-res{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:inherit;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer}
+.client-res>span:first-child{display:flex;flex-direction:column;min-width:0}
+.client-res:hover{border-color:var(--accent)}
+.client-choisi{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--accent-soft);border-radius:10px;padding:10px 12px}
+.client-choisi p{margin:2px 0 0}
 .origines{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
 .logo-src{width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo-src img{width:15px;height:15px}
@@ -673,14 +678,7 @@ function renderSaisie(m){
   const cv=el("div","card",`<div class="field"><label for="sv-vendeur">Vendeur (votre prénom)</label><input id="sv-vendeur" placeholder="ex : Marie" value="${esc(sv.vendeur)}"></div>`);
   m.appendChild(cv);
   cv.querySelector("#sv-vendeur").oninput=e=>{sv.vendeur=e.target.value;};
-  const cc=el("div","card",`<h2>Client</h2>
-    <div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off" value="${esc(sv.client.prenom)}"></div>
-    <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off" value="${esc(sv.client.nom)}"></div></div>
-    <div class="grid2"><div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="optionnel" value="${esc(sv.client.tel)}"></div>
-    <div class="field"><label for="cl-email">Email</label><input id="cl-email" type="email" autocomplete="off" placeholder="optionnel" value="${esc(sv.client.email)}"></div></div>`);
-  m.appendChild(cc);
-  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email"};
-  Object.keys(cmap).forEach(id=>{qs("#"+id).oninput=e=>{sv.client[cmap[id]]=e.target.value;};});
+  const cc=el("div","card");m.appendChild(cc);dessinerClientCaisse(cc);
   saisieProdCard=el("div","card");m.appendChild(saisieProdCard);renderLignes();
   const cp=el("div","card",`<h2>Paiement</h2>`);const pm=el("div","pmts");
   PMTS.forEach(([p,lab])=>{
@@ -695,6 +693,42 @@ function renderSaisie(m){
   updateTotal();
 }
 
+// bloc « Client » de la caisse
+function dessinerClientCaisse(cc){
+  cc.innerHTML="<h2>Client</h2>";
+  const c=sv.client;if(c.nouveau===undefined&&!c.existant)c.nouveau=!estMembre; // sans connexion : nouveau client par défaut
+  if(c.existant){
+    const r=el("div","client-choisi");const t=el("div");t.appendChild(txt("b","",[c.prenom,c.nom].filter(Boolean).join(" ")));
+    t.appendChild(txt("p","muted",[c.email,c.tel].filter(Boolean).join(" · ")||"Pas de coordonnées"));r.appendChild(t);
+    const ch=el("button","link","Changer");ch.onclick=()=>{sv.client={nom:"",prenom:"",tel:"",email:""};dessinerClientCaisse(cc);};r.appendChild(ch);
+    cc.appendChild(r);return;
+  }
+  const modes=el("div","tabs");
+  const bR=el("button",!c.nouveau?"active":"","Client existant"),bN=el("button",c.nouveau?"active":"","Nouveau client");
+  bR.onclick=()=>{c.nouveau=false;dessinerClientCaisse(cc);};bN.onclick=()=>{c.nouveau=true;dessinerClientCaisse(cc);};
+  modes.appendChild(bR);modes.appendChild(bN);cc.appendChild(modes);
+  if(!c.nouveau){
+    if(!estMembre){cc.appendChild(txt("p","muted","La recherche dans le fichier clients est réservée aux membres connectés."));
+      const b=el("button","btn ghost sm","Se connecter avec Google");b.onclick=()=>sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});cc.appendChild(b);return;}
+    const q=el("input","search");q.type="search";q.id="cl-recherche";q.placeholder="Nom, prénom, email ou téléphone";q.autocomplete="off";cc.appendChild(q);
+    const res=el("div","stack");cc.appendChild(res);
+    const chercher=()=>{res.innerHTML="";const t=normTxt(q.value);if(t.length<2)return;
+      const liste=clientsFusion().filter(x=>normTxt([x.prenom,x.nom,x.email,x.tel].join(" ")).includes(t)||String(x.tel||"").replace(/\D/g,"").includes(q.value.replace(/\D/g,"")||"§"))
+        .sort((a,b)=>b.total-a.total).slice(0,8);
+      if(!liste.length){res.appendChild(txt("p","muted","Aucun client trouvé."));const n=el("button","link","Créer ce client");n.onclick=()=>{c.nouveau=true;const [p,...rest]=q.value.trim().split(" ");c.prenom=p||"";c.nom=rest.join(" ");dessinerClientCaisse(cc);};res.appendChild(n);return;}
+      liste.forEach(x=>{const b=el("button","client-res");const t2=el("span");t2.appendChild(txt("b","",[x.prenom,x.nom].filter(Boolean).join(" ")||x.email));
+        t2.appendChild(txt("span","muted",[x.email,x.ville,x.nbAchats?x.nbAchats+" achat"+(x.nbAchats>1?"s":""):""].filter(Boolean).join(" · ")));b.appendChild(t2);b.appendChild(badgesOrigine(x));
+        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
+    q.oninput=chercher;setTimeout(()=>q.focus(),50);return;
+  }
+  const f=el("div","stack",`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
+    <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>
+    <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
+    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>`);
+  cc.appendChild(f);
+  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email"};
+  Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;};});
+}
 function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
   if(!ref.stock)return Infinity;
   return ref.stock-venduDe(v.id,ref.id);
@@ -763,12 +797,32 @@ function updateTotal(){
   if(btn)btn.disabled=!sv.lignes.length||busy;
 }
 
+// SumUp « Payment Switch » : l'app SumUp s'ouvre avec le montant ; il faut la clé affiliée du compte SumUp
+let reglages={};
+function ouvrirSumUp(montant,ref,titre){
+  const cle=reglages.sumup_cle;
+  const retour=location.origin+location.pathname+"#vente";
+  const q=new URLSearchParams({amount:montant.toFixed(2),currency:"EUR",title:("Ravignan · "+(titre||"Vente")).slice(0,60),"foreign-tx-id":ref,
+    callbacksuccess:retour,callbackfail:retour,"skip-screen-success":"false"});
+  if(cle)q.set("affiliate-key",cle);
+  const lienSumUp="sumupmerchant://pay/1.0?"+q.toString();
+  const m=el("div","modal");m.id="sumup-modal";
+  const sh=el("div","sheet",`<h2 class="sheet-title">Paiement par carte</h2>
+    <div class="total"><small>Montant à encaisser</small><strong class="num">${fmt(montant)}</strong></div>
+    <p class="muted">Référence : <b>${esc(ref)}</b>${cle?"":" · L'app SumUp s'ouvrira sans le montant tant que la clé affiliée n'est pas renseignée (Administration) : saisissez-le à la main."}</p>`);
+  const go=el("a","btn go full","Ouvrir SumUp");go.href=lienSumUp;go.style.textAlign="center";go.style.textDecoration="none";sh.appendChild(go);
+  const ferme=el("button","btn ghost full","Fermer");ferme.onclick=()=>m.remove();sh.appendChild(ferme);
+  m.appendChild(sh);m.onclick=e=>{if(e.target===m)m.remove();};document.body.appendChild(m);
+  // sur téléphone, on tente d'ouvrir l'app directement
+  if(/Android|iPhone|iPad/i.test(navigator.userAgent))setTimeout(()=>{location.href=lienSumUp;},300);
+}
 async function submitTx(){
   if(busy)return;
   const v=getVente();
   if(!v||v.cloturee)return flash("Cette vente est clôturée.");
   if(!sv.vendeur.trim())return flash("Indiquez votre prénom de vendeur.");
-  if(!sv.client.prenom.trim()||!sv.client.nom.trim())return flash("Indiquez le prénom et le nom du client.");
+  if(!sv.client.prenom.trim()||!sv.client.nom.trim())return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
+  if(sv.client.nouveau&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sv.client.email.trim()))return flash("Indiquez l'email du nouveau client.");
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   // contrôle du stock avec les dernières ventes des autres vendeurs
   for(const l of sv.lignes){
@@ -792,6 +846,7 @@ async function submitTx(){
     if(!txs.find(x=>x.id===id))txs.push({id,...tx});
     sv=blankSv();horsOpen=false;
     busy=false;go("vente",v.id);flash(`Transaction enregistrée : ${fmt(tx.total)}.`,"ok");
+    if(tx.paiement==="CB")ouvrirSumUp(tx.total,id,v.nom);
   }catch(e){busy=false;updateTotal();flash(dbMessage(e));}
 }
 
@@ -898,6 +953,7 @@ function renderAdmin(m){
     cls.forEach(c=>b.appendChild(el("tr","",`<td><b>${esc(c.prenom)} ${esc(c.nom)}</b>${c.tel?`<br><span class="muted">${esc(c.tel)}</span>`:""}${c.email?`<br><span class="muted" style="overflow-wrap:anywhere">${esc(c.email)}</span>`:""}</td><td class="r">${c.n}</td><td class="r"><b>${fmt(c.ca)}</b></td>`)));
     tbl.appendChild(b);w.appendChild(tbl);cc.appendChild(w);m.appendChild(cc);
   }
+  renderReglages(m);
   renderAdminAcces(m);
 }
 
@@ -1812,7 +1868,7 @@ const cleClient=c=>normEmail(c.email)?"e:"+normEmail(c.email):"n:"+normTxt((c.pr
 const idCrm=cle=>"c"+[...cle].reduce((h,ch)=>(h*31+ch.charCodeAt(0))>>>0,7).toString(36)+cle.replace(/[^a-z0-9]/g,"").slice(0,24);
 
 function abonnerCrm(){
-  if(crmAbonne||!isAdmin())return;crmAbonne=true;
+  if(crmAbonne||!estMembre)return;crmAbonne=true;
   db.collection("crm").onSnapshot(s=>{crm=s.docs.map(x=>({id:x.id,...x.data()}));crmCharge=true;if(page==="clients"&&!crmImport)render();},e=>flash(dbMessage(e)));
 }
 // fusion : fiches CRM + acheteurs des ventes privées
@@ -2058,6 +2114,16 @@ function renderImport(m){
 }
 
 /* ---------- accès et administrateurs ---------- */
+function renderReglages(m){
+  const c=carte("Paiement par carte (SumUp)");
+  c.appendChild(txt("p","muted","Pour que l'app SumUp s'ouvre avec le montant déjà saisi, créez une clé affiliée dans votre compte SumUp (Profil → Développeurs → Clés affiliées) et collez-la ici."));
+  const f=el("form","row");f.style.flexWrap="wrap";
+  const i=el("input");i.id="reg-sumup";i.autocomplete="off";i.placeholder="Clé affiliée SumUp";i.value=reglages.sumup_cle||"";
+  i.style.cssText="flex:1;min-width:220px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;background:var(--surface)";
+  const b=el("button","btn primary sm","Enregistrer");b.type="submit";f.appendChild(i);f.appendChild(b);c.appendChild(f);
+  f.onsubmit=async e=>{e.preventDefault();try{await db.collection("reglages").doc("caisse").set({...reglages,sumup_cle:i.value.trim()});reglages.sumup_cle=i.value.trim();flash("Réglage enregistré.","ok");}catch(err){flash(dbMessage(err));}};
+  m.appendChild(c);
+}
 function renderAdminAcces(m){
   const c=el("div","card",`<h2>Accès au site</h2>
     <p class="muted">Seules les adresses de cette liste peuvent se connecter. Chacune reçoit un lien de connexion par email. Les administrateurs voient la page Administration et gèrent cette liste.</p>`);
@@ -2221,6 +2287,7 @@ function demarrerDonnees(){
     if(premier||!qs("#fam-svg"))render();else{dessinerArbre();if(!famEdit)ficheFamille();}
   },()=>{familleChargee=true;});
   chargerContenu("genealogie").then(d=>{famResume=d.resume||"";if(page==="genealogie"&&!famEdit)render();}).catch(()=>{});
+  db.collection("reglages").onSnapshot(s=>{const d=s.docs.find(x=>x.id==="caisse");reglages=d?d.data():{};},()=>{});
   db.collection("chambres").onSnapshot(s=>{
     chambres=s.docs.map(x=>({id:x.id,...x.data()}));loaded.chambres=true;
     if(page==="chambres")refreshChambres();
@@ -2247,7 +2314,8 @@ async function verifierSession(session){
   isOwner=!!data&&data.role==="admin";estMembre=!!data;
   if(estMembre&&!coordsAbonne){coordsAbonne=true;db.collection("coordonnees").onSnapshot(s=>{coords=new Map(s.docs.map(x=>[x.id,x.data()]));if(page==="genealogie"&&!famEdit)ficheFamille();},()=>{});}
   authState=isOwner?"ok":"denied";majPied();
-  if(isOwner&&!clientsAbonne){
+  if(estMembre)abonnerCrm();
+  if(estMembre&&!clientsAbonne){
     clientsAbonne=true;
     db.collection("clients").onSnapshot(s=>{
       clients=new Map(s.docs.map(x=>[x.id,x.data()]));
