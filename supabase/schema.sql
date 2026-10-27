@@ -59,7 +59,8 @@ drop policy if exists docs_ajout on public.docs;
 drop policy if exists docs_modif on public.docs;
 drop policy if exists docs_suppr on public.docs;
 create policy docs_lecture on public.docs for select to anon, authenticated
-  using (collection in ('chambres', 'reservations', 'ventes', 'transactions', 'famille') or public.est_admin());
+  using (collection in ('chambres', 'reservations', 'ventes', 'transactions', 'famille') or public.est_admin()
+         or (collection = 'coordonnees' and public.est_membre()));
 create policy docs_ajout on public.docs for insert to anon, authenticated
   with check (collection in ('reservations', 'ventes', 'transactions', 'clients', 'famille') or public.est_admin());
 create policy docs_modif on public.docs for update to anon, authenticated
@@ -67,6 +68,20 @@ create policy docs_modif on public.docs for update to anon, authenticated
   with check (collection in ('ventes', 'famille') or public.est_admin());
 create policy docs_suppr on public.docs for delete to anon, authenticated
   using (collection = 'reservations' or public.est_admin());
+
+-- Coordonnées de la famille (email, téléphone, réseau) : lues par les membres connectés,
+-- écrites seulement par cette fonction, qui complète la fiche d'une personne de l'arbre sans rien effacer
+create or replace function public.maj_coordonnees(personne text, champs jsonb) returns void
+language sql security definer set search_path = public as $
+  insert into public.docs (collection, id, data)
+  select 'coordonnees', personne, jsonb_strip_nulls(jsonb_build_object(
+           'email', nullif(left(champs->>'email', 200), ''), 'tel', nullif(left(champs->>'tel', 40), ''),
+           'reseau', nullif(left(champs->>'reseau', 40), ''), 'reseau_lien', nullif(left(champs->>'reseau_lien', 300), '')))
+  where exists (select 1 from public.docs where collection = 'famille' and id = personne)
+  on conflict (collection, id) do update set data = public.docs.data || excluded.data, updated_at = now();
+$;
+revoke all on function public.maj_coordonnees(text, jsonb) from public;
+grant execute on function public.maj_coordonnees(text, jsonb) to anon, authenticated;
 
 -- Photos de la généalogie (Storage) : lecture publique, envoi d'images jusqu'à 2 Mo
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
