@@ -154,6 +154,7 @@ h3.sub{margin:6px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:.06
 .fam-photo{width:96px;height:96px;border-radius:50%;object-fit:cover}
 .fam-dates{fill:var(--muted);font-size:12px}
 .fam-res{display:flex;flex-wrap:wrap;gap:6px}
+.fam-branches{align-items:center}
 .fam-liens{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .fm-ta{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:15px;width:100%;background:var(--surface);color:var(--fg);font-family:inherit}
 .field select[multiple]{padding:6px}
@@ -1489,33 +1490,60 @@ const nomComplet=p=>[p.titre,p.prenom,p.nom].filter(Boolean).join(" ");
 const datesDe=p=>p.vivant?"":(p.naissance||p.deces?`${annee(p.naissance)||"?"} – ${annee(p.deces)||(p.naissance&&+annee(p.naissance)<1925?"?":"")}`:"");
 
 function layoutFamille(){
+  // Mise en page par familles : chaque couple forme un bloc, ses enfants sont centrés dessous,
+  // et chaque branche occupe sa propre largeur pour ne jamais se mêler aux branches voisines.
   const byId=new Map(famille.map(p=>[p.id,p]));
   const par=p=>(p.parents||[]).filter(id=>byId.has(id));
   const conj=p=>(p.conjoints||[]).filter(id=>byId.has(id));
-  // génération : 1 + la plus haute génération des parents ; un conjoint sans parents se cale sur son conjoint
-  const gen=new Map();
-  const g=(p,seen=new Set())=>{
-    if(gen.has(p.id))return gen.get(p.id);
-    if(seen.has(p.id))return 0;seen.add(p.id);
-    const ps=par(p);let v=ps.length?Math.max(...ps.map(id=>g(byId.get(id),seen)))+1:0;
-    gen.set(p.id,v);return v;
-  };
-  famille.forEach(p=>g(p));
-  for(let i=0;i<3;i++)famille.forEach(p=>{if(!par(p).length){const c=conj(p).map(id=>gen.get(id));if(c.length)gen.set(p.id,Math.max(...c));}});
-  // placement génération par génération, sous les parents
-  const pos=new Map();const niveaux=[...new Set(gen.values())].sort((a,b)=>a-b);
-  niveaux.forEach(lv=>{
-    const gens=famille.filter(p=>gen.get(p.id)===lv);
-    const voulu=p=>{const ps=par(p).filter(id=>pos.has(id));if(ps.length)return ps.reduce((s,id)=>s+pos.get(id).x,0)/ps.length;
-      const c=conj(p).find(id=>gens.some(q=>q.id===id)&&par(byId.get(id)).length);if(c){const ps2=par(byId.get(c)).filter(id=>pos.has(id));if(ps2.length)return ps2.reduce((s,id)=>s+pos.get(id).x,0)/ps2.length+0.5;}
-      return 1e9+famille.indexOf(p);};
-    // ordre : par position voulue, puis on colle chaque conjoint à côté
-    const tri=[...gens].sort((a,b)=>voulu(a)-voulu(b)||(a.ordre??99)-(b.ordre??99)||annee(a.naissance).localeCompare(annee(b.naissance)));
-    const ordre=[];tri.forEach(p=>{if(ordre.includes(p))return;ordre.push(p);conj(p).forEach(id=>{const q=byId.get(id);if(gens.includes(q)&&!ordre.includes(q))ordre.push(q);});});
-    let prev=-Infinity;
-    ordre.forEach(p=>{let v=voulu(p);if(v>1e8)v=prev===-Infinity?0:prev+NW+GX;const x=Math.max(v,prev+NW+GX);pos.set(p.id,{x,y:lv*(NH+GY)});prev=x;});
-  });
-  return {pos,byId,par,conj,gen};
+  const enfantsDe=new Map();famille.forEach(p=>par(p).forEach(id=>{if(!enfantsDe.has(id))enfantsDe.set(id,[]);enfantsDe.get(id).push(p);}));
+  const descendants=id=>{const vu=new Set();const pile=[id];while(pile.length){const x=pile.pop();(enfantsDe.get(x)||[]).forEach(c=>{if(!vu.has(c.id)){vu.add(c.id);pile.push(c.id);}});}return vu;};
+  // la lignée principale : les descendants de l'ancêtre qui en a le plus
+  const racines=famille.filter(p=>!par(p).length);
+  const ancetre=[...racines].sort((a,b)=>descendants(b.id).size-descendants(a.id).size)[0];
+  const lignee=ancetre?descendants(ancetre.id):new Set();if(ancetre)lignee.add(ancetre.id);
+  // qui est dessiné à côté de son conjoint plutôt que sous ses propres parents
+  const hote=new Map();
+  famille.forEach(p=>{const sp=conj(p);if(!sp.length)return;
+    if(!par(p).length){const h=sp.find(s=>par(byId.get(s)).length||lignee.has(s));if(h&&!(hote.get(h)===p.id))hote.set(p.id,h);}
+    else if(!lignee.has(p.id)){const h=sp.find(s=>lignee.has(s));if(h)hote.set(p.id,h);}});
+  // un conjoint rattaché à un conjoint lui-même rattaché remonte jusqu'à la personne d'origine
+  const ancre=id=>{let x=id,n=0;while(hote.has(x)&&n<5){x=hote.get(x);n++;}return x;};
+  const unites=new Map();
+  famille.forEach(p=>{const a=ancre(p.id);if(!unites.has(a))unites.set(a,{ancre:a,membres:[a],enfants:[]});if(a!==p.id)unites.get(a).membres.push(p.id);});
+  const uniteDe=id=>unites.get(ancre(id));
+  const tri=(a,b)=>(a.ordre??99)-(b.ordre??99)||annee(a.naissance).localeCompare(annee(b.naissance))||famille.indexOf(a)-famille.indexOf(b);
+  // chaque enfant (non rattaché) est placé sous la famille de son premier parent connu
+  const place=new Set();
+  famille.filter(p=>!hote.has(p.id)&&par(p).length).sort(tri).forEach(p=>{const u=uniteDe(par(p)[0]);if(u&&u.ancre!==p.id&&!place.has(p.id)){u.enfants.push(unites.get(p.id));place.add(p.id);}});
+  unites.forEach(u=>u.enfants.sort((a,b)=>tri(byId.get(a.ancre),byId.get(b.ancre))));
+  const GF=48; // écart entre deux familles voisines
+  const largeurBloc=u=>u.membres.length*NW+(u.membres.length-1)*GX;
+  const larg=new Map();
+  const largeur=u=>{if(larg.has(u))return larg.get(u);larg.set(u,largeurBloc(u));
+    const k=u.enfants.reduce((s,c,i)=>s+largeur(c)+(i?GF:0),0);const w=Math.max(largeurBloc(u),k);larg.set(u,w);return w;};
+  const pos=new Map();
+  const poser=(u,gauche,niveau)=>{const w=largeur(u);
+    const kw=u.enfants.reduce((s,c,i)=>s+largeur(c)+(i?GF:0),0);let x=gauche+(w-kw)/2;
+    const centres=[];u.enfants.forEach(c=>{poser(c,x,niveau+1);const pc=pos.get(c.ancre);centres.push(pc.x+NW/2);x+=largeur(c)+GF;});
+    const lb=largeurBloc(u);let x0=centres.length?(centres[0]+centres[centres.length-1])/2-lb/2:gauche+(w-lb)/2;
+    x0=Math.max(gauche,Math.min(x0,gauche+w-lb));
+    u.membres.forEach((id,i)=>pos.set(id,{x:x0+i*(NW+GX),y:niveau*(NH+GY)}));};
+  // familles de départ : les racines qui ont des enfants dans l'arbre, la lignée principale d'abord
+  const depart=[...unites.values()].filter(u=>!par(byId.get(u.ancre)).length&&!place.has(u.ancre));
+  const avecEnfants=depart.filter(u=>u.enfants.length).sort((a,b)=>(lignee.has(b.ancre)?1:0)-(lignee.has(a.ancre)?1:0));
+  let x=0;avecEnfants.forEach(u=>{poser(u,x,0);x+=largeur(u)+GF*3;});
+  // familles « par alliance » (ex. les parents d'un conjoint) : au-dessus de leur enfant, sans chevaucher
+  const occupe=y=>[...pos.values()].filter(p=>p.y===y);
+  depart.filter(u=>!u.enfants.length&&!pos.has(u.ancre)).forEach(u=>{
+    const ch=(enfantsDe.get(u.ancre)||[]).map(c=>pos.get(c.id)).filter(Boolean)[0];
+    const lb=largeurBloc(u);let y=ch?ch.y-(NH+GY):0,xx=ch?ch.x:x;
+    if(y<0){y=0;}
+    const libre=v=>occupe(y).every(p=>v+lb+GX<=p.x||v>=p.x+NW+GX);
+    let n=0;while(!libre(xx)&&n<200){xx+=NW/2;n++;}
+    u.membres.forEach((id,i)=>pos.set(id,{x:xx+i*(NW+GX),y}));
+    if(!ch)x+=lb+GF;});
+  famille.forEach(p=>{if(!pos.has(p.id)){pos.set(p.id,{x,y:0});x+=NW+GF;}});
+  return {pos,byId,par,conj,gen:null};
 }
 
 function renderGenealogie(m){
@@ -1532,6 +1560,13 @@ function renderGenealogie(m){
   [zin,zout,zr].forEach(b=>bar.appendChild(b));
   {const a=el("button","btn primary sm","+ Ajouter une personne");a.onclick=()=>{famEdit={};famSel=null;ficheFamille();qs("#fam-fiche")?.scrollIntoView({behavior:"smooth"});};bar.appendChild(a);}
   m.appendChild(bar);m.appendChild(res);
+  // raccourcis vers chaque branche : les enfants du couple qui en a le plus
+  const nb=new Map();famille.forEach(p=>(p.parents||[]).forEach(id=>nb.set(id,(nb.get(id)||0)+1)));
+  const chef=[...nb.entries()].sort((a,b)=>b[1]-a[1])[0];
+  if(chef&&chef[1]>2){const fr=famille.filter(p=>(p.parents||[]).includes(chef[0])).sort((a,b)=>(a.ordre??99)-(b.ordre??99));
+    const w=el("div","chips fam-branches");w.appendChild(txt("span","muted","Branches : "));
+    fr.forEach(p=>{const b=txt("button","chip",p.prenom);b.onclick=()=>{famSel=p.id;voirFamille(p.id);dessinerArbre();ficheFamille();};w.appendChild(b);});
+    m.appendChild(w);}
   const zone=el("div","fam-zone");zone.id="fam-zone";
   const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.id="fam-svg";svg.setAttribute("role","img");svg.setAttribute("aria-label","Arbre généalogique de la famille");
   zone.appendChild(svg);m.appendChild(zone);
@@ -1542,8 +1577,8 @@ function renderGenealogie(m){
   if(!famille.length){zone.appendChild(el("div","empty fam-vide","L'arbre est vide pour le moment."));ficheFamille();return;}
   if(famVue.k===1&&famVue.x===0&&famVue.y===0){ajusterVue();
     // arbre large : on ouvre lisible, centré sur le baron Jean-Hippolyte (mort au château)
-    if(famVue.k<0.55){const c=famille.find(p=>p.id==="jean-hippolyte")||famille[0];famVue.k=0.75;const z=qs("#fam-zone"),p=layoutFamille().pos.get(c.id);
-      famVue.x=z.clientWidth/2-(p.x+NW/2)*famVue.k;famVue.y=z.clientHeight/2-(p.y+NH/2)*famVue.k;}}
+    if(famVue.k<0.55){const nb=new Map();famille.forEach(p=>(p.parents||[]).forEach(id=>nb.set(id,(nb.get(id)||0)+1)));
+      const chef=[...nb.entries()].sort((a,b)=>b[1]-a[1])[0];if(chef)voirFamille(chef[0]);}}
   dessinerArbre();ficheFamille();
 }
 function dessinerArbre(){
@@ -1588,6 +1623,12 @@ function dessinerArbre(){
     g.appendChild(n);
   });
 }
+// cadre la famille d'une personne : elle, son conjoint et leurs enfants, à une taille lisible
+function voirFamille(id){const z=qs("#fam-zone");if(!z)return;const {pos}=layoutFamille();const p=famille.find(x=>x.id===id);if(!p)return;
+  const ids=[id,...(p.conjoints||[]),...famille.filter(x=>(x.parents||[]).includes(id)).map(x=>x.id)].filter(i=>pos.has(i));
+  const xs=ids.map(i=>pos.get(i));const x0=Math.min(...xs.map(q=>q.x)),x1=Math.max(...xs.map(q=>q.x))+NW,y0=Math.min(...xs.map(q=>q.y)),y1=Math.max(...xs.map(q=>q.y))+NH;
+  const k=Math.max(0.45,Math.min(1,(z.clientWidth-60)/(x1-x0),(z.clientHeight-80)/(y1-y0)));
+  famVue={k,x:(z.clientWidth-(x1-x0)*k)/2-x0*k,y:(z.clientHeight-(y1-y0)*k)/2-y0*k};}
 function bornesArbre(){const {pos}=layoutFamille();const xs=[...pos.values()].map(p=>p.x),ys=[...pos.values()].map(p=>p.y);
   return {x0:Math.min(...xs),x1:Math.max(...xs)+NW,y0:Math.min(...ys),y1:Math.max(...ys)+NH};}
 function ajusterVue(){const z=qs("#fam-zone");if(!z||!famille.length)return;const b=bornesArbre();const W=z.clientWidth,H=z.clientHeight;
@@ -1632,7 +1673,7 @@ function ficheFamille(){
   const liens=(lab,ids)=>{ids=(ids||[]).filter(id=>byId.has(id));if(!ids.length)return;const r=el("div","fam-liens");r.appendChild(txt("span","muted",lab+" : "));
     ids.forEach(id=>{const b=txt("button","chip",nomComplet(byId.get(id)));b.onclick=()=>{famSel=id;centrerSur(id);dessinerArbre();ficheFamille();};r.appendChild(b);});c.appendChild(r);};
   liens("Parents",p.parents);liens("Conjoint·e",p.conjoints);
-  liens("Enfants",famille.filter(q=>(q.parents||[]).includes(p.id)).map(q=>q.id));
+  liens("Enfants",famille.filter(q=>(q.parents||[]).includes(p.id)).sort((x,y)=>(x.ordre??99)-(y.ordre??99)).map(q=>q.id));
   if(p.photo&&String(p.photo).startsWith("https://")){const im=el("img","fam-photo");im.src=p.photo;im.alt="Portrait de "+nomComplet(p);im.onerror=()=>im.remove();c.insertBefore(im,c.children[1]);}
   if(p.source)c.appendChild(lien(p.source,"Source"));
   {const r=el("div","row");r.style.justifyContent="flex-start";
