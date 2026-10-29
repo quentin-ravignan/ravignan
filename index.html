@@ -261,6 +261,46 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .kpi .lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .tabs{display:flex;background:var(--sunk);border-radius:12px;padding:4px;gap:4px}
 .tabs button{flex:1;font-size:13px;font-weight:700;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;background:transparent;color:var(--muted)}
+/* notes de dégustation */
+.degu-tete{gap:10px}
+.degu-tete .brand-mark{font-size:22px;letter-spacing:.02em;text-transform:none;color:var(--accent-ink)}
+.degu-frise{display:flex;flex-wrap:wrap;gap:12px}
+.degu-frise-fam{flex:1 1 260px;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.fam-souplesse{--fam:#c8913a;--fam-bg:rgba(200,145,58,.12)}
+.fam-brut{--fam:#6b3a22;--fam-bg:rgba(107,58,34,.12)}
+@media (prefers-color-scheme:dark){.fam-brut{--fam:#c98a64;--fam-bg:rgba(201,138,100,.14)}}
+.degu-frise-fam{background:var(--fam-bg)}
+.degu-frise-nom{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--fam)}
+.degu-verres{display:flex;gap:6px}
+.degu-verre{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 2px;cursor:pointer;font:inherit;color:inherit}
+.degu-verre:hover{border-color:var(--fam)}
+.degu-verre i{width:18px;height:24px;border-radius:3px 3px 9px 9px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.degu-verre b{font-size:11px;color:var(--muted)}
+.degu-verre span{font-size:13px;font-weight:700}
+.degu-famille{display:flex;flex-direction:column;gap:12px;scroll-margin-top:70px}
+.degu-fam-tete{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;border-left:5px solid var(--fam);padding:4px 0 4px 12px}
+.degu-fam-tete h2{margin:0;font-size:22px}
+.degu-fam-num{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--fam);width:100%}
+.degu-aromes{display:flex;flex-wrap:wrap;gap:6px}
+.degu-arome{background:var(--fam-bg);color:var(--fam);font-weight:700;font-size:13px;border-radius:99px;padding:3px 10px}
+.degu-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.degu-fiche{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--fam,var(--line));border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow);scroll-margin-top:70px}
+.degu-fiche-tete{display:flex;align-items:center;gap:10px}
+.degu-rang{width:30px;height:30px;flex:none;border-radius:50%;background:var(--fam);color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px}
+.degu-goutte i{display:block;width:26px;height:34px;border-radius:4px 4px 13px 13px;box-shadow:inset 0 -4px 0 rgba(0,0,0,.2),0 0 0 1px rgba(0,0,0,.08)}
+.degu-titre{display:flex;flex-direction:column;min-width:0}
+.degu-titre h3{margin:0;font-size:22px;line-height:1.1}
+.degu-titre .muted{font-size:13px}
+.degu-sens{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:0}
+.degu-sens dt{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:3px}
+.degu-sens dd{margin:0;line-height:1.45}
+.degu-pied{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.degu-medaille{font-size:12px;font-weight:700;background:#fbf0d2;color:#7a5800;border-radius:8px;padding:4px 8px}
+@media (prefers-color-scheme:dark){.degu-medaille{background:#3d3218;color:#f2d68a}}
+.degu-prix{font-size:12px;color:var(--muted);margin-left:auto}
+.degu-date{font-size:11px;color:var(--muted);margin:0;text-align:right}
+.degu-autres summary{cursor:pointer;font-weight:800}
+.degu-autres .degu-grille{margin-top:12px}
 .tabs button.active{background:var(--surface);color:var(--accent);box-shadow:var(--shadow)}
 .vente{cursor:pointer;text-align:left;width:100%;font:inherit}
 .prod-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--line);background:var(--sunk);width:100%;text-align:left;font:inherit}
@@ -320,6 +360,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes</button>
     <button class="nav-item" data-nav="chambres"><span class="nav-ico" aria-hidden="true">🛏️</span>Chambres</button>
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
+    <button class="nav-item" data-nav="degustation"><span class="nav-ico" aria-hidden="true">🥃</span>Notes de dégustation</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
     <button class="nav-item" data-nav="genealogie"><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie</button>
     <button class="nav-item" data-nav="clients" hidden><span class="nav-ico" aria-hidden="true">👥</span>Clients</button>
@@ -389,7 +430,7 @@ let saisieProdCard=null, horsOpen=false;
 let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
 const isAdmin=()=>isOwner;
 const LIVE_PAGES=["home","vente","admin"];
-const TOP_PAGES=["home","chambres","admin","aide","region","benchmark","genealogie","clients"];
+const TOP_PAGES=["home","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"];
 let chambres=[], chFilter="all", chQuery="";
 
 /* ---------- menu ---------- */
@@ -445,16 +486,17 @@ function render(){
     if(page==="saisie")go("vente",venteId);
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
+  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Chambres",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
-  m.classList.toggle("wide",["chambres","admin","aide","region","benchmark","genealogie","clients"].includes(page));
+  m.classList.toggle("wide",["chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
   if(page==="clients"){if(isAdmin())renderClients(m);else renderAuth(m);}
   else if(page==="genealogie")renderGenealogie(m);
   else if(page==="aide")renderAide(m);
+  else if(page==="degustation")renderDegustation(m);
   else if(page==="benchmark")renderBenchmark(m);
   else if(page==="chambres")renderChambres(m);
   else if(page==="admin"){if(isAdmin())renderAdmin(m);else renderAuth(m);}
@@ -1374,6 +1416,49 @@ function frisePrix(){
   const pts=MILL.map(mi=>({an:mi.an,age:new Date().getFullYear()-(+mi.an),p:(mi.formats.find(f=>f.f==="70cl")||{}).p})).filter(x=>x.p);
   return graphLigne({titre:"Prix du 70 cl selon l'âge du millésime",series:[{nom:"Ravignan",cls:"s1",pts:pts.map(x=>({x:x.age,y:x.p,label:x.an}))}],ux:" ans",uy:" €"});
 }
+
+/* Notes de dégustation : l'ordre de service de l'année, en deux familles, puis les autres millésimes */
+function renderDegustation(m){pageContenu(m,"degustation",(z,d)=>{
+  const notes=d.notes||{};const prix=Object.fromEntries(MILL.map(x=>[x.an,x.formats]));
+  const age=an=>new Date().getFullYear()-(+an);
+  // en-tête : la frise des dix verres dans l'ordre de service
+  const h=el("div","card degu-tete");
+  h.appendChild(txt("p","brand-mark",d.titre||"Ordre de dégustation"));
+  h.appendChild(txt("p","lead",d.intro||""));
+  const frise=el("div","degu-frise");let rang=0;
+  (d.familles||[]).forEach((f,fi)=>{const g=el("div","degu-frise-fam fam-"+f.id);g.appendChild(txt("span","degu-frise-nom",f.nom));const r=el("div","degu-verres");
+    f.millesimes.forEach(an=>{rang++;const n=notes[an]||{};const b=el("button","degu-verre");b.setAttribute("aria-label",`${rang}. ${an}`);
+      b.innerHTML=`<i style="background:${esc(n.couleur||"#c8a46a")}"></i><b>${rang}</b><span>${esc(an)}</span>`;
+      b.onclick=()=>qs("#degu-"+an)?.scrollIntoView({behavior:"smooth",block:"start"});r.appendChild(b);});
+    g.appendChild(r);frise.appendChild(g);});
+  h.appendChild(frise);if(d.regle)h.appendChild(txt("p","muted",d.regle));z.appendChild(h);
+  // une fiche par millésime
+  const fiche=(an,num)=>{const n=notes[an]||{};const c=el("article","degu-fiche");c.id="degu-"+an;
+    const t=el("div","degu-fiche-tete");
+    if(num)t.appendChild(txt("span","degu-rang",String(num)));
+    t.appendChild(el("span","degu-goutte",`<i style="background:${esc(n.couleur||"#c8a46a")}"></i>`));
+    const ti=el("div","degu-titre");ti.appendChild(txt("h3","",an));ti.appendChild(txt("span","muted",age(an)+" ans"+(n.robe?" · "+n.robe:"")));t.appendChild(ti);c.appendChild(t);
+    if(n.nez||n.bouche){const dl=el("dl","degu-sens");
+      [["Nez",n.nez],["Bouche",n.bouche]].forEach(([k,v])=>{if(!v)return;dl.appendChild(txt("dt","",k));dl.appendChild(txt("dd","",v));});c.appendChild(dl);}
+    else c.appendChild(txt("p","muted","Note de dégustation à venir."));
+    const pied=el("div","degu-pied");
+    if(n.medaille)pied.appendChild(txt("span","degu-medaille","🏅 "+n.medaille));
+    if(n.accord)pied.appendChild(txt("span","tag",n.accord.replace(/\.$/,"")));
+    if(prix[an])pied.appendChild(txt("span","num degu-prix",prix[an].map(f=>f.f.replace("cl"," cl")+" "+fmt(f.p)).join(" · ")));
+    if(pied.children.length)c.appendChild(pied);
+    if(n.date)c.appendChild(txt("p","degu-date","Note "+n.date));
+    return c;};
+  rang=0;
+  (d.familles||[]).forEach((f,fi)=>{const s=el("section","degu-famille fam-"+f.id);
+    const hd=el("div","degu-fam-tete");hd.appendChild(txt("span","degu-fam-num","Famille "+(fi+1)));hd.appendChild(txt("h2","",f.nom));
+    const ar=el("div","degu-aromes");(f.aromes||[]).forEach(a=>ar.appendChild(txt("span","degu-arome",a)));hd.appendChild(ar);s.appendChild(hd);
+    const g=el("div","degu-grille");f.millesimes.forEach(an=>{rang++;g.appendChild(fiche(an,rang));});s.appendChild(g);z.appendChild(s);});
+  // les autres millésimes notés ces dernières années
+  const servis=new Set((d.familles||[]).flatMap(f=>f.millesimes));
+  const autres=Object.keys(notes).filter(an=>!servis.has(an)).sort();
+  if(autres.length){const de=el("details","card degu-autres");de.appendChild(txt("summary","",`Autres millésimes notés (${autres.length})`));
+    const g=el("div","degu-grille");autres.forEach(an=>g.appendChild(fiche(an,0)));de.appendChild(g);z.appendChild(de);}
+});}
 
 /* graphiques SVG simples (un seul axe, survol avec infobulle) */
 function graphLigne({titre,series,ux,uy,points}){
