@@ -2308,7 +2308,7 @@ function ficheClient(c,fermer){
   const g3=el("div","grid3");g3.appendChild(champ("cp","Code postal",c.cp));g3.appendChild(champ("ville","Ville",c.ville));g3.appendChild(champ("pays","Pays",c.pays));f.appendChild(g3);
   f.appendChild(champ("tags","Étiquettes (séparées par des virgules)",(c.tags||[]).join(", ")));
   const nd=el("div","field");const nl=txt("label","","Notes");nl.htmlFor="cr-notes";nd.appendChild(nl);const ta=el("textarea","fm-ta");ta.id="cr-notes";ta.rows=3;ta.value=c.notes||"";nd.appendChild(ta);f.appendChild(nd);
-  const ck=el("label","fm-ck");const cb=el("input");cb.type="checkbox";cb.id="cr-newsletter";cb.checked=!!c.newsletter;ck.appendChild(cb);ck.appendChild(document.createTextNode(" Abonné·e à la newsletter"));f.appendChild(ck);
+  const ck=el("label","fm-ck");const cb=el("input");cb.type="checkbox";cb.id="cr-newsletter";cb.checked=!!c.newsletter;ck.appendChild(cb);ck.appendChild(document.createTextNode(" Newsletter"));f.appendChild(ck);
   const r=el("div","row");r.style.justifyContent="flex-start";const ok=el("button","btn primary sm",nouveau?"Créer":"Enregistrer");ok.type="submit";r.appendChild(ok);f.appendChild(r);
   f.onsubmit=async e=>{e.preventDefault();const v=id=>f.querySelector("#cr-"+id).value.trim();
     const base=c.id?crm.find(x=>x.id===c.id)||{}:{};
