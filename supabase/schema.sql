@@ -59,18 +59,20 @@ drop policy if exists docs_lecture on public.docs;
 drop policy if exists docs_ajout on public.docs;
 drop policy if exists docs_modif on public.docs;
 drop policy if exists docs_suppr on public.docs;
+-- Public : plan du château, réservations, généalogie. Ventes et caisse : membres connectés. Le reste : administrateurs.
 create policy docs_lecture on public.docs for select to anon, authenticated
-  using (collection in ('chambres', 'reservations', 'ventes', 'transactions', 'famille', 'reglages') or public.est_admin()
-         or (collection in ('coordonnees', 'crm', 'clients') and public.est_membre()));
+  using (collection in ('chambres', 'reservations', 'famille') or public.est_admin()
+         or (collection in ('ventes', 'transactions', 'reglages', 'coordonnees', 'crm', 'clients') and public.est_membre()));
 create policy docs_ajout on public.docs for insert to anon, authenticated
-  with check (collection in ('reservations', 'ventes', 'transactions', 'clients', 'famille') or public.est_admin());
+  with check (collection in ('reservations', 'famille') or public.est_admin()
+              or (collection in ('ventes', 'transactions', 'clients') and public.est_membre()));
 create policy docs_modif on public.docs for update to anon, authenticated
-  using (collection in ('ventes', 'famille') or public.est_admin())
-  with check (collection in ('ventes', 'famille') or public.est_admin());
+  using (collection = 'famille' or public.est_admin() or (collection = 'ventes' and public.est_membre()))
+  with check (collection = 'famille' or public.est_admin() or (collection = 'ventes' and public.est_membre()));
 create policy docs_suppr on public.docs for delete to anon, authenticated
   using (collection = 'reservations' or public.est_admin()
-    -- une vente sans aucune transaction peut être supprimée par tous ; une vente commencée, par un administrateur
-    or (collection = 'ventes' and not exists (
+    -- une vente sans aucune transaction peut être supprimée par un membre ; une vente commencée, par un administrateur
+    or (collection = 'ventes' and public.est_membre() and not exists (
       select 1 from public.docs t where t.collection = 'transactions' and t.data->>'venteId' = docs.id)));
 
 -- Coordonnées de la famille (email, téléphone, réseau) : lues par les membres connectés,
@@ -119,7 +121,7 @@ begin
   return n;
 end $$;
 revoke all on function public.numero_facture(text) from public;
-grant execute on function public.numero_facture(text) to anon, authenticated;
+grant execute on function public.numero_facture(text) to authenticated;
 
 -- Photos de la généalogie (Storage) : lecture publique, envoi d'images jusqu'à 2 Mo
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
