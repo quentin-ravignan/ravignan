@@ -691,7 +691,9 @@ function renderTxList(m,t){
       <div style="text-align:right"><p class="num" style="font-weight:800;color:var(--accent-ink);font-size:16px">${fmt(x.total)}</p>
       <span class="badge closed">${esc(x.paiement)}</span></div></div>`;
     (x.lignes||[]).forEach(l=>{h+=`<div class="tx-line num"><span>${esc(l.nom)} ${esc(l.format)}</span><span>${l.qte} × ${fmt(l.prix)}</span><b>${fmt(l.qte*l.prix)}</b></div>`;});
-    m.appendChild(el("div","card",h));
+    const c=el("div","card",h);
+    const fb=el("button","link",x.facture?"🧾 Facture "+esc(x.facture):"🧾 Facture");fb.style.alignSelf="flex-start";fb.onclick=()=>ouvrirFacture(x.id);c.appendChild(fb);
+    m.appendChild(c);
   });
 }
 
@@ -841,7 +843,7 @@ function updateTotal(){
 
 // SumUp « Payment Switch » : l'app SumUp s'ouvre avec le montant ; il faut la clé affiliée du compte SumUp
 let reglages={};
-function ouvrirSumUp(montant,ref,titre){
+function ouvrirSumUp(montant,ref,titre,ensuite){
   const cle=reglages.sumup_cle;
   const retour=location.origin+location.pathname+"#vente";
   const q=new URLSearchParams({amount:montant.toFixed(2),currency:"EUR",title:("Ravignan · "+(titre||"Vente")).slice(0,60),"foreign-tx-id":ref,
@@ -853,10 +855,116 @@ function ouvrirSumUp(montant,ref,titre){
     <div class="total"><small>Montant à encaisser</small><strong class="num">${fmt(montant)}</strong></div>
     <p class="muted">Référence : <b>${esc(ref)}</b>${cle?"":" · L'app SumUp s'ouvrira sans le montant tant que la clé affiliée n'est pas renseignée (Administration) : saisissez-le à la main."}</p>`);
   const go=el("a","btn go full","Ouvrir SumUp");go.href=lienSumUp;go.style.textAlign="center";go.style.textDecoration="none";sh.appendChild(go);
+  if(ensuite){const f=el("button","btn ghost full","🧾 Facture du client");f.onclick=()=>{m.remove();ensuite();};sh.appendChild(f);}
   const ferme=el("button","btn ghost full","Fermer");ferme.onclick=()=>m.remove();sh.appendChild(ferme);
   m.appendChild(sh);m.onclick=e=>{if(e.target===m)m.remove();};document.body.appendChild(m);
   // sur téléphone, on tente d'ouvrir l'app directement
   if(/Android|iPhone|iPad/i.test(navigator.userAgent))setTimeout(()=>{location.href=lienSumUp;},300);
+}
+/* ---------- facture du client ----------
+   PDF construit dans le navigateur (jsPDF) sur le modèle de la facture du domaine, numéro « VP-année-numéro »
+   donné par la base. Envoi par le partage du téléphone (Mail, Messages, WhatsApp…), le PDF joint. */
+const FACTURE_KEY="ravignan.facture";
+const factureEnAttente=new Map(); // coordonnées complètes saisies à la caisse, que le public ne peut pas relire
+const SOCIETE=["SCEA du DOMAINE de RAVIGNAN","Château de Ravignan  -  40 190  -  PERQUIE France",
+  "Tél : 05 58 45 33 07  -  Fax : 05 58 45 80 85  -  e-mail : contact@armagnac-ravignan.com",
+  "SIRET 47 83 55 779 000 24  -  Code APE 0121Z  -  N° TVA Intracommunautaire : FR 80782106108",
+  "N° Accise : FR 009585E0462  -  N° BNIA : 540 221 0077"];
+const IBAN="IBAN : FR76 1330 6009 1066 0113 9756 914 - BIC : AGRIFRPP833";
+const TVA=0.2;
+function reprendreFacture(){
+  let p=null;try{p=JSON.parse(store.get(FACTURE_KEY)||"null");}catch(e){}
+  if(!p||!p.id||Date.now()-p.t>3*3600e3){store.set(FACTURE_KEY,"");return;}
+  factureEnAttente.set(p.id,p.contact);
+  const x=txs.find(t=>t.id===p.id);if(!x)return;
+  setTimeout(()=>{if(!document.querySelector("#facture-modal")){go("vente",x.venteId);ouvrirFacture(p.id);}},300);
+}
+let jspdfPromesse=null;
+function chargerJsPdf(){
+  if(window.jspdf)return Promise.resolve();
+  return jspdfPromesse||(jspdfPromesse=new Promise((ok,ko)=>{const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=ok;s.onerror=()=>{jspdfPromesse=null;ko(new Error("jsPDF"));};document.head.appendChild(s);}));
+}
+const imageEnDataUrl=src=>fetch(src).then(r=>r.blob()).then(b=>new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b);}));
+const MODES={CB:"carte bancaire","Espèces":"espèces"};
+async function facturePdf(x,v,cl,num){
+  await chargerJsPdf();const logo=await imageEnDataUrl("images/logo-facture.jpg");
+  const net=s=>String(s??"").replace(/[  ]/g," ").replace(/[^\x20-\x7E -ÿ€’œŒ–—…]/g,"").trim();
+  const eur=n=>(Number(n)||0).toFixed(2).replace(".",",")+" €";
+  const d=new jspdf.jsPDF({unit:"mm",format:"a4"});const G=15,D=195;
+  d.addImage(logo,"JPEG",G,10,52,47);
+  // client
+  const nomCl=net([cl.prenom,cl.nom||(cl.initiale?cl.initiale+".":"")].filter(Boolean).join(" "))||"Client";
+  d.setDrawColor(200);d.roundedRect(112,18,D-112,34,2,2);
+  d.setFont("helvetica","normal");d.setFontSize(9);d.setTextColor(120);d.text("Facturé à",117,25);
+  d.setTextColor(0);d.setFont("helvetica","bold");d.setFontSize(12);d.text(nomCl,117,32);
+  d.setFont("helvetica","normal");d.setFontSize(10);let yc=38;
+  [cl.email,cl.tel].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
+  // numéro et date
+  const dt=new Date(x.date||Date.now());const jour=dt.toLocaleDateString("fr-FR");
+  d.setFontSize(11);d.text("Facture n° :",150,68,{align:"right"});d.setFont("helvetica","bold");d.text(num,152,68);
+  d.setFont("helvetica","normal");d.text("Date :",150,74,{align:"right"});d.text(jour,152,74);
+  if(v){d.setFontSize(9);d.setTextColor(120);d.text(net("Vente : "+v.nom+(v.lieu?" ("+v.lieu+")":"")),G,74);d.setTextColor(0);}
+  // tableau
+  const cols=[{t:"Désignation",x:G+2},{t:"Format",x:89},{t:"Qté",x:121,r:1},{t:"Px unitaire TTC",x:147,r:1},{t:"Montant TTC",x:172,r:1},{t:"dont TVA",x:D-2,r:1}];
+  let y=84;d.setFillColor(238,232,224);d.rect(G,y,D-G,9,"F");d.setFont("helvetica","bold");d.setFontSize(9);
+  cols.forEach(c=>d.text(c.t,c.x,y+6,c.r?{align:"right"}:{}));y+=9;
+  d.setFont("helvetica","normal");d.setFontSize(10);let tot=0,qt=0;
+  (x.lignes||[]).forEach(l=>{const mt=l.qte*l.prix;tot+=mt;qt+=l.qte;
+    const des=d.splitTextToSize(net(l.nom),70);const h=Math.max(7,des.length*4.5+2.5);
+    d.text(des,G+2,y+5);d.text(net(l.format),89,y+5);d.text(String(l.qte),121,y+5,{align:"right"});
+    d.text(eur(l.prix),147,y+5,{align:"right"});d.text(eur(mt),172,y+5,{align:"right"});d.text(eur(mt-mt/(1+TVA)),D-2,y+5,{align:"right"});
+    y+=h;d.setDrawColor(225);d.line(G,y,D,y);});
+  // totaux
+  y+=6;const ligneTot=(lab,val,gras)=>{d.setFont("helvetica",gras?"bold":"normal");d.text(lab,172,y,{align:"right"});d.text(val,D-2,y,{align:"right"});y+=6;};
+  d.setFontSize(10);ligneTot("Quantité",String(qt));ligneTot("Total HT",eur(tot/(1+TVA)));ligneTot("TVA 20 %",eur(tot-tot/(1+TVA)));
+  d.setFontSize(12);ligneTot("Total TTC",eur(tot),true);
+  // règlement
+  y+=6;d.setFontSize(10);d.setFont("helvetica","normal");
+  if(MODES[x.paiement])d.text(net(`Facture acquittée, réglée par ${MODES[x.paiement]} le ${jour}.`),105,y,{align:"center"});
+  else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+5,{align:"center"});}
+  // pied de page
+  let yp=268;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
+  SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i<2?11:i===2?9.5:8.5);d.text(t,105,yp,{align:"center"});yp+=i<2?5.5:4.5;});
+  return d.output("blob");
+}
+async function ouvrirFacture(id){
+  const x=txs.find(t=>t.id===id);if(!x)return flash("Transaction introuvable.");
+  const v=ventes.find(w=>w.id===x.venteId);
+  const cl={...clientOf(x),...(factureEnAttente.get(id)||{})};
+  qs("#facture-modal")?.remove();
+  const m=el("div","modal");m.id="facture-modal";const sh=el("div","sheet");m.appendChild(sh);
+  const fermer=()=>{m.remove();try{const p=JSON.parse(store.get(FACTURE_KEY)||"null");if(p&&p.id===id)store.set(FACTURE_KEY,"");}catch(e){}};
+  m.onclick=e=>{if(e.target===m)fermer();};
+  sh.appendChild(txt("h2","sheet-title","Facture"));const etat=txt("p","muted","Préparation de la facture…");sh.appendChild(etat);
+  document.body.appendChild(m);
+  let num=x.facture;
+  try{
+    if(!num){const {data,error}=await sb.rpc("numero_facture",{tx:id});if(error)throw error;num=data;x.facture=num;}
+    const blob=await facturePdf(x,v,cl,num);
+    const nomFichier=`Facture ${num} - Château de Ravignan.pdf`;
+    const fichier=new File([blob],nomFichier,{type:"application/pdf"});
+    const prenom=cl.prenom||"";
+    const message=`Bonjour ${prenom},\n\nVoici votre facture ${num} pour vos achats au Château de Ravignan (${fmt(x.total)}).\n\nMerci et à bientôt !\nChâteau de Ravignan`;
+    const objet=`Votre facture ${num} – Château de Ravignan`;
+    etat.textContent=`N° ${num} · ${fmt(x.total)} · ${[cl.prenom,cl.nom].filter(Boolean).join(" ")||"Client"}`;
+    const telecharger=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nomFichier;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);};
+    if(navigator.canShare&&navigator.canShare({files:[fichier]})){
+      const b=el("button","btn go full","Envoyer la facture (mail, SMS, WhatsApp…)");
+      b.onclick=async()=>{try{await navigator.share({files:[fichier],title:objet,text:message});flash("Facture envoyée.","ok");fermer();}catch(e){if(e.name!=="AbortError")flash("Le partage n'a pas abouti. Téléchargez le PDF.");}};
+      sh.appendChild(b);
+      sh.appendChild(txt("p","muted","Choisissez Mail, Messages ou WhatsApp, puis le client : le PDF est joint."));
+    }else sh.appendChild(txt("p","muted","Sur cet appareil le PDF ne peut pas être joint automatiquement : téléchargez-le, puis joignez-le à l'email."));
+    const g=el("div","grid2");
+    if(cl.email){const a=el("a","btn ghost","✉️ Email");a.href=`mailto:${encodeURIComponent(cl.email)}?subject=${encodeURIComponent(objet)}&body=${encodeURIComponent(message+"\n\n(Facture en pièce jointe.)")}`;a.style.cssText="text-align:center;text-decoration:none";
+      a.onclick=()=>{if(!(navigator.canShare&&navigator.canShare({files:[fichier]})))telecharger();};g.appendChild(a);}
+    if(cl.tel){const a=el("a","btn ghost","💬 SMS");a.href=`sms:${cl.tel.replace(/[^\d+]/g,"")}${/iPhone|iPad/i.test(navigator.userAgent)?"&":"?"}body=${encodeURIComponent(message)}`;a.style.cssText="text-align:center;text-decoration:none";g.appendChild(a);}
+    const dl=el("button","btn ghost","⬇️ PDF");dl.onclick=telecharger;g.appendChild(dl);
+    const vo=el("button","btn ghost","👁️ Voir");vo.onclick=()=>window.open(URL.createObjectURL(blob),"_blank");g.appendChild(vo);
+    sh.appendChild(g);
+    if(cl.tel||cl.email)sh.appendChild(txt("p","muted","Les boutons Email et SMS ouvrent un message prêt à envoyer ; le PDF n'y est joint que via « Envoyer la facture » ou en l'ajoutant à la main."));
+  }catch(e){console.error(e);etat.textContent="La facture n'a pas pu être préparée. Vérifiez la connexion et réessayez.";}
+  const f=el("button","btn ghost full","Fermer");f.onclick=fermer;sh.appendChild(f);
 }
 async function submitTx(){
   if(busy)return;
@@ -888,7 +996,10 @@ async function submitTx(){
     if(!txs.find(x=>x.id===id))txs.push({id,...tx});
     sv=blankSv();horsOpen=false;
     busy=false;go("vente",v.id);flash(`Transaction enregistrée : ${fmt(tx.total)}.`,"ok");
-    if(tx.paiement==="CB")ouvrirSumUp(tx.total,id,v.nom);
+    // la facture reste proposée au retour de l'app SumUp (la page est alors rechargée)
+    factureEnAttente.set(id,contact);store.set(FACTURE_KEY,JSON.stringify({id,contact,t:Date.now()}));
+    if(tx.paiement==="CB")ouvrirSumUp(tx.total,id,v.nom,()=>ouvrirFacture(id));
+    else ouvrirFacture(id);
   }catch(e){busy=false;updateTotal();flash(dbMessage(e));}
 }
 
@@ -2395,7 +2506,9 @@ function demarrerDonnees(){
     if(LIVE_PAGES.includes(page))render();
   },onErr);
   db.collection("transactions").onSnapshot(s=>{
-    txs=s.docs.map(x=>({id:x.id,...x.data()}));loaded.txs=true;
+    txs=s.docs.map(x=>({id:x.id,...x.data()}));
+    if(!loaded.txs)reprendreFacture();
+    loaded.txs=true;
     if(LIVE_PAGES.includes(page))render();
     else if(page==="saisie"&&!horsOpen){renderLignes();updateTotal();}
   },onErr);
