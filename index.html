@@ -320,7 +320,6 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes</button>
     <button class="nav-item" data-nav="chambres"><span class="nav-ico" aria-hidden="true">🛏️</span>Chambres</button>
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
-    <button class="nav-item" data-nav="region"><span class="nav-ico" aria-hidden="true">🗺️</span>Région et domaines</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
     <button class="nav-item" data-nav="genealogie"><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie</button>
     <button class="nav-item" data-nav="clients" hidden><span class="nav-ico" aria-hidden="true">👥</span>Clients</button>
@@ -438,6 +437,8 @@ function go(p,id){
   render();
 }
 function render(){
+  // l'ancienne page « Région et domaines » est désormais un onglet du Benchmark
+  if(page==="region"){page="benchmark";benchOnglet="region";}
   const back=qs("#btn-back");
   back.hidden=TOP_PAGES.includes(page);
   back.onclick=()=>{
@@ -454,7 +455,6 @@ function render(){
   if(page==="clients"){if(isAdmin())renderClients(m);else renderAuth(m);}
   else if(page==="genealogie")renderGenealogie(m);
   else if(page==="aide")renderAide(m);
-  else if(page==="region")renderRegion(m);
   else if(page==="benchmark")renderBenchmark(m);
   else if(page==="chambres")renderChambres(m);
   else if(page==="admin"){if(isAdmin())renderAdmin(m);else renderAuth(m);}
@@ -1502,9 +1502,18 @@ function carteDomaines(doms){
   const w=el("div","dmap-wrap");w.appendChild(svg);c.appendChild(w);c.appendChild(info);return c;
 }
 
-/* Benchmark */
-let benchQuery="";
-function renderBenchmark(m){pageContenu(m,"benchmark",(z,d)=>{
+/* Benchmark : deux onglets, la région (carte et maisons) et le marché (graphiques et concurrents) */
+let benchQuery="", benchOnglet="region";
+function renderBenchmark(m){
+  const tabs=el("div","tabs");const zone=el("div","stack");
+  [["region","🗺️ Région et maisons"],["marche","📈 Marché et concurrents"]].forEach(([k,lab])=>{
+    const b=el("button",benchOnglet===k?"active":"",esc(lab));
+    b.onclick=()=>{if(benchOnglet===k)return;benchOnglet=k;tabs.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));zone.innerHTML="";dessinerOnglet();};
+    tabs.appendChild(b);});
+  const dessinerOnglet=()=>benchOnglet==="region"?renderRegion(zone):renderMarche(zone);
+  m.appendChild(tabs);m.appendChild(zone);dessinerOnglet();
+}
+function renderMarche(m){pageContenu(m,"benchmark",(z,d)=>{
   if(d.mise_a_jour)z.appendChild(txt("p","muted","Veille mise à jour le "+frDate(d.mise_a_jour)+". Les prix et abonnés sont des relevés publics approximatifs, datés."));
   const gr=d.graphiques;
   if(gr){
