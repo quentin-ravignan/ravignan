@@ -1034,6 +1034,21 @@ async function ouvrirFacture(id){
       sh.appendChild(b);
       sh.appendChild(txt("p","muted","Choisissez Mail, Messages ou WhatsApp, puis le client : le PDF est joint."));
     }else sh.appendChild(txt("p","muted","Sur cet appareil le PDF ne peut pas être joint automatiquement : téléchargez-le, puis joignez-le à l'email."));
+    // envoi automatique depuis contact@armagnac-ravignan.com (fonction Supabase « envoyer-facture »)
+    if(cl.email||!cl.nom){
+      const envois=x.facture_envois||[];
+      const be=el("button","btn primary full",envois.length?"📧 Renvoyer par email depuis contact@":"📧 Envoyer par email depuis contact@");
+      const ie=txt("p","muted",envois.length?"Déjà envoyée "+envois.map(e=>"le "+new Date(e.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" à "+e.a).join(", ")+".":"Le client reçoit la facture en pièce jointe, envoyée par la boîte du domaine.");
+      be.onclick=async()=>{be.disabled=true;be.textContent="Envoi…";
+        try{const b64=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(String(f.result).split(",")[1]);f.readAsDataURL(blob);});
+          const {data,error}=await sb.functions.invoke("envoyer-facture",{body:{tx:id,pdf:b64}});
+          let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
+          if(error||!data||!data.ok)throw new Error(msg||"L'envoi a échoué.");
+          x.facture_envois=[...envois,{date:new Date().toISOString(),a:data.a}];
+          flash("Facture envoyée à "+data.a+".","ok");fermer();}
+        catch(e){be.disabled=false;be.textContent="📧 Réessayer l'envoi par email";ie.textContent=e.message||"L'envoi a échoué.";}};
+      sh.appendChild(be);sh.appendChild(ie);
+    }
     const g=el("div","grid2");
     if(cl.email){const a=el("a","btn ghost","✉️ Email");a.href=`mailto:${encodeURIComponent(cl.email)}?subject=${encodeURIComponent(objet)}&body=${encodeURIComponent(message+"\n\n(Facture en pièce jointe.)")}`;a.style.cssText="text-align:center;text-decoration:none";
       a.onclick=()=>{if(!(navigator.canShare&&navigator.canShare({files:[fichier]})))telecharger();};g.appendChild(a);}
