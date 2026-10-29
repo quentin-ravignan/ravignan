@@ -213,6 +213,11 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .map-sat .pop b{display:block;font-size:14px}.map-sat .pop span{color:#555;font-size:12px}.map-sat .pop p{margin:6px 0 0;font-size:12px;line-height:1.4}
 .tt-moi{font-weight:800;color:#7a3907}
 .crm-tbl td{vertical-align:middle}
+.membre-row{align-items:center}
+.membre-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.membre-id input{border:1px solid transparent;border-radius:8px;padding:4px 6px;margin-left:-6px;font:inherit;font-weight:700;background:transparent;color:var(--fg)}
+.membre-id input:hover,.membre-id input:focus{border-color:var(--line);background:var(--surface)}
+.membre-id .muted{font-size:12px;overflow:hidden;text-overflow:ellipsis}
 .client-res{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:inherit;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer}
 .client-res>span:first-child{display:flex;flex-direction:column;min-width:0}
 .client-res:hover{border-color:var(--accent)}
@@ -959,7 +964,9 @@ function updateTotal(){
 
 // SumUp « Payment Switch » : l'app SumUp s'ouvre avec le montant ; il faut la clé affiliée du compte SumUp
 let reglages={}, monPrenom="";
-const listeVendeurs=()=>Array.isArray(reglages.vendeurs)?reglages.vendeurs:[];
+let vendeursListe=[];
+const listeVendeurs=()=>vendeursListe;
+async function chargerVendeurs(){const {data}=await sb.rpc("liste_vendeurs");if(Array.isArray(data)){vendeursListe=data.map(x=>typeof x==="string"?x:x.liste_vendeurs).filter(Boolean);if(["new-vente","saisie"].includes(page))render();}}
 function ouvrirSumUp(montant,ref,titre,ensuite){
   const cle=reglages.sumup_cle;
   const retour=location.origin+location.pathname+"#vente";
@@ -2461,26 +2468,20 @@ function renderReglages(m){
   const b=el("button","btn primary sm","Enregistrer");b.type="submit";f.appendChild(i);f.appendChild(b);c.appendChild(f);
   f.onsubmit=async e=>{e.preventDefault();try{await db.collection("reglages").doc("caisse").set({...reglages,sumup_cle:i.value.trim()});reglages.sumup_cle=i.value.trim();flash("Réglage enregistré.","ok");}catch(err){flash(dbMessage(err));}};
   m.appendChild(c);
-  const cv=carte("Vendeurs");cv.appendChild(txt("p","muted","Les prénoms proposés à la création d'une vente et à la caisse."));
-  const ch=el("div","chips");listeVendeurs().forEach(p=>{const b=el("button","chip sel",esc(p)+" ×");b.title="Retirer";b.onclick=()=>majVendeurs(listeVendeurs().filter(x=>x!==p),m);ch.appendChild(b);});cv.appendChild(ch);
-  const fv=el("form","row");fv.style.justifyContent="flex-start";const iv=el("input");iv.placeholder="Prénom du vendeur";iv.style.cssText="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)";
-  const bv=el("button","btn primary sm","Ajouter");bv.type="submit";fv.appendChild(iv);fv.appendChild(bv);cv.appendChild(fv);
-  fv.onsubmit=e=>{e.preventDefault();const p=iv.value.trim();if(p&&!listeVendeurs().includes(p))majVendeurs([...listeVendeurs(),p]);};
-  m.appendChild(cv);
-}
-async function majVendeurs(liste){
-  try{await db.collection("reglages").doc("caisse").set({...reglages,vendeurs:liste});reglages.vendeurs=liste;render();}catch(e){flash(dbMessage(e));}
 }
 function renderAdminAcces(m){
-  const c=el("div","card",`<h2>Accès au site</h2>
-    <p class="muted">Seules les adresses de cette liste peuvent se connecter. Chacune reçoit un lien de connexion par email. Les administrateurs voient la page Administration et gèrent cette liste.</p>`);
+  const c=el("div","card",`<h2>Accès au site et vendeurs</h2>
+    <p class="muted">Une seule liste : chaque personne peut se connecter (avec Google ou un lien par email) et son nom est proposé comme vendeur à la création d'une vente et à la caisse. Les administrateurs voient la page Administration et gèrent cette liste.</p>`);
   const liste=el("div","stack");c.appendChild(liste);
   m.appendChild(c);
   (async()=>{
-    const {data,error}=await sb.from("membres").select("email,role").order("role").order("email");
+    const {data,error}=await sb.from("membres").select("email,role,nom").order("nom",{nullsFirst:true}).order("email");
     if(error){liste.appendChild(el("p","muted","Impossible de charger la liste."));return;}
     data.forEach(mb=>{
-      const r=el("div","email-row");const n=el("span");n.style.cssText="flex:1;min-width:0";n.textContent=mb.email;r.appendChild(n);
+      const r=el("div","email-row membre-row");
+      const id=el("div","membre-id");const nm=el("input");nm.value=mb.nom||"";nm.placeholder="Nom à afficher";nm.setAttribute("aria-label","Nom de "+mb.email);
+      nm.onchange=()=>majMembre(mb.email,{nom:nm.value.trim()||null});id.appendChild(nm);
+      const n=el("span","muted");n.textContent=mb.email;id.appendChild(n);r.appendChild(id);
       const sel=el("select");sel.setAttribute("aria-label","Rôle de "+mb.email);
       sel.style.cssText="border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--surface)";
       [["vendeur","Membre (famille, vendeur)"],["admin","Administrateur"]].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;if(mb.role===v)o.selected=true;sel.appendChild(o);});
@@ -2494,26 +2495,29 @@ function renderAdminAcces(m){
     });
   })();
   const f=el("form","row");f.style.flexWrap="wrap";
+  const nomI=el("input");nomI.id="adm-nom";nomI.required=true;nomI.autocomplete="off";nomI.placeholder="Prénom Nom";
+  nomI.style.cssText="flex:1;min-width:160px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)";
   const inp=el("input");inp.id="adm-email";inp.type="email";inp.required=true;inp.autocomplete="off";inp.placeholder="prenom@exemple.fr";
   inp.style.cssText="flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)";
   const role=el("select");role.id="adm-role";role.setAttribute("aria-label","Rôle");
   role.style.cssText="border:1px solid var(--line);border-radius:10px;padding:10px 8px;background:var(--surface)";
   [["vendeur","Membre (famille, vendeur)"],["admin","Administrateur"]].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;role.appendChild(o);});
   const b=el("button","btn primary sm","Ajouter");b.type="submit";
-  f.appendChild(inp);f.appendChild(role);f.appendChild(b);
+  f.appendChild(nomI);f.appendChild(inp);f.appendChild(role);f.appendChild(b);
   f.onsubmit=async e=>{
     e.preventDefault();
     const v=inp.value.trim().toLowerCase();
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))return flash("Adresse email invalide.");
-    const {error}=await sb.from("membres").upsert({email:v,role:role.value});
+    if(!nomI.value.trim())return flash("Indiquez le nom de la personne.");
+    const {error}=await sb.from("membres").upsert({email:v,role:role.value,nom:nomI.value.trim()});
     if(error)return flash("Ajout impossible : "+error.message);
-    flash(v+" peut maintenant se connecter.","ok");render();
+    flash(nomI.value.trim()+" peut maintenant se connecter et vendre.","ok");chargerVendeurs();render();
   };
   c.appendChild(f);
 }
 async function majMembre(email,patch){
   const {error}=await sb.from("membres").update(patch).eq("email",email);
-  if(error)flash("Modification impossible : "+error.message);else flash("Rôle mis à jour.","ok");
+  if(error)flash("Modification impossible : "+error.message);else{flash(patch.nom!==undefined?"Nom mis à jour.":"Rôle mis à jour.","ok");if(patch.nom!==undefined)chargerVendeurs();}
 }
 async function retirerMembre(email){
   const {error}=await sb.from("membres").delete().eq("email",email);
@@ -2634,6 +2638,7 @@ function demarrerDonnees(){
     if(premier||!qs("#fam-svg"))render();else{dessinerArbre();if(!famEdit)ficheFamille();}
   },()=>{familleChargee=true;});
   chargerContenu("genealogie").then(d=>{famResume=d.resume||"";if(page==="genealogie"&&!famEdit)render();}).catch(()=>{});
+  chargerVendeurs();
   db.collection("reglages").onSnapshot(s=>{const d=s.docs.find(x=>x.id==="caisse");reglages=d?d.data():{};},()=>{});
   db.collection("chambres").onSnapshot(s=>{
     chambres=s.docs.map(x=>({id:x.id,...x.data()}));loaded.chambres=true;
@@ -2661,7 +2666,8 @@ async function verifierSession(session){
   myEmail=(session.user.email||"").toLowerCase();
   monPrenom=String(session.user.user_metadata?.full_name||session.user.user_metadata?.name||"").trim().split(/\s+/)[0]||"";
   if(monPrenom&&!store.get(VENDEUR_KEY))store.set(VENDEUR_KEY,monPrenom);
-  const {data}=await sb.from("membres").select("role").eq("email",myEmail).maybeSingle();
+  const {data}=await sb.from("membres").select("role,nom").eq("email",myEmail).maybeSingle();
+  if(data&&data.nom)monPrenom=data.nom;
   isOwner=!!data&&data.role==="admin";estMembre=!!data;
   if(estMembre&&!coordsAbonne){coordsAbonne=true;db.collection("coordonnees").onSnapshot(s=>{coords=new Map(s.docs.map(x=>[x.id,x.data()]));if(page==="genealogie"&&!famEdit)ficheFamille();},()=>{});}
   authState=isOwner?"ok":"denied";majPied();

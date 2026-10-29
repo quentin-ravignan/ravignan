@@ -87,6 +87,16 @@ $;
 revoke all on function public.maj_coordonnees(text, jsonb) from public;
 grant execute on function public.maj_coordonnees(text, jsonb) to anon, authenticated;
 
+-- Une seule liste : les personnes qui ont accès au site sont aussi les vendeurs de la caisse
+alter table public.membres add column if not exists nom text;
+-- noms des vendeurs, sans les emails, lisibles sans connexion (caisse)
+create or replace function public.liste_vendeurs() returns setof text
+language sql stable security definer set search_path = public as $$
+  select distinct nom from public.membres where coalesce(nom, '') <> '' order by 1;
+$$;
+revoke all on function public.liste_vendeurs() from public;
+grant execute on function public.liste_vendeurs() to anon, authenticated;
+
 -- Factures des ventes privées : série « VP-année-numéro », continue et sans doublon.
 -- Le numéro est attribué une seule fois à une transaction existante (rappeler la fonction renvoie le même).
 create sequence if not exists public.factures_vp;
