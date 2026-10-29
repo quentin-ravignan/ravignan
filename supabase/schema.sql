@@ -68,7 +68,10 @@ create policy docs_modif on public.docs for update to anon, authenticated
   using (collection in ('ventes', 'famille') or public.est_admin())
   with check (collection in ('ventes', 'famille') or public.est_admin());
 create policy docs_suppr on public.docs for delete to anon, authenticated
-  using (collection = 'reservations' or public.est_admin());
+  using (collection = 'reservations' or public.est_admin()
+    -- une vente sans aucune transaction peut être supprimée par tous ; une vente commencée, par un administrateur
+    or (collection = 'ventes' and not exists (
+      select 1 from public.docs t where t.collection = 'transactions' and t.data->>'venteId' = docs.id)));
 
 -- Coordonnées de la famille (email, téléphone, réseau) : lues par les membres connectés,
 -- écrites seulement par cette fonction, qui complète la fiche d'une personne de l'arbre sans rien effacer
