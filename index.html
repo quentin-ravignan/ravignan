@@ -330,6 +330,7 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .chip.sel{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
 .x{background:none;border:none;color:var(--bad);cursor:pointer;font-size:20px;line-height:1;padding:2px 6px}
 .ref{background:var(--sunk);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.badge.avoir{background:var(--bad-soft);color:var(--bad)}
 .tx-line{display:flex;gap:8px;font-size:12px;color:var(--muted);padding-top:4px;border-top:1px solid var(--line)}
 .tx-line span:first-child{flex:1;min-width:0}
 .tx-line b{color:var(--fg);font-weight:600}
@@ -730,6 +731,38 @@ function renderParVendeur(m,t){
       c.appendChild(el("div","tx-line num",`<span>${esc(lab)}</span><span>${lp.length} ×</span><b>${estGratuit(p)?lp.reduce((s,x)=>s+(x.lignes||[]).reduce((a,y)=>a+y.qte,0),0)+" btl":fmt(lp.reduce((s,x)=>s+(x.total||0),0))}</b></div>`));});
     m.appendChild(c);});
 }
+// Annulation d'une transaction (administrateurs) : une transaction négative qui remet le stock,
+// avec un avoir numéroté « AV-année-numéro » qui renvoie à la facture d'origine.
+function confirmerAnnulation(x){
+  qs("#annul-modal")?.remove();
+  const m=el("div","modal");m.id="annul-modal";
+  const sh=el("div","sheet",`<h2 class="sheet-title">Annuler cette transaction ?</h2>
+    <p>${esc(nomClient(x))} · <b class="num">${fmt(x.total)}</b> · ${esc(x.paiement)}</p>
+    <p class="muted">Une transaction négative de ${fmt(-(x.total||0))} est créée et les bouteilles reviennent dans le stock.${estGratuit(x.paiement)?"":" Un avoir est établi sur la facture d'origine, à envoyer au client."}</p>`);
+  const ok=el("button","btn danger full","Annuler et créer l'avoir");ok.onclick=async()=>{ok.disabled=true;await annulerTransaction(x);m.remove();};
+  const no=el("button","btn ghost full","Ne rien faire");no.onclick=()=>m.remove();
+  sh.appendChild(ok);sh.appendChild(no);m.appendChild(sh);m.onclick=e=>{if(e.target===m)m.remove();};document.body.appendChild(m);
+}
+async function annulerTransaction(x){
+  if(!isAdmin())return flash("Réservé aux administrateurs.");
+  if(busy)return;busy=true;
+  try{
+    const gratuit=estGratuit(x.paiement);
+    // la facture d'origine doit avoir son numéro pour que l'avoir y renvoie
+    let numOrig=x.facture;
+    if(!gratuit&&!numOrig){const {data,error}=await sb.rpc("numero_facture",{tx:x.id});if(error)throw error;numOrig=data;}
+    const id="t"+uid();
+    const av={venteId:x.venteId,client:x.client,type:"avoir",annule:x.id,factureOrigine:numOrig||null,
+      lignes:(x.lignes||[]).map(l=>({...l,qte:-Math.abs(l.qte)})),paiement:x.paiement,total:-(x.total||0),
+      vendeurPrenom:monPrenom||myEmail,date:new Date().toISOString()};
+    await db.collection("transactions").doc(id).set(av);
+    await db.collection("transactions").doc(x.id).update({annuleePar:id});
+    const cl=clients.get(x.id);if(cl){try{await db.collection("clients").doc(id).set({...cl,date:av.date});}catch(e){}}
+    if(!txs.find(t=>t.id===id))txs.push({id,...av});x.annuleePar=id;
+    busy=false;render();flash("Transaction annulée"+(gratuit?".":" : l'avoir est prêt."),"ok");
+    if(!gratuit)ouvrirFacture(id);
+  }catch(e){busy=false;console.error(e);flash(dbMessage(e));}
+}
 async function cloturer(vid){
   if(busy)return;busy=true;
   try{await db.collection("ventes").doc(vid).update({cloturee:true});confirmClose=false;flash("Vente clôturée.","ok");}
@@ -747,10 +780,15 @@ function renderTxList(m,t){
       ${clientOf(x).email?`<p class="muted" style="overflow-wrap:anywhere">✉️ ${esc(clientOf(x).email)}</p>`:""}
       <p class="muted">${esc(heure)}${x.vendeurPrenom?" · par "+esc(x.vendeurPrenom):""}</p></div>
       <div style="text-align:right"><p class="num" style="font-weight:800;color:var(--accent-ink);font-size:16px">${fmt(x.total)}</p>
-      <span class="badge closed">${esc(x.paiement)}</span></div></div>`;
+      <span class="badge closed">${esc(x.paiement)}</span>${x.type==="avoir"?' <span class="badge avoir">Avoir</span>':x.annuleePar?' <span class="badge avoir">Annulée</span>':""}</div></div>`;
     (x.lignes||[]).forEach(l=>{h+=`<div class="tx-line num"><span>${esc(l.nom)} ${esc(l.format)}</span><span>${l.qte} × ${fmt(l.prix)}</span><b>${fmt(l.qte*l.prix)}</b></div>`;});
     const c=el("div","card",h);
-    const fb=el("button","link",x.facture?"🧾 Facture "+esc(x.facture):"🧾 Facture");fb.style.alignSelf="flex-start";fb.onclick=()=>ouvrirFacture(x.id);c.appendChild(fb);
+    const doc=x.type==="avoir"?"Avoir":"Facture";
+    if(x.type==="avoir"&&x.annule){const o=txs.find(t=>t.id===x.annule);c.appendChild(txt("p","muted","Annule la transaction"+(o&&o.facture?" "+o.facture:"")+"."));}
+    const act=el("div","row");act.style.cssText="justify-content:flex-start;gap:14px";
+    if(!estGratuit(x.paiement)){const fb=el("button","link",x.facture?"🧾 "+doc+" "+esc(x.facture):"🧾 "+doc);fb.onclick=()=>ouvrirFacture(x.id);act.appendChild(fb);}
+    if(isAdmin()&&x.type!=="avoir"&&!x.annuleePar){const an=el("button","link","↩️ Annuler (avoir)");an.style.color="var(--bad)";an.onclick=()=>confirmerAnnulation(x);act.appendChild(an);}
+    if(act.children.length)c.appendChild(act);
     m.appendChild(c);
   });
 }
@@ -981,7 +1019,8 @@ async function facturePdf(x,v,cl,num){
   [cl.email,cl.tel].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
   // numéro et date
   const dt=new Date(x.date||Date.now());const jour=dt.toLocaleDateString("fr-FR");
-  d.setFontSize(11);d.text("Facture n° :",150,68,{align:"right"});d.setFont("helvetica","bold");d.text(num,152,68);
+  const avoir=x.type==="avoir";
+  d.setFontSize(11);d.text(avoir?"Avoir n° :":"Facture n° :",150,68,{align:"right"});d.setFont("helvetica","bold");d.text(num,152,68);
   d.setFont("helvetica","normal");d.text("Date :",150,74,{align:"right"});d.text(jour,152,74);
   if(v){d.setFontSize(9);d.setTextColor(120);d.text(net("Vente : "+v.nom+(v.lieu?" ("+v.lieu+")":"")),G,74);d.setTextColor(0);}
   // tableau
@@ -1000,7 +1039,9 @@ async function facturePdf(x,v,cl,num){
   d.setFontSize(12);ligneTot("Total TTC",eur(tot),true);
   // règlement
   y+=6;d.setFontSize(10);d.setFont("helvetica","normal");
-  if(MODES[x.paiement])d.text(net(`Facture acquittée, réglée par ${MODES[x.paiement]} le ${jour}.`),105,y,{align:"center"});
+  if(avoir){d.text(net(`Avoir annulant la facture ${x.factureOrigine||""}.`),105,y,{align:"center"});
+    d.text(net(MODES[x.paiement]?`Remboursement par ${MODES[x.paiement]}.`:"Montant à déduire de votre règlement."),105,y+5,{align:"center"});}
+  else if(MODES[x.paiement])d.text(net(`Facture acquittée, réglée par ${MODES[x.paiement]} le ${jour}.`),105,y,{align:"center"});
   else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+5,{align:"center"});}
   // pied de page
   let yp=268;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
@@ -1015,17 +1056,18 @@ async function ouvrirFacture(id){
   const m=el("div","modal");m.id="facture-modal";const sh=el("div","sheet");m.appendChild(sh);
   const fermer=()=>{m.remove();try{const p=JSON.parse(store.get(FACTURE_KEY)||"null");if(p&&p.id===id)store.set(FACTURE_KEY,"");}catch(e){}};
   m.onclick=e=>{if(e.target===m)fermer();};
-  sh.appendChild(txt("h2","sheet-title","Facture"));const etat=txt("p","muted","Préparation de la facture…");sh.appendChild(etat);
+  const doc=x.type==="avoir"?"Avoir":"Facture",docMin=doc.toLowerCase();
+  sh.appendChild(txt("h2","sheet-title",doc));const etat=txt("p","muted","Préparation…");sh.appendChild(etat);
   document.body.appendChild(m);
   let num=x.facture;
   try{
     if(!num){const {data,error}=await sb.rpc("numero_facture",{tx:id});if(error)throw error;num=data;x.facture=num;}
     const blob=await facturePdf(x,v,cl,num);
-    const nomFichier=`Facture ${num} - Château de Ravignan.pdf`;
+    const nomFichier=`${doc} ${num} - Château de Ravignan.pdf`;
     const fichier=new File([blob],nomFichier,{type:"application/pdf"});
     const prenom=cl.prenom||"";
-    const message=`Bonjour ${prenom},\n\nVoici votre facture ${num} pour vos achats au Château de Ravignan (${fmt(x.total)}).\n\nMerci et à bientôt !\nChâteau de Ravignan`;
-    const objet=`Votre facture ${num} – Château de Ravignan`;
+    const message=x.type==="avoir"?`Bonjour ${prenom},\n\nVoici l'avoir ${num} (${fmt(x.total)}), qui annule la facture ${x.factureOrigine||""}.\n\nChâteau de Ravignan`:`Bonjour ${prenom},\n\nVoici votre facture ${num} pour vos achats au Château de Ravignan (${fmt(x.total)}).\n\nMerci et à bientôt !\nChâteau de Ravignan`;
+    const objet=`Votre ${docMin} ${num} – Château de Ravignan`;
     etat.textContent=`N° ${num} · ${fmt(x.total)} · ${[cl.prenom,cl.nom].filter(Boolean).join(" ")||"Client"}`;
     const telecharger=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nomFichier;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);};
     if(navigator.canShare&&navigator.canShare({files:[fichier]})){

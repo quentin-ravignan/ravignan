@@ -41,12 +41,16 @@ Deno.serve(async (req) => {
       auth: { user, pass: Deno.env.get("GMAIL_APP_PASSWORD")! },
     });
     const total = Number(t.data.total || 0).toFixed(2).replace(".", ",") + " €";
+    const avoir = t.data.type === "avoir";
+    const intro = avoir
+      ? `Vous trouverez ci-joint l'avoir ${num} (${total}), qui annule la facture ${t.data.factureOrigine || ""}.`
+      : `Vous trouverez ci-joint votre facture ${num} (${total}) pour vos achats au Château de Ravignan.\n\nMerci et à bientôt !`;
     await transport.sendMail({
       from: `"Château de Ravignan" <${user}>`,
       to: email,
-      subject: `Votre facture ${num} – Château de Ravignan`,
-      text: `Bonjour ${prenom},\n\nVous trouverez ci-joint votre facture ${num} (${total}) pour vos achats au Château de Ravignan.\n\nMerci et à bientôt !\n\nChâteau de Ravignan\n40190 Perquie\n05 58 45 33 07 · contact@armagnac-ravignan.com`,
-      attachments: [{ filename: `Facture ${num} - Château de Ravignan.pdf`, content: contenu, contentType: "application/pdf" }],
+      subject: `Votre ${avoir ? "avoir" : "facture"} ${num} – Château de Ravignan`,
+      text: `Bonjour ${prenom},\n\n${intro}\n\nChâteau de Ravignan\n40190 Perquie\n05 58 45 33 07 · contact@armagnac-ravignan.com`,
+      attachments: [{ filename: `${avoir ? "Avoir" : "Facture"} ${num} - Château de Ravignan.pdf`, content: contenu, contentType: "application/pdf" }],
     });
 
     const envoi = { date: new Date().toISOString(), a: email };

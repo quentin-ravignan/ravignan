@@ -90,14 +90,20 @@ grant execute on function public.maj_coordonnees(text, jsonb) to anon, authentic
 -- Factures des ventes privées : série « VP-année-numéro », continue et sans doublon.
 -- Le numéro est attribué une seule fois à une transaction existante (rappeler la fonction renvoie le même).
 create sequence if not exists public.factures_vp;
+create sequence if not exists public.avoirs_vp;
 create or replace function public.numero_facture(tx text) returns text
 language plpgsql security definer set search_path = public as $$
-declare n text;
+declare n text; t text;
 begin
-  select data->>'facture' into n from public.docs where collection = 'transactions' and id = tx for update;
+  select data->>'facture', data->>'type' into n, t from public.docs where collection = 'transactions' and id = tx for update;
   if not found then raise exception 'transaction inconnue'; end if;
   if n is not null then return n; end if;
-  n := 'VP-' || to_char(now() at time zone 'Europe/Paris', 'YYYY') || '-' || lpad(nextval('public.factures_vp')::text, 4, '0');
+  -- les avoirs (annulations) ont leur propre série « AV-année-numéro »
+  if t = 'avoir' then
+    n := 'AV-' || to_char(now() at time zone 'Europe/Paris', 'YYYY') || '-' || lpad(nextval('public.avoirs_vp')::text, 4, '0');
+  else
+    n := 'VP-' || to_char(now() at time zone 'Europe/Paris', 'YYYY') || '-' || lpad(nextval('public.factures_vp')::text, 4, '0');
+  end if;
   update public.docs set data = data || jsonb_build_object('facture', n, 'facture_date', now()), updated_at = now()
     where collection = 'transactions' and id = tx;
   return n;
