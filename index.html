@@ -2803,9 +2803,14 @@ async function verifierSession(session){
   if(!session){myEmail="";monPrenom="";isOwner=false;estMembre=false;accesPrive=false;authState="login";majPied();render();return;}
   myEmail=(session.user.email||"").toLowerCase();
   monPrenom=String(session.user.user_metadata?.full_name||session.user.user_metadata?.name||"").trim().split(/\s+/)[0]||"";
-  if(monPrenom&&!store.get(VENDEUR_KEY))store.set(VENDEUR_KEY,monPrenom);
   const {data}=await sb.from("membres").select("role,nom").eq("email",myEmail).maybeSingle();
   if(data&&data.nom)monPrenom=data.nom;
+  // le vendeur proposé par défaut est la personne connectée, sous son nom de la liste des accès
+  if(monPrenom){
+    store.set(VENDEUR_KEY,monPrenom);
+    if(!nv.nom&&!nv.refs.length){nv.vendeur=monPrenom;delete nv.vendeurs;}
+    if(!sv.lignes.length)sv.vendeur=monPrenom;
+  }
   isOwner=!!data&&data.role==="admin";estMembre=!!data;
   accesPrive=estMembre&&(await sb.rpc("acces_prive")).data===true;
   if(accesPrive)["famille","chambres","reservations"].forEach(db.recharger);
