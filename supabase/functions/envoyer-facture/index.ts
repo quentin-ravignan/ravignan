@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     const total = Number(t.data.total || 0).toFixed(2).replace(".", ",") + " €";
     const avoir = t.data.type === "avoir";
     const intro = avoir
-      ? `Vous trouverez ci-joint l'avoir ${num} (${total}), qui annule la facture ${t.data.factureOrigine || ""}.`
+      ? `Vous trouverez ci-joint l'avoir ${num} (${total}), qui annule ${t.data.partiel ? "en partie " : ""}la facture ${t.data.factureOrigine || ""}.`
       : `Vous trouverez ci-joint votre facture ${num} (${total}) pour vos achats au Château de Ravignan.\n\nMerci et à bientôt !`;
     await transport.sendMail({
       from: `"Château de Ravignan" <${user}>`,
