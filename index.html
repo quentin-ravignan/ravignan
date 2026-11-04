@@ -348,6 +348,12 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .x{background:none;border:none;color:var(--bad);cursor:pointer;font-size:20px;line-height:1;padding:2px 6px}
 .ref{background:var(--sunk);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!important}
+.badge.famille{background:var(--accent-soft);color:var(--accent-ink)}
+.case-famille{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.case-famille input{width:22px;height:22px;flex:none;accent-color:var(--accent)}
+.case-famille span{display:flex;flex-direction:column}
+.case-famille:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+#total-remise{margin-top:4px;font-weight:700}
 .badge.attente{background:var(--warn-soft);color:var(--warn)}
 .tx-attente{border-left:4px solid var(--warn)}
 .attente-note{color:var(--warn);font-size:14px;font-weight:700}
@@ -451,7 +457,10 @@ let db=null, downloads=null, canWrite=true;
 let ventes=[], txs=[], loaded={ventes:false,txs:false}, dbError=null;
 let page="home", venteId=null, tab="tx", confirmClose=false, busy=false;
 const blankNv=()=>({nom:"",lieu:"",dateDebut:today(),dateFin:today(),vendeur:store.get(VENDEUR_KEY),refs:[],extras:[]});
-const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:""},lignes:[],pmt:"CB",vendeur:store.get(VENDEUR_KEY)});
+const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:""},lignes:[],pmt:"CB",famille:false,vendeur:store.get(VENDEUR_KEY)});
+const REMISE_FAMILLE=10; // en %
+const prixFamille=px=>Math.round(px*(100-REMISE_FAMILLE))/100;
+const remiseActive=()=>sv.famille&&!estGratuit(sv.pmt);
 let nv=blankNv(), sv=blankSv();
 let saisieProdCard=null, horsOpen=false;
 let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
@@ -834,7 +843,7 @@ async function annulerTransaction(x,rendus){
     const lignes=rendus.map(o=>({...o.l,idx:o.i,qte:-o.qte}));
     // la transaction est entièrement annulée quand plus aucune bouteille ne reste vendue
     const total=(x.lignes||[]).reduce((s,l,i)=>s+l.qte-dejaRepris(x,i),0)===rendus.reduce((s,o)=>s+o.qte,0);
-    const av={venteId:x.venteId,client:x.client,type:"avoir",annule:x.id,factureOrigine:numOrig||null,partiel:!total,
+    const av={venteId:x.venteId,client:x.client,type:"avoir",annule:x.id,factureOrigine:numOrig||null,partiel:!total,...(x.remise?{remise:x.remise}:{}),
       lignes,paiement:x.paiement,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),
       vendeurPrenom:monPrenom||myEmail,date:new Date().toISOString()};
     await db.collection("transactions").doc(id).set(av);
@@ -863,7 +872,7 @@ function renderTxList(m,t){
       ${clientOf(x).email?`<p class="muted" style="overflow-wrap:anywhere">✉️ ${esc(clientOf(x).email)}</p>`:""}
       <p class="muted">${esc(heure)}${x.vendeurPrenom?" · par "+esc(x.vendeurPrenom):""}</p></div>
       <div style="text-align:right"><p class="num" style="font-weight:800;color:var(--accent-ink);font-size:16px">${fmt(x.total)}</p>
-      <span class="badge closed">${esc(x.paiement)}</span>${x.type==="avoir"?' <span class="badge avoir">Avoir</span>':enAttente(x)?' <span class="badge attente">En attente de paiement</span>':x.annuleePar?' <span class="badge avoir">Annulée</span>':x.avoirs&&x.avoirs.length?' <span class="badge avoir">Annulée en partie</span>':""}</div></div>`;
+      <span class="badge closed">${esc(x.paiement)}</span>${x.remise?` <span class="badge famille">${esc(x.remise.type)} -${x.remise.taux} %</span>`:""}${x.type==="avoir"?' <span class="badge avoir">Avoir</span>':enAttente(x)?' <span class="badge attente">En attente de paiement</span>':x.annuleePar?' <span class="badge avoir">Annulée</span>':x.avoirs&&x.avoirs.length?' <span class="badge avoir">Annulée en partie</span>':""}</div></div>`;
     (x.lignes||[]).forEach(l=>{h+=`<div class="tx-line num"><span>${esc(l.nom)} ${esc(l.format)}</span><span>${l.qte} × ${fmt(l.prix)}</span><b>${fmt(l.qte*l.prix)}</b></div>`;});
     const c=el("div","card",h);
     const doc=x.type==="avoir"?"Avoir":"Facture";
@@ -930,13 +939,17 @@ function renderSaisie(m){
   PMTS.forEach(([p,lab])=>{
     const b=el("button","pmt"+(sv.pmt===p?" sel":""),lab);
     b.onclick=()=>{sv.pmt=p;pm.querySelectorAll(".pmt").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");updateTotal();
-      const n=qs("#note-gratuit");if(n)n.hidden=!estGratuit(p);};
+      const n=qs("#note-gratuit");if(n)n.hidden=!estGratuit(p);const f=qs("#case-famille");if(f)f.hidden=estGratuit(p);};
     pm.appendChild(b);
   });
   cp.appendChild(pm);
   const ng=txt("p","muted","Sortie de stock à 0 € : le client est facultatif et aucune facture n'est faite.");ng.id="note-gratuit";ng.hidden=!estGratuit(sv.pmt);cp.appendChild(ng);
+  const fam=el("label","case-famille",`<input type="checkbox" id="sv-famille"${sv.famille?" checked":""}><span><b>👪 Famille</b><small class="muted">Remise de ${REMISE_FAMILLE} % sur toute la transaction</small></span>`);
+  fam.id="case-famille";fam.hidden=estGratuit(sv.pmt);
+  fam.querySelector("input").onchange=e=>{sv.famille=e.target.checked;updateTotal();};
+  cp.appendChild(fam);
   m.appendChild(cp);
-  const tot=el("div","total",`<small>Total à encaisser</small><strong id="total-val" class="num">0,00 €</strong>`);tot.id="total-box";m.appendChild(tot);
+  const tot=el("div","total",`<small>Total à encaisser</small><strong id="total-val" class="num">0,00 €</strong><small id="total-remise" class="num" hidden></small>`);tot.id="total-box";m.appendChild(tot);
   const ok=el("button","btn go full","✓ Valider la transaction");ok.id="btn-valider";ok.onclick=submitTx;m.appendChild(ok);
   const an=el("button","btn ghost full","Annuler");an.onclick=()=>go("vente",venteId);m.appendChild(an);
   updateTotal();
@@ -1036,10 +1049,12 @@ function ligneCtrl(ligne,dispo){
 }
 
 function updateTotal(){
-  const total=estGratuit(sv.pmt)?0:sv.lignes.reduce((s,l)=>s+l.qte*l.prix,0);
-  const box=qs("#total-box"),val=qs("#total-val"),btn=qs("#btn-valider");
+  const brut=sv.lignes.reduce((s,l)=>s+l.qte*l.prix,0);
+  const total=estGratuit(sv.pmt)?0:remiseActive()?sv.lignes.reduce((s,l)=>s+l.qte*prixFamille(l.prix),0):brut;
+  const box=qs("#total-box"),val=qs("#total-val"),btn=qs("#btn-valider"),rem=qs("#total-remise");
   if(box)box.hidden=!sv.lignes.length;
   if(val)val.textContent=fmt(total);
+  if(rem){rem.hidden=!remiseActive();rem.textContent=`Remise famille ${REMISE_FAMILLE} % : -${fmt(brut-total)} (au lieu de ${fmt(brut)})`;}
   if(btn)btn.disabled=!sv.lignes.length||busy;
 }
 
@@ -1173,6 +1188,12 @@ async function facturePdf(x,v,cl,num){
     d.text(des,G+2,y+5);d.text(net(l.format),89,y+5);d.text(String(l.qte),121,y+5,{align:"right"});
     d.text(eur(l.prix),147,y+5,{align:"right"});d.text(eur(mt),172,y+5,{align:"right"});d.text(eur(mt-mt/(1+TVA)),D-2,y+5,{align:"right"});
     y+=h;d.setDrawColor(225);d.line(G,y,D,y);});
+  if(x.remise){
+    const pub=(x.lignes||[]).reduce((s,l)=>s+Math.abs(l.qte)*(l.prixPublic??l.prix),0),net2=(x.lignes||[]).reduce((s,l)=>s+Math.abs(l.qte)*l.prix,0);
+    y+=5;d.setFontSize(9);d.setTextColor(110);
+    d.text(net(`Prix remisés : remise ${x.remise.type.toLowerCase()} de ${x.remise.taux} % (-${eur(pub-net2)} sur un prix public de ${eur(pub)}).`),G+2,y);
+    d.setTextColor(0);d.setFontSize(10);
+  }
   // totaux
   y+=6;const ligneTot=(lab,val,gras)=>{d.setFont("helvetica",gras?"bold":"normal");d.text(lab,172,y,{align:"right"});d.text(val,D-2,y,{align:"right"});y+=6;};
   d.setFontSize(10);ligneTot("Quantité",String(qt));ligneTot("Total HT",eur(tot/(1+TVA)));ligneTot("TVA 20 %",eur(tot-tot/(1+TVA)));
@@ -1253,13 +1274,15 @@ async function submitTx(){
   if(!gratuit&&sv.client.nouveau&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sv.client.email.trim()))return flash("Indiquez l'email du nouveau client.");
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   const id="t"+uid();
-  const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:l.prix,...(gratuit?{valeur:l.prix}:{}),...(l.libre?{libre:true}:{})}));
+  const famille=remiseActive();
+  const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:famille?prixFamille(l.prix):l.prix,
+    ...(gratuit?{valeur:l.prix}:{}),...(famille?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
   const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim()};
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
   const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
-    ...(sv.pmt==="CB"?{statut:"attente"}:{})};
+    ...(sv.pmt==="CB"?{statut:"attente"}:{}),...(famille?{remise:{type:"Famille",taux:REMISE_FAMILLE}}:{})};
   busy=true;updateTotal();
   try{
     await db.collection("transactions").doc(id).set(tx);
