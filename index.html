@@ -464,6 +464,9 @@ const blankNv=()=>({nom:"",lieu:"",dateDebut:today(),dateFin:today(),vendeur:sto
 const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:""},lignes:[],pmt:"CB",famille:false,vendeur:store.get(VENDEUR_KEY)});
 const REMISE_FAMILLE=10; // en %
 const prixFamille=px=>Math.round(px*(100-REMISE_FAMILLE))/100;
+// produits exclus de la remise famille : les framboises à l'armagnac (catalogue ou hors catalogue)
+const sansRemise=l=>l.refId==="fr"||/framboise/i.test(l.nom||"");
+const prixLigne=l=>sansRemise(l)?l.prix:prixFamille(l.prix);
 const remiseActive=()=>sv.famille&&!estGratuit(sv.pmt);
 let nv=blankNv(), sv=blankSv();
 let saisieProdCard=null, horsOpen=false;
@@ -975,7 +978,7 @@ function renderSaisie(m){
   });
   cp.appendChild(pm);
   const ng=txt("p","muted","Sortie de stock à 0 € : le client est facultatif et aucune facture n'est faite.");ng.id="note-gratuit";ng.hidden=!estGratuit(sv.pmt);cp.appendChild(ng);
-  const fam=el("label","case-famille",`<input type="checkbox" id="sv-famille"${sv.famille?" checked":""}><span><b>👪 Famille</b><small class="muted">Remise de ${REMISE_FAMILLE} % sur toute la transaction</small></span>`);
+  const fam=el("label","case-famille",`<input type="checkbox" id="sv-famille"${sv.famille?" checked":""}><span><b>👪 Famille</b><small class="muted">Remise de ${REMISE_FAMILLE} % sur la transaction, sauf les framboises</small></span>`);
   fam.id="case-famille";fam.hidden=estGratuit(sv.pmt);
   fam.querySelector("input").onchange=e=>{sv.famille=e.target.checked;updateTotal();};
   cp.appendChild(fam);
@@ -1081,7 +1084,7 @@ function ligneCtrl(ligne,dispo){
 
 function updateTotal(){
   const brut=sv.lignes.reduce((s,l)=>s+l.qte*l.prix,0);
-  const total=estGratuit(sv.pmt)?0:remiseActive()?sv.lignes.reduce((s,l)=>s+l.qte*prixFamille(l.prix),0):brut;
+  const total=estGratuit(sv.pmt)?0:remiseActive()?sv.lignes.reduce((s,l)=>s+l.qte*prixLigne(l),0):brut;
   const box=qs("#total-box"),val=qs("#total-val"),btn=qs("#btn-valider"),rem=qs("#total-remise");
   if(box)box.hidden=!sv.lignes.length;
   if(val)val.textContent=fmt(total);
@@ -1222,7 +1225,7 @@ async function facturePdf(x,v,cl,num){
   if(x.remise){
     const pub=(x.lignes||[]).reduce((s,l)=>s+Math.abs(l.qte)*(l.prixPublic??l.prix),0),net2=(x.lignes||[]).reduce((s,l)=>s+Math.abs(l.qte)*l.prix,0);
     y+=5;d.setFontSize(9);d.setTextColor(110);
-    d.text(net(`Prix remisés : remise ${x.remise.type.toLowerCase()} de ${x.remise.taux} % (-${eur(pub-net2)} sur un prix public de ${eur(pub)}).`),G+2,y);
+    d.text(net(`Prix remisés : remise ${x.remise.type.toLowerCase()} de ${x.remise.taux} % (-${eur(pub-net2)} sur un prix public de ${eur(pub)})${(x.lignes||[]).some(sansRemise)?", hors framboises":""}.`),G+2,y);
     d.setTextColor(0);d.setFontSize(10);
   }
   // totaux
@@ -1306,8 +1309,8 @@ async function submitTx(){
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   const id="t"+uid();
   const famille=remiseActive();
-  const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:famille?prixFamille(l.prix):l.prix,
-    ...(gratuit?{valeur:l.prix}:{}),...(famille?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
+  const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:famille?prixLigne(l):l.prix,
+    ...(gratuit?{valeur:l.prix}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
   const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim()};
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
