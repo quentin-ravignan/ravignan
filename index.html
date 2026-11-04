@@ -354,6 +354,10 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .case-famille span{display:flex;flex-direction:column}
 .case-famille:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
 #total-remise{margin-top:4px;font-weight:700}
+.stock-corr{justify-content:flex-start;gap:6px;flex-wrap:wrap;padding:8px;border-radius:10px;background:var(--sunk)}
+.stock-corr label{font-size:13px;font-weight:700}
+.stock-corr input{width:80px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)}
+.stock-corr .muted{font-size:12px;flex-basis:100%}
 .badge.attente{background:var(--warn-soft);color:var(--warn)}
 .tx-attente{border-left:4px solid var(--warn)}
 .attente-note{color:var(--warn);font-size:14px;font-weight:700}
@@ -897,6 +901,19 @@ async function reassortir(v,refId,qte){
   }catch(e){flash(dbMessage(e));}
   finally{busy=false;render();}
 }
+async function corrigerStock(v,refId,restant){
+  if(!(restant>=0)||busy)return flash("Indiquez le nombre restant.");
+  const r0=v.refs.find(r=>r.id===refId);if(!r0)return;
+  const stock=venduDe(v.id,refId)+restant;
+  // un stock à 0 voudrait dire « sans limite »
+  if(stock<=0)return flash("Rien n'a été vendu : un stock à 0 rendrait ce produit sans limite. Retirez plutôt le produit, ou indiquez au moins 1.");
+  busy=true;
+  try{
+    const refs=v.refs.map(r=>r.id!==refId?r:{...r,stock,corrections:[...(r.corrections||[]),{avant:r.stock||0,apres:stock,date:new Date().toISOString(),par:monPrenom||store.get(VENDEUR_KEY)||""}]});
+    await db.collection("ventes").doc(v.id).update({refs});v.refs=refs;flash(`Stock corrigé : ${restant} restant${restant>1?"s":""}.`,"ok");
+  }catch(e){flash(dbMessage(e));}
+  finally{busy=false;render();}
+}
 function renderStock(m,v){
   const c=el("div","card");
   v.refs.forEach(r=>{
@@ -907,12 +924,26 @@ function renderStock(m,v){
     const ligneStock=el("div","stack",`<div class="row" style="font-size:14px"><span style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.nom)} ${esc(r.format)}</span>
       <span class="num" style="font-weight:700;white-space:nowrap;color:${col}">${esc(etat)}</span></div>
       ${illimite?"":`<div class="bar"><i style="width:${pct*100}%;background:${col}"></i></div>`}
-      <p class="muted num">${fmt(r.prix)} / unité${illimite?"":" · "+vendu+" vendu"+(vendu>1?"s":"")}${(r.reassorts||[]).length?" · réassort +"+r.reassorts.reduce((s,x)=>s+x.qte,0):""}</p>`);
+      <p class="muted num">${fmt(r.prix)} / unité${illimite?"":" · "+vendu+" vendu"+(vendu>1?"s":"")}${(r.reassorts||[]).length?" · réassort +"+r.reassorts.reduce((s,x)=>s+x.qte,0):""}${(r.corrections||[]).length?" · corrigé le "+new Date(r.corrections.at(-1).date).toLocaleDateString("fr-FR"):""}</p>`);
     c.appendChild(ligneStock);
     if(!v.cloturee&&canWrite){const f=el("form","row");f.style.cssText="justify-content:flex-start;gap:6px";
       const q=el("input");q.type="number";q.min="1";q.inputMode="numeric";q.placeholder="Qté";q.setAttribute("aria-label","Quantité à réassortir");q.style.cssText="width:80px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)";
       const b=el("button","btn ghost sm","+ Réassort");b.type="submit";f.appendChild(q);f.appendChild(b);
-      f.onsubmit=e=>{e.preventDefault();reassortir(v,r.id,parseInt(q.value)||0);};ligneStock.appendChild(f);}
+      f.onsubmit=e=>{e.preventDefault();reassortir(v,r.id,parseInt(q.value)||0);};
+      const mod=el("button","btn ghost sm","✏️ Modifier");mod.type="button";f.appendChild(mod);
+      const fc=el("form","row stock-corr");fc.hidden=true;
+      const qc=el("input");qc.type="number";qc.min="0";qc.inputMode="numeric";qc.value=illimite?"":String(Math.max(0,reste));qc.placeholder="Restant";
+      qc.setAttribute("aria-label","Nombre restant réellement : "+r.nom+" "+r.format);
+      const apercu=el("span","muted num");
+      const maj=()=>{const n=parseInt(qc.value);apercu.textContent=n>=0?`stock emporté : ${vendu+n} (${vendu} vendu${vendu>1?"s":""} + ${n})`:"";};
+      qc.oninput=maj;maj();
+      fc.appendChild(txt("label","","Restant réel"));fc.appendChild(qc);
+      const ok=el("button","btn go sm","Enregistrer");ok.type="submit";fc.appendChild(ok);
+      const an=el("button","btn ghost sm","Annuler");an.type="button";an.onclick=()=>{fc.hidden=true;};fc.appendChild(an);
+      fc.appendChild(apercu);
+      fc.onsubmit=e=>{e.preventDefault();if(qc.value==="")return flash("Indiquez le nombre restant.");corrigerStock(v,r.id,parseInt(qc.value));};
+      mod.onclick=()=>{fc.hidden=!fc.hidden;if(!fc.hidden)qc.focus();};
+      ligneStock.appendChild(f);ligneStock.appendChild(fc);}
   });
   // ventes hors catalogue saisies en direct
   const libres={};txsOf(v.id).forEach(t=>(t.lignes||[]).filter(l=>l.libre).forEach(l=>{const k=l.nom+" "+l.format;libres[k]=(libres[k]||0)+l.qte;}));
