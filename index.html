@@ -466,7 +466,7 @@ let db=null, downloads=null, canWrite=true;
 let ventes=[], txs=[], loaded={ventes:false,txs:false}, dbError=null;
 let page="home", venteId=null, tab="tx", confirmClose=false, busy=false;
 const blankNv=()=>({nom:"",lieu:"",dateDebut:today(),dateFin:today(),vendeur:store.get(VENDEUR_KEY),refs:[],extras:[]});
-const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:""},lignes:[],pmt:"CB",famille:false,vendeur:store.get(VENDEUR_KEY)});
+const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:"",cp:""},lignes:[],pmt:"CB",famille:false,vendeur:store.get(VENDEUR_KEY)});
 const REMISE_FAMILLE=10; // en %
 const prixFamille=px=>Math.round(px*(100-REMISE_FAMILLE))/100;
 // produits exclus de la remise famille : les framboises à l'armagnac (catalogue ou hors catalogue)
@@ -1088,8 +1088,11 @@ function dessinerClientCaisse(cc){
   if(c.existant){
     const r=el("div","client-choisi");const t=el("div");t.appendChild(txt("b","",[c.prenom,c.nom].filter(Boolean).join(" ")));
     t.appendChild(txt("p","muted",[c.email,c.tel].filter(Boolean).join(" · ")||"Pas de coordonnées"));r.appendChild(t);
-    const ch=el("button","link","Changer");ch.onclick=()=>{sv.client={nom:"",prenom:"",tel:"",email:""};dessinerClientCaisse(cc);};r.appendChild(ch);
-    cc.appendChild(r);return;
+    const ch=el("button","link","Changer");ch.onclick=()=>{sv.client={nom:"",prenom:"",tel:"",email:"",cp:""};dessinerClientCaisse(cc);};r.appendChild(ch);
+    cc.appendChild(r);
+    const fc=el("div","field",`<label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190">`);
+    const ic=fc.querySelector("input");ic.value=c.cp||"";ic.oninput=e=>{c.cp=e.target.value;e.target.classList.remove("invalide");};
+    cc.appendChild(fc);return;
   }
   const modes=el("div","tabs");
   const bR=el("button",!c.nouveau?"active":"","Client existant"),bN=el("button",c.nouveau?"active":"","Nouveau client");
@@ -1106,16 +1109,17 @@ function dessinerClientCaisse(cc){
       if(!liste.length){res.appendChild(txt("p","muted","Aucun client trouvé."));const n=el("button","link","Créer ce client");n.onclick=()=>{c.nouveau=true;const [p,...rest]=q.value.trim().split(" ");c.prenom=p||"";c.nom=rest.join(" ");dessinerClientCaisse(cc);};res.appendChild(n);return;}
       liste.forEach(x=>{const b=el("button","client-res");const t2=el("span");t2.appendChild(txt("b","",[x.prenom,x.nom].filter(Boolean).join(" ")||x.email));
         t2.appendChild(txt("span","muted",[x.email,x.ville,x.nbAchats?x.nbAchats+" achat"+(x.nbAchats>1?"s":""):""].filter(Boolean).join(" · ")));b.appendChild(t2);b.appendChild(badgesOrigine(x));
-        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
+        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
     q.oninput=chercher;setTimeout(()=>q.focus(),50);return;
   }
   const f=el("div","stack",`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
     <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>
     <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
-    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>`);
+    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>
+    <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div></div>`);
   cc.appendChild(f);
-  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email"};
-  Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;};});
+  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-cp":"cp"};
+  Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
 }
 function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
   if(!ref.stock)return Infinity;
@@ -1297,7 +1301,7 @@ async function facturePdf(x,v,cl,num){
   d.setFont("helvetica","normal");d.setFontSize(9);d.setTextColor(120);d.text("Facturé à",117,25);
   d.setTextColor(0);d.setFont("helvetica","bold");d.setFontSize(12);d.text(nomCl,117,32);
   d.setFont("helvetica","normal");d.setFontSize(10);let yc=38;
-  [cl.email,cl.tel].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
+  [cl.email,cl.tel,cl.cp].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
   // numéro et date
   const dt=new Date(x.date||Date.now());const jour=dt.toLocaleDateString("fr-FR");
   const avoir=x.type==="avoir";
@@ -1399,13 +1403,14 @@ async function submitTx(){
   const gratuit=estGratuit(sv.pmt);
   if(!gratuit&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
   if(!gratuit&&sv.client.nouveau&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sv.client.email.trim()))return flash("Indiquez l'email du nouveau client.");
+  if(!gratuit&&!/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(String(sv.client.cp||"").trim())){qs("#cl-cp")?.classList.add("invalide");qs("#cl-cp")?.focus();return flash("Indiquez le code postal du client.");}
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   const id="t"+uid();
   const famille=remiseActive();
   const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:famille?prixLigne(l):l.prix,
     ...(gratuit?{valeur:l.prix}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
-  const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim()};
+  const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim(),cp:String(sv.client.cp||"").trim().toUpperCase()};
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
   const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
