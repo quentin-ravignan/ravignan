@@ -718,8 +718,8 @@ function direYippee(){
   }catch(e){}
 }
 // son de création de vente : fichier fourni par l'utilisateur ; le lecteur est « débloqué » au clic (exigence des téléphones)
-// on ne joue que la phrase, de 2,5 s à 3,9 s du fichier (décodé une fois, puis joué par le contexte audio)
-const SON_VENTE={fichier:"sons/yippee.mp3",debut:2.5,fin:3.9};
+// on ne joue que la phrase, de 1 s à 3,9 s du fichier (décodé une fois, puis joué par le contexte audio)
+const SON_VENTE={fichier:"sons/yippee.mp3",debut:1,fin:3.9};
 let sonVente=null;
 function preparerSonVente(){
   ouvrirAudio();
