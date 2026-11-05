@@ -717,9 +717,18 @@ function direYippee(){
     speechSynthesis.cancel();speechSynthesis.speak(u);
   }catch(e){}
 }
+// son de création de vente : fichier fourni par l'utilisateur ; le lecteur est « débloqué » au clic (exigence des téléphones)
+let sonVente=null;
+function preparerSonVente(){
+  try{sonVente=sonVente||new Audio("sons/yippee.mp3");sonVente.muted=true;
+    const p=sonVente.play();if(p)p.then(()=>{sonVente.pause();sonVente.currentTime=0;sonVente.muted=false;}).catch(()=>{sonVente.muted=false;});}catch(e){}
+}
+function jouerSonVente(){
+  try{sonVente.muted=false;sonVente.currentTime=0;sonVente.play().catch(direYippee);}catch(e){direYippee();}
+}
 async function createVente(){
   if(busy)return;
-  try{speechSynthesis.getVoices();}catch(e){}
+  preparerSonVente();
   if(!nv.nom.trim()||!nv.lieu.trim())return flash("Indiquez le nom et le lieu de la vente.");
   if(!(nv.vendeurs||[]).length)return flash("Choisissez au moins un vendeur.");
   if(!nv.refs.length&&!nv.extras.length)return flash("Ajoutez au moins un produit.");
@@ -740,7 +749,7 @@ async function createVente(){
     store.set(VENDEUR_KEY,nv.vendeurs[0]);
     nv=blankNv();
     if(!ventes.find(x=>x.id===id))ventes.push({id,...v});
-    go("vente",id);flash("Vente créée.","ok");direYippee();
+    go("vente",id);flash("Vente créée.","ok");jouerSonVente();
   }catch(e){flash(dbMessage(e));const b=qs("#btn-create");if(b)b.disabled=false;}
   finally{busy=false;}
 }
