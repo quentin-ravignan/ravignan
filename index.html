@@ -718,13 +718,19 @@ function direYippee(){
   }catch(e){}
 }
 // son de création de vente : fichier fourni par l'utilisateur ; le lecteur est « débloqué » au clic (exigence des téléphones)
+// on ne joue que la phrase, de 2,5 s à 3,9 s du fichier (décodé une fois, puis joué par le contexte audio)
+const SON_VENTE={fichier:"sons/yippee.mp3",debut:2.5,fin:3.9};
 let sonVente=null;
 function preparerSonVente(){
-  try{sonVente=sonVente||new Audio("sons/yippee.mp3");sonVente.muted=true;
-    const p=sonVente.play();if(p)p.then(()=>{sonVente.pause();sonVente.currentTime=0;sonVente.muted=false;}).catch(()=>{sonVente.muted=false;});}catch(e){}
+  ouvrirAudio();
+  if(!sonVente&&audioCtx)sonVente=fetch(SON_VENTE.fichier).then(r=>r.arrayBuffer()).then(b=>new Promise((ok,ko)=>audioCtx.decodeAudioData(b,ok,ko)));
 }
-function jouerSonVente(){
-  try{sonVente.muted=false;sonVente.currentTime=0;sonVente.play().catch(direYippee);}catch(e){direYippee();}
+async function jouerSonVente(){
+  try{
+    const buf=await sonVente;if(!buf)return direYippee();
+    const src=audioCtx.createBufferSource();src.buffer=buf;src.connect(audioCtx.destination);
+    src.start(0,SON_VENTE.debut,SON_VENTE.fin-SON_VENTE.debut);
+  }catch(e){direYippee();}
 }
 async function createVente(){
   if(busy)return;
