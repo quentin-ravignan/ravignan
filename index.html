@@ -358,6 +358,7 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .stock-corr label{font-size:13px;font-weight:700}
 .stock-corr input{width:80px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)}
 .stock-corr .muted{font-size:12px;flex-basis:100%}
+.ajout-produit{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .badge.attente{background:var(--warn-soft);color:var(--warn)}
 .tx-attente{border-left:4px solid var(--warn)}
 .attente-note{color:var(--warn);font-size:14px;font-weight:700}
@@ -690,8 +691,31 @@ function renderProdPicker(c){
   form.querySelector("#hc-cancel").onclick=()=>{form.hidden=true;};
 }
 
+// sons générés par le navigateur (aucun fichier) ; le contexte audio s'ouvre au clic, sinon le téléphone le bloque
+let audioCtx=null;
+function ouvrirAudio(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();}catch(e){}}
+function sonCaisse(){
+  const a=audioCtx;if(!a)return;const t=a.currentTime;
+  // tiroir : bruit bref et grave
+  const n=a.createBuffer(1,a.sampleRate*0.18,a.sampleRate),d=n.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2);
+  const src=a.createBufferSource();src.buffer=n;const lp=a.createBiquadFilter();lp.type="lowpass";lp.frequency.value=900;
+  const gn=a.createGain();gn.gain.value=0.5;src.connect(lp).connect(gn).connect(a.destination);src.start(t);
+  // « ching » : deux clochettes aiguës
+  [[2093,0.12],[2637,0.2]].forEach(([fq,dt])=>{[1,2.76].forEach((h,k)=>{const o=a.createOscillator(),g=a.createGain();o.type="sine";o.frequency.value=fq*h;
+    g.gain.setValueAtTime(0.0001,t+dt);g.gain.exponentialRampToValueAtTime(k?0.06:0.25,t+dt+0.005);g.gain.exponentialRampToValueAtTime(0.0001,t+dt+0.9);
+    o.connect(g).connect(a.destination);o.start(t+dt);o.stop(t+dt+1);});});
+}
+function direYippee(){
+  try{
+    const u=new SpeechSynthesisUtterance("Yippee-ki-yay!");u.lang="en-US";u.rate=0.85;u.pitch=0.7;u.volume=1;
+    const voix=speechSynthesis.getVoices().filter(x=>/^en/i.test(x.lang));
+    u.voice=voix.find(x=>/male|david|daniel|fred|alex|guy/i.test(x.name)&&!/female/i.test(x.name))||voix[0]||null;
+    speechSynthesis.cancel();speechSynthesis.speak(u);
+  }catch(e){}
+}
 async function createVente(){
   if(busy)return;
+  try{speechSynthesis.getVoices();}catch(e){}
   if(!nv.nom.trim()||!nv.lieu.trim())return flash("Indiquez le nom et le lieu de la vente.");
   if(!(nv.vendeurs||[]).length)return flash("Choisissez au moins un vendeur.");
   if(!nv.refs.length&&!nv.extras.length)return flash("Ajoutez au moins un produit.");
@@ -712,7 +736,7 @@ async function createVente(){
     store.set(VENDEUR_KEY,nv.vendeurs[0]);
     nv=blankNv();
     if(!ventes.find(x=>x.id===id))ventes.push({id,...v});
-    go("vente",id);flash("Vente créée.","ok");
+    go("vente",id);flash("Vente créée.","ok");direYippee();
   }catch(e){flash(dbMessage(e));const b=qs("#btn-create");if(b)b.disabled=false;}
   finally{busy=false;}
 }
@@ -738,7 +762,6 @@ function renderVente(m){
     const b=el("button","btn go full","+ Transaction");
     b.onclick=()=>{sv=blankSv();horsOpen=false;go("saisie",v.id);};actions.appendChild(b);
   }
-  if(downloads&&isAdmin()){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);actions.appendChild(e);}
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
   if(!v.cloturee&&canWrite){
@@ -757,6 +780,7 @@ function renderVente(m){
   tv.onclick=()=>{tab="tx";render();};ts.onclick=()=>{tab="stock";render();};tvd.onclick=()=>{tab="vendeurs";render();};
   tabs.appendChild(tv);tabs.appendChild(ts);tabs.appendChild(tvd);m.appendChild(tabs);
   if(tab==="tx")renderTxList(m,t);else if(tab==="vendeurs")renderParVendeur(m,t);else renderStock(m,v);
+  if(downloads&&isAdmin()){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);m.appendChild(e);}
   // suppression : libre tant qu'aucune transaction n'est saisie, réservée aux administrateurs ensuite
   if(!t.length||isAdmin()){
     if(confirmSuppr!==v.id){const l=el("button","link","Supprimer la vente");l.style.color="var(--bad)";l.onclick=()=>{confirmSuppr=v.id;render();};m.appendChild(l);}
@@ -951,7 +975,55 @@ function renderStock(m,v){
   // ventes hors catalogue saisies en direct
   const libres={};txsOf(v.id).forEach(t=>(t.lignes||[]).filter(l=>l.libre).forEach(l=>{const k=l.nom+" "+l.format;libres[k]=(libres[k]||0)+l.qte;}));
   Object.entries(libres).forEach(([k,q])=>c.appendChild(el("div","row",`<span style="font-size:14px">${esc(k)} <span class="muted">(hors catalogue)</span></span><span class="num muted">${q} vendu${q>1?"s":""}</span>`)));
+  if(!v.cloturee&&canWrite)c.appendChild(formAjoutProduit(v));
   m.appendChild(c);
+}
+// produits proposables : millésimes (année × format), autres produits, ou hors catalogue
+function catalogueReassort(){
+  return [...MILL.flatMap(mm=>mm.formats.map(f=>({id:"m_"+mm.an+"_"+f.f,nom:"Millésime "+mm.an,format:f.f,prix:f.p,groupe:"Millésimes"}))),
+          ...AUTRES.map(p=>({...p,groupe:"Autres produits"}))];
+}
+function formAjoutProduit(v){
+  const z=el("div","ajout-produit");
+  const ouvrir=el("button","dashed","+ Ajouter un produit à la vente (réassort)");z.appendChild(ouvrir);
+  const f=el("form","card soft");f.hidden=true;f.style.padding="12px";z.appendChild(f);
+  const cat=catalogueReassort();
+  const groupes=[...new Set(cat.map(p=>p.groupe))];
+  f.innerHTML=`<div class="field"><label for="ap-prod">Produit</label><select id="ap-prod" required><option value="">— Choisir —</option>
+      ${groupes.map(g=>`<optgroup label="${esc(g)}">${cat.filter(p=>p.groupe===g).map(p=>`<option value="${esc(p.id)}">${esc(p.nom)} · ${esc(p.format)}${v.refs.some(r=>r.id===p.id)?" (déjà dans la vente)":""}</option>`).join("")}</optgroup>`).join("")}
+      <option value="libre">Produit hors catalogue…</option></select></div>
+    <div class="grid2" id="ap-libre" hidden><div class="field"><label for="ap-nom">Nom</label><input id="ap-nom" placeholder="ex : Millésime 1975"></div>
+      <div class="field"><label for="ap-fmt">Format</label><input id="ap-fmt" placeholder="70cl"></div></div>
+    <div class="grid2"><div class="field"><label for="ap-qte">Quantité ajoutée</label><input id="ap-qte" type="number" min="1" inputmode="numeric" required placeholder="ex : 6"></div>
+      <div class="field"><label for="ap-px">Prix de vente (€)</label><input id="ap-px" type="number" min="0" step="0.5" inputmode="decimal" required></div></div>
+    <p class="muted" id="ap-info"></p>
+    <div class="row" style="justify-content:flex-start;gap:8px"><button class="btn go sm" type="submit">Ajouter au stock</button><button class="btn ghost sm" type="button" id="ap-annuler">Annuler</button></div>`;
+  const sel=f.querySelector("#ap-prod"),libre=f.querySelector("#ap-libre"),px=f.querySelector("#ap-px"),info=f.querySelector("#ap-info");
+  sel.onchange=()=>{
+    libre.hidden=sel.value!=="libre";
+    const p=cat.find(x=>x.id===sel.value),ex=v.refs.find(r=>r.id===sel.value);
+    px.value=ex?ex.prix:p?p.prix:"";px.disabled=!!ex;
+    info.textContent=ex?"Déjà dans la vente : la quantité s'ajoute à son stock, au prix de la vente.":"";
+  };
+  ouvrir.onclick=()=>{f.hidden=!f.hidden;ouvrir.hidden=!f.hidden;if(!f.hidden)sel.focus();};
+  f.querySelector("#ap-annuler").onclick=()=>{f.hidden=true;ouvrir.hidden=false;};
+  f.onsubmit=async e=>{
+    e.preventDefault();
+    const qte=parseInt(f.querySelector("#ap-qte").value)||0;if(qte<=0)return flash("Indiquez la quantité ajoutée.");
+    if(v.refs.some(r=>r.id===sel.value))return reassortir(v,sel.value,qte);
+    let ref;
+    if(sel.value==="libre"){
+      const nom=f.querySelector("#ap-nom").value.trim();if(!nom)return flash("Indiquez le nom du produit.");
+      ref={id:"x"+uid(),nom,format:f.querySelector("#ap-fmt").value.trim()};
+    }else{const p=cat.find(x=>x.id===sel.value);if(!p)return flash("Choisissez un produit.");ref={id:p.id,nom:p.nom,format:p.format};}
+    ref.prix=parseFloat(px.value)||0;ref.stock=qte;
+    ref.ajout={date:new Date().toISOString(),par:monPrenom||store.get(VENDEUR_KEY)||""};
+    if(busy)return;busy=true;
+    try{const refs=[...v.refs,ref];await db.collection("ventes").doc(v.id).update({refs});v.refs=refs;flash(`${ref.nom} ${ref.format} ajouté : ${qte} en stock.`,"ok");}
+    catch(err){flash(dbMessage(err));}
+    finally{busy=false;render();}
+  };
+  return z;
 }
 
 /* ---------- saisie d'une transaction ---------- */
@@ -959,6 +1031,7 @@ function renderSaisie(m){
   const v=getVente();
   if(v.cloturee){m.appendChild(el("div","msg info","Cette vente est clôturée."));return;}
   const cv=el("div","card");m.appendChild(cv);
+  if(monPrenom){sv.vendeur=monPrenom;cv.innerHTML=`<h2>Vendeur</h2><div class="chips"><span class="chip sel">✓ ${esc(monPrenom)}</span></div>`;}
   const dessinerVendeur=()=>{cv.innerHTML="<h2>Vendeur</h2>";
     const liste=[...new Set([...(v.vendeurs||[v.vendeurPrincipal]),monPrenom,...listeVendeurs()].filter(Boolean))];
     const ch=el("div","chips");liste.forEach(p=>{const b=el("button","chip"+(sv.vendeur===p?" sel":""),esc(p));b.onclick=()=>{sv.vendeur=p;dessinerVendeur();};ch.appendChild(b);});
@@ -966,7 +1039,7 @@ function renderSaisie(m){
     const i=el("input");i.id="sv-vendeur";i.placeholder="ou un autre prénom";i.value=liste.includes(sv.vendeur)?"":sv.vendeur;
     i.style.cssText="border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)";
     i.oninput=e=>{sv.vendeur=e.target.value;ch.querySelectorAll(".chip").forEach(x=>x.classList.remove("sel"));};cv.appendChild(i);};
-  dessinerVendeur();
+  if(!monPrenom)dessinerVendeur();
   const cc=el("div","card");m.appendChild(cc);dessinerClientCaisse(cc);
   saisieProdCard=el("div","card");m.appendChild(saisieProdCard);renderLignes();
   const cp=el("div","card",`<h2>Paiement</h2>`);const pm=el("div","pmts");
@@ -1300,6 +1373,7 @@ async function ouvrirFacture(id){
 }
 async function submitTx(){
   if(busy)return;
+  ouvrirAudio();
   const v=getVente();
   if(!v||v.cloturee)return flash("Cette vente est clôturée.");
   if(!sv.vendeur.trim())return flash("Indiquez votre prénom de vendeur.");
@@ -1325,7 +1399,7 @@ async function submitTx(){
     store.set(VENDEUR_KEY,sv.vendeur.trim());
     if(!txs.find(x=>x.id===id))txs.push({id,...tx});
     sv=blankSv();horsOpen=false;
-    busy=false;go("vente",v.id);flash(enAttente(tx)?`Transaction enregistrée : ${fmt(tx.total)}, en attente du paiement SumUp.`:`Transaction enregistrée : ${fmt(tx.total)}.`,"ok");
+    busy=false;go("vente",v.id);sonCaisse();flash(enAttente(tx)?`Transaction enregistrée : ${fmt(tx.total)}, en attente du paiement SumUp.`:`Transaction enregistrée : ${fmt(tx.total)}.`,"ok");
     // la facture reste proposée au retour de l'app SumUp (la page est alors rechargée)
     if(gratuit){}
     else{factureEnAttente.set(id,contact);store.set(FACTURE_KEY,JSON.stringify({id,contact,t:Date.now()}));}
