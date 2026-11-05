@@ -358,6 +358,10 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .stock-corr label{font-size:13px;font-weight:700}
 .stock-corr input{width:80px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)}
 .stock-corr .muted{font-size:12px;flex-basis:100%}
+.journal-ligne{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.journal-txt{flex:1;min-width:0;display:flex;flex-direction:column;font-size:14px}
+.journal-txt small{font-size:12px}
+.journal-val{font-weight:800;white-space:nowrap}
 .ajout-produit{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .badge.attente{background:var(--warn-soft);color:var(--warn)}
 .tx-attente{border-left:4px solid var(--warn)}
@@ -780,6 +784,7 @@ function renderVente(m){
   tv.onclick=()=>{tab="tx";render();};ts.onclick=()=>{tab="stock";render();};tvd.onclick=()=>{tab="vendeurs";render();};
   tabs.appendChild(tv);tabs.appendChild(ts);tabs.appendChild(tvd);m.appendChild(tabs);
   if(tab==="tx")renderTxList(m,t);else if(tab==="vendeurs")renderParVendeur(m,t);else renderStock(m,v);
+  renderJournalStock(m,v);
   if(downloads&&isAdmin()){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);m.appendChild(e);}
   // suppression : libre tant qu'aucune transaction n'est saisie, réservée aux administrateurs ensuite
   if(!t.length||isAdmin()){
@@ -928,6 +933,20 @@ async function reassortir(v,refId,qte){
   }catch(e){flash(dbMessage(e));}
   finally{busy=false;render();}
 }
+// journal des mouvements de stock : produits ajoutés, réassorts et corrections, du plus récent au plus ancien
+function renderJournalStock(m,v){
+  const ev=[];
+  v.refs.forEach(r=>{const p=r.nom+" "+(r.format||"");
+    if(r.ajout)ev.push({date:r.ajout.date,par:r.ajout.par,ico:"🆕",txt:`${p} ajouté à la vente`,val:r.stock_initial!=null?"+"+r.stock_initial:""});
+    (r.reassorts||[]).forEach(x=>ev.push({date:x.date,par:x.par,ico:"📦",txt:`Réassort ${p}`,val:"+"+x.qte}));
+    (r.corrections||[]).forEach(x=>ev.push({date:x.date,par:x.par,ico:"✏️",txt:`Stock modifié ${p}`,val:`${x.avant||"sans limite"} → ${x.apres}`}));});
+  if(!ev.length)return;
+  ev.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const c=el("div","card journal-stock","<h2>Journal du stock</h2>");
+  ev.forEach(e=>{const quand=e.date?new Date(e.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"";
+    c.appendChild(el("div","journal-ligne",`<span aria-hidden="true">${e.ico}</span><span class="journal-txt"><b>${esc(e.txt)}</b><small class="muted">${esc(quand)}${e.par?" · par "+esc(e.par):""}</small></span><span class="num journal-val">${esc(e.val)}</span>`));});
+  m.appendChild(c);
+}
 async function corrigerStock(v,refId,restant){
   if(!(restant>=0)||busy)return flash("Indiquez le nombre restant.");
   const r0=v.refs.find(r=>r.id===refId);if(!r0)return;
@@ -1016,7 +1035,7 @@ function formAjoutProduit(v){
       const nom=f.querySelector("#ap-nom").value.trim();if(!nom)return flash("Indiquez le nom du produit.");
       ref={id:"x"+uid(),nom,format:f.querySelector("#ap-fmt").value.trim()};
     }else{const p=cat.find(x=>x.id===sel.value);if(!p)return flash("Choisissez un produit.");ref={id:p.id,nom:p.nom,format:p.format};}
-    ref.prix=parseFloat(px.value)||0;ref.stock=qte;
+    ref.prix=parseFloat(px.value)||0;ref.stock=qte;ref.stock_initial=qte;
     ref.ajout={date:new Date().toISOString(),par:monPrenom||store.get(VENDEUR_KEY)||""};
     if(busy)return;busy=true;
     try{const refs=[...v.refs,ref];await db.collection("ventes").doc(v.id).update({refs});v.refs=refs;flash(`${ref.nom} ${ref.format} ajouté : ${qte} en stock.`,"ok");}
