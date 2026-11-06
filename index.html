@@ -396,6 +396,18 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .ia-micro.ecoute{background:var(--bad);animation:ia-pulse 1s ease-in-out infinite}
 @keyframes ia-pulse{50%{transform:scale(1.08)}}
 @media (prefers-reduced-motion:reduce){.ia-micro.ecoute{animation:none}}
+.combo{position:relative;margin-top:10px}
+.combo-btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+.combo-btn[aria-expanded="true"]{border-color:var(--accent)}
+.combo-pan{margin-top:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 8px 24px rgba(60,25,20,.12);overflow:hidden}
+.combo-q{width:100%;border:none;border-bottom:1px solid var(--line);padding:10px 12px;font:inherit;font-size:16px;background:var(--surface);color:var(--fg)}
+.combo-q:focus{outline:none}
+.combo-opts{max-height:260px;overflow-y:auto;padding:4px}
+.combo-opt{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:15px}
+.combo-opt:hover{background:var(--sunk)}.combo-opt.sel{font-weight:700;color:var(--accent-ink)}
+.combo-opt input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.combo-ajout{width:100%;text-align:left;border:none;background:none;padding:9px 10px;color:var(--accent-ink);font:inherit;font-weight:700;cursor:pointer}
+.chip-x{border:none;background:none;color:inherit;font-size:16px;line-height:1;margin-left:6px;padding:0 2px;cursor:pointer}
 .ajout-produit{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .badge.attente{background:var(--warn-soft);color:var(--warn)}
 .tx-attente{border-left:4px solid var(--warn)}
@@ -646,18 +658,38 @@ function renderNewVente(m){
   Object.keys(map).forEach(id=>{qs("#"+id).oninput=e=>{nv[map[id]]=e.target.value;};});
   // vendeurs de la vente : choisis dans la liste (Administration), ou soi-même quand on est connecté
   const cv=el("div","card");m.appendChild(cv);
+  // liste déroulante à choix multiple, avec recherche ; les vendeurs choisis s'affichent au-dessus
+  let comboOuvert=false,comboQ="";
   const dessinerVendeurs=()=>{cv.innerHTML="<h2>Vendeurs</h2>";
     if(!nv.vendeurs)nv.vendeurs=nv.vendeur?[nv.vendeur]:[];
     const liste=[...new Set([monPrenom,...listeVendeurs(),...nv.vendeurs].filter(Boolean))];
-    const ch=el("div","chips");
-    liste.forEach(p=>{const on=nv.vendeurs.includes(p);const b=el("button","chip"+(on?" sel":""),(on?"✓ ":"")+esc(p)+(p===monPrenom?" (moi)":""));
-      b.onclick=()=>{nv.vendeurs=on?nv.vendeurs.filter(x=>x!==p):[...nv.vendeurs,p];dessinerVendeurs();};ch.appendChild(b);});
-    cv.appendChild(ch);
-    const f=el("form","row");f.style.justifyContent="flex-start";const i=el("input");i.placeholder="Autre prénom";i.style.cssText="flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)";
-    const a=el("button","btn ghost sm","Ajouter");a.type="submit";f.appendChild(i);f.appendChild(a);
-    f.onsubmit=e=>{e.preventDefault();const p=i.value.trim();if(p&&!nv.vendeurs.includes(p))nv.vendeurs.push(p);dessinerVendeurs();};
-    cv.appendChild(f);
-    cv.appendChild(txt("p","muted","La liste se gère dans Administration. Le premier vendeur coché est le vendeur principal."));};
+    const nom=p=>esc(p)+(p===monPrenom?" (moi)":"");
+    const choisis=el("div","chips");
+    nv.vendeurs.forEach((p,k)=>{const c=el("span","chip sel",(k===0?"★ ":"")+nom(p));c.title=k===0?"Vendeur principal":"";
+      const x=el("button","chip-x","×");x.type="button";x.setAttribute("aria-label","Retirer "+p);
+      x.onclick=()=>{nv.vendeurs=nv.vendeurs.filter(y=>y!==p);dessinerVendeurs();};c.appendChild(x);choisis.appendChild(c);});
+    if(!nv.vendeurs.length)choisis.appendChild(txt("span","muted","Aucun vendeur choisi."));
+    cv.appendChild(choisis);
+    const combo=el("div","combo");
+    const btn=el("button","combo-btn",`<span>${nv.vendeurs.length?nv.vendeurs.length+" vendeur"+(nv.vendeurs.length>1?"s":"")+" choisi"+(nv.vendeurs.length>1?"s":""):"Choisir les vendeurs"}</span><span aria-hidden="true">▾</span>`);
+    btn.type="button";btn.setAttribute("aria-expanded",String(comboOuvert));
+    const pan=el("div","combo-pan");pan.hidden=!comboOuvert;
+    const q=el("input","combo-q");q.type="search";q.placeholder="Rechercher ou ajouter un prénom";q.setAttribute("aria-label","Rechercher un vendeur");
+    const opts=el("div","combo-opts");opts.setAttribute("role","listbox");opts.setAttribute("aria-multiselectable","true");
+    const remplir=()=>{opts.innerHTML="";const t=normTxt(q.value);
+      const vus=liste.filter(p=>!t||normTxt(p).includes(t));
+      vus.forEach(p=>{const on=nv.vendeurs.includes(p);const o=el("label","combo-opt"+(on?" sel":""));o.setAttribute("role","option");o.setAttribute("aria-selected",String(on));
+        const cb=el("input");cb.type="checkbox";cb.checked=on;cb.onchange=()=>{nv.vendeurs=cb.checked?[...nv.vendeurs,p]:nv.vendeurs.filter(y=>y!==p);dessinerVendeurs();};
+        o.appendChild(cb);o.appendChild(el("span","",nom(p)));opts.appendChild(o);});
+      const libre=q.value.trim();
+      if(libre&&!liste.some(p=>normTxt(p)===normTxt(libre))){const ad=el("button","combo-ajout",`+ Ajouter « ${esc(libre)} »`);ad.type="button";
+        ad.onclick=()=>{if(!nv.vendeurs.includes(libre))nv.vendeurs.push(libre);comboQ="";dessinerVendeurs();};opts.appendChild(ad);}
+      if(!opts.children.length)opts.appendChild(txt("p","muted","Aucun vendeur."));};
+    q.value=comboQ;q.oninput=()=>{comboQ=q.value;remplir();};q.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();opts.querySelector("input,.combo-ajout")?.click();}if(e.key==="Escape"){comboOuvert=false;dessinerVendeurs();}};
+    btn.onclick=()=>{comboOuvert=!comboOuvert;dessinerVendeurs();};
+    remplir();pan.appendChild(q);pan.appendChild(opts);combo.appendChild(btn);combo.appendChild(pan);cv.appendChild(combo);
+    cv.appendChild(txt("p","muted","La liste se gère dans Administration. Le premier vendeur choisi (★) est le vendeur principal."));
+    if(comboOuvert)setTimeout(()=>{const nq=cv.querySelector(".combo-q");if(nq&&document.activeElement!==nq)nq.focus();},0);};
   dessinerVendeurs();
   const cp=el("div","card");m.appendChild(cp);renderProdPicker(cp);
   const b=el("button","btn primary full","Créer la vente →");b.id="btn-create";b.onclick=createVente;m.appendChild(b);
