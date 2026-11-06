@@ -94,6 +94,18 @@ button.room:hover{border-color:var(--accent)}
 .leg-item{display:flex;align-items:center;gap:8px;background:none;border:none;padding:4px 2px;font:inherit;font-size:13px;color:var(--fg);cursor:pointer;text-align:left}
 .leg-n{min-width:22px;height:22px;border-radius:999px;color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .leg-n.free{background:#0d7a52}.leg-n.busy{background:#b9362a}
+.seg{display:inline-flex;align-self:flex-start;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.seg button{border:none;background:none;font:inherit;font-size:13px;font-weight:700;padding:6px 18px;border-radius:999px;color:var(--muted);cursor:pointer}
+.seg button.active{background:var(--accent);color:var(--on-accent)}
+.plan3d{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#e4edf4;aspect-ratio:4/3;max-height:72vh;touch-action:none;user-select:none;-webkit-user-select:none}
+.plan3d canvas{display:block;width:100%!important;height:100%!important;touch-action:none;cursor:grab}
+.plan3d canvas:active{cursor:grabbing}
+.plan3d .pin.hid{opacity:0;pointer-events:none}
+.p3-lab{position:absolute;transform:translate(-50%,-50%);font-size:11px;font-weight:800;color:#5a2f28;background:rgba(255,255,255,.88);padding:2px 9px;border-radius:999px;pointer-events:none;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.p3-lab.hid{opacity:0}
+.p3-msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;color:#5a2f28;font-weight:700;font-size:14px}
+@media (max-width:600px){.plan3d{aspect-ratio:1/1}}
+.p3-reset{position:absolute;right:10px;bottom:10px;z-index:4;border:1px solid rgba(90,47,40,.25);background:rgba(255,255,255,.92);color:#5a2f28;font:inherit;font-size:12px;font-weight:800;padding:6px 12px;border-radius:999px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15)}
 table.planning{border-collapse:separate;border-spacing:2px;font-size:12px;min-width:640px}
 .planning th{font-weight:700;color:var(--muted);font-size:11px;text-align:center;padding:2px}
 .planning th.we{color:var(--accent-ink)}
@@ -1573,6 +1585,7 @@ async function exportGlobal(vs,t){
 /* ---------- chambres ---------- */
 const ETAGES=[[3,"3e étage"],[2,"2e étage"],[1,"1er étage"]];
 let chView="liste", resas=[], sejour={du:"",au:""}, roomOpenId=null, roomForm=null, adjustPins=false, planStart=today(), confirmResa=null;
+let planMode="photo";try{if(localStorage.getItem("planMode")==="3d")planMode="3d";}catch(e){}
 const addDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);};
 const nuits=(a,b)=>Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5);
 const frCourt=d=>new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"});
@@ -1707,28 +1720,39 @@ function posDefaut(c){
 }
 function renderPlan(z){
   const rooms=chambres.filter(c=>c.type==="chambre").sort((a,b)=>(a.ordre||0)-(b.ordre||0));
-  const wrap=el("div","plan"+(adjustPins?" adjust":""));
-  wrap.style.aspectRatio=CROP.w+"/"+CROP.h;
-  const img=el("img","plan-img");img.src="chateau.webp";img.alt="Vue aérienne du château de Ravignan";
-  img.style.width=(PLAN_W/CROP.w*100)+"%";img.style.left=(-CROP.x/CROP.w*100)+"%";img.style.top=(-CROP.y/CROP.h*100)+"%";
-  wrap.appendChild(img);
+  // bascule Photo ↔ 3D
+  const seg=el("div","seg");seg.setAttribute("role","group");seg.setAttribute("aria-label","Affichage du plan");
+  [["photo","Photo"],["3d","3D"]].forEach(([k,lab])=>{
+    const b=el("button",planMode===k?"active":"",lab);b.setAttribute("aria-pressed",String(planMode===k));
+    b.onclick=()=>{if(planMode===k)return;planMode=k;adjustPins=false;try{localStorage.setItem("planMode",k);}catch(e){}refreshChambres();};
+    seg.appendChild(b);
+  });
+  z.appendChild(seg);
   const pos=rooms.map(c=>({c,...(typeof c.px==="number"&&typeof c.py==="number"?{px:c.px,py:c.py}:posDefaut(c))}));
   // écarte les repères superposés quand la position vient du calcul
   pos.forEach((p,i)=>{let k=0;while(pos.slice(0,i).some(o=>Math.abs(o.px-p.px)<4.5&&Math.abs(o.py-p.py)<6)&&k<8){p.px+=4.6;k++;}});
-  pos.forEach((p,i)=>{
-    const s=statut(p.c);
-    const pin=el("button","pin "+(s.libre?"free":"busy"),String(i+1));
-    pin.style.left=p.px+"%";pin.style.top=p.py+"%";
-    pin.title=p.c.nom+(s.libre?" · libre":" · "+s.qui);
-    pin.setAttribute("aria-label",p.c.nom+(s.libre?", libre":", réservée"));
-    if(adjustPins)dragPin(pin,wrap,p.c);else pin.onclick=()=>openRoom(p.c.id);
-    wrap.appendChild(pin);
-  });
-  z.appendChild(wrap);
-  const tools=el("div","row");
-  tools.appendChild(el("p","muted",adjustPins?"Faites glisser chaque repère sur sa fenêtre. La position est enregistrée au relâchement.":"Repères placés d'après l'étage et le côté de chaque chambre. Touchez un numéro pour ouvrir la chambre."));
-  if(isAdmin()){const b=el("button","btn ghost sm",adjustPins?"Terminer":"Ajuster les repères");b.onclick=()=>{adjustPins=!adjustPins;refreshChambres();};tools.appendChild(b);}
-  z.appendChild(tools);
+  if(planMode==="3d")renderPlan3D(z,pos);
+  else{
+    const wrap=el("div","plan"+(adjustPins?" adjust":""));
+    wrap.style.aspectRatio=CROP.w+"/"+CROP.h;
+    const img=el("img","plan-img");img.src="chateau.webp";img.alt="Vue aérienne du château de Ravignan";
+    img.style.width=(PLAN_W/CROP.w*100)+"%";img.style.left=(-CROP.x/CROP.w*100)+"%";img.style.top=(-CROP.y/CROP.h*100)+"%";
+    wrap.appendChild(img);
+    pos.forEach((p,i)=>{
+      const s=statut(p.c);
+      const pin=el("button","pin "+(s.libre?"free":"busy"),String(i+1));
+      pin.style.left=p.px+"%";pin.style.top=p.py+"%";
+      pin.title=p.c.nom+(s.libre?" · libre":" · "+s.qui);
+      pin.setAttribute("aria-label",p.c.nom+(s.libre?", libre":", réservée"));
+      if(adjustPins)dragPin(pin,wrap,p.c);else pin.onclick=()=>openRoom(p.c.id);
+      wrap.appendChild(pin);
+    });
+    z.appendChild(wrap);
+    const tools=el("div","row");
+    tools.appendChild(el("p","muted",adjustPins?"Faites glisser chaque repère sur sa fenêtre. La position est enregistrée au relâchement.":"Repères placés d'après l'étage et le côté de chaque chambre. Touchez un numéro pour ouvrir la chambre."));
+    if(isAdmin()){const b=el("button","btn ghost sm",adjustPins?"Terminer":"Ajuster les repères");b.onclick=()=>{adjustPins=!adjustPins;refreshChambres();};tools.appendChild(b);}
+    z.appendChild(tools);
+  }
   const leg=el("div","legend");
   pos.forEach((p,i)=>{
     const s=statut(p.c);
@@ -1751,6 +1775,185 @@ function dragPin(pin,wrap,c){
       catch(err){flash(dbMessage(err));}
     };
   };
+}
+
+/* plan du château en 3D : modèle simplifié fait main d'après les vues aériennes (Three.js r128, chargé à la demande).
+   Repère : x le long de la façade (côté Balançoire à gauche, x<0 ; côté Cuisine à droite), z vers l'entrée, y vers le haut, en mètres. */
+const THREE_SRC="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+const ORBIT_SRC="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js";
+let vue3d=null, threePromesse=null;
+function chargerThree(){
+  if(window.THREE&&THREE.OrbitControls)return Promise.resolve();
+  return threePromesse||(threePromesse=(window.THREE?Promise.resolve():chargerScript(THREE_SRC))
+    .then(()=>THREE.OrbitControls?null:chargerScript(ORBIT_SRC))
+    .catch(e=>{threePromesse=null;throw e;}));
+}
+// volumes (m) : pavillon Balançoire, corps de logis, avant-corps d'entrée, pavillon Cuisine
+const CH3={pg:{x0:-21,x1:-12,z0:-7.5,z1:7,h:10},corps:{x0:-12,x1:12,z0:-6,z1:6,h:9},centre:{x0:-2.3,x1:2.3,z0:4,z1:6.7,h:9.6},pd:{x0:12,x1:20,z0:-7,z1:6.8,h:10}};
+// position 3D d'un repère, déduite de sa position sur la photo (px, py en % du cadrage) et de son étage
+function repere3D(p){
+  const xf=CROP.x+p.px/100*CROP.w, et=p.c.etage||1;
+  const y=et===1?6.6:et===2?10.6:13.6;
+  if(xf<530){ // façade latérale du pavillon Balançoire
+    const z=Math.max(-6.5,Math.min(6,7-(530-xf)/65*14.5));
+    const x=y<=CH3.pg.h?CH3.pg.x0-.35:CH3.pg.x0-.5+(y-CH3.pg.h)*5/9-.35;
+    return {p:[x,y,z],n:[-1,0,0]};
+  }
+  const t=Math.min(1,Math.max(0,(xf-530)/(812-530))), x=-20.5+t*40;
+  let z;
+  if(x<CH3.pg.x1)z=y<=CH3.pg.h?CH3.pg.z1:CH3.pg.z1+.5-(y-CH3.pg.h)*(CH3.pg.z1+.5-2.5)/9;
+  else if(x>CH3.pd.x0)z=y<=CH3.pd.h?CH3.pd.z1:CH3.pd.z1+.5-(y-CH3.pd.h)*(CH3.pd.z1+.5-2.8)/9;
+  else if(Math.abs(x)<CH3.centre.x1)z=y<=CH3.centre.h?CH3.centre.z1:CH3.centre.z1+.6-(y-CH3.centre.h)*2.7/7.5;
+  else z=y<=CH3.corps.h?CH3.corps.z1:CH3.corps.z1+.5-(y-CH3.corps.h)*6.5/6;
+  return {p:[x,y,z+.35],n:[0,0,1]};
+}
+// toit en croupe : base w (x) × d (z) posée en y=0, faîtage de longueur r le long de x, hauteur h
+function geoToit(w,d,h,r){
+  const T=THREE, a=[-w/2,0,-d/2],b=[w/2,0,-d/2],c=[w/2,0,d/2],e=[-w/2,0,d/2],r1=[-r/2,h,0],r2=[r/2,h,0];
+  const tri=[e,c,r2, e,r2,r1, b,a,r1, b,r1,r2, a,e,r1, c,b,r2];
+  const g=new T.BufferGeometry();g.setAttribute("position",new T.Float32BufferAttribute(tri.flat(),3));g.computeVertexNormals();
+  return g;
+}
+function creerVue3D(){
+  const T=THREE;
+  const renderer=new T.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;
+  const scene=new T.Scene();scene.background=new T.Color(0xe4edf4);scene.fog=new T.Fog(0xe4edf4,140,300);
+  const camera=new T.PerspectiveCamera(40,4/3,.5,700);
+  const controls=new T.OrbitControls(camera,renderer.domElement);
+  controls.enableDamping=true;controls.dampingFactor=.09;controls.screenSpacePanning=true;
+  controls.minDistance=10;controls.maxDistance=170;controls.maxPolarAngle=Math.PI*.48;
+  controls.rotateSpeed=.8;controls.zoomSpeed=.9;
+  const recentrer=()=>{const k=camera.aspect<1.2?1.22:1;camera.position.set(-38*k,30*k,52*k);controls.target.set(-1,7,0);controls.update();};
+  recentrer();
+  controls.addEventListener("change",()=>{const t=controls.target;t.x=Math.max(-60,Math.min(60,t.x));t.z=Math.max(-60,Math.min(60,t.z));t.y=Math.max(0,Math.min(25,t.y));});
+
+  scene.add(new T.HemisphereLight(0xffffff,0xb8b4a6,.72));
+  const sun=new T.DirectionalLight(0xfff6ea,.62);sun.position.set(34,58,46);sun.castShadow=true;
+  sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-55,right:55,top:55,bottom:-55,near:10,far:180});sun.shadow.bias=-.0008;
+  scene.add(sun);
+
+  const M=c=>new T.MeshLambertMaterial({color:c});
+  const mat={pierre:M(0xebe8e1),corniche:M(0xd9d4c8),socle:M(0xc4bdae),ardoise:M(0x4b555f),vitre:M(0x2b3945),cadre:M(0xf7f2e7),porte:M(0x5a2f28),
+    herbe:M(0x89b05a),gravier:M(0xdccba6),buis:M(0x3f6b33),sapin:M(0x2f5a36),tronc:M(0x6b4a33),feuille1:M(0xc79b45),feuille2:M(0x98a447),tuile:M(0xb86b45),epi:M(0x30363c)};
+  const bat=new T.Group();scene.add(bat);
+  const caches=[]; // volumes qui masquent les repères situés derrière
+  const boite=(w,h,d,x,y,z,m,ombre=true)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=ombre;o.receiveShadow=true;bat.add(o);if(w*h*d>20)caches.push(o);return o;};
+  const toit=(w,d,h,r,x,y,z,ry=0,m=mat.ardoise)=>{const o=new T.Mesh(geoToit(w,d,h,r),m);o.position.set(x,y,z);o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;bat.add(o);caches.push(o);return o;};
+  // sol, cour en gravier, allée
+  const sol=new T.Mesh(new T.CircleGeometry(170,48),mat.herbe);sol.rotation.x=-Math.PI/2;sol.receiveShadow=true;scene.add(sol);
+  const plan=(w,d,x,z,m,y=.03)=>{const o=new T.Mesh(new T.PlaneGeometry(w,d),m);o.rotation.x=-Math.PI/2;o.position.set(x,y,z);o.receiveShadow=true;scene.add(o);};
+  plan(54,22,0,0,mat.gravier);plan(64,16,4,17,mat.gravier,.04);plan(9,90,40,30,mat.gravier,.035);
+  // volumes de pierre
+  Object.values(CH3).forEach(v=>{
+    const w=v.x1-v.x0,d=v.z1-v.z0,cx=(v.x0+v.x1)/2,cz=(v.z0+v.z1)/2;
+    boite(w,v.h,d,cx,v.h/2,cz,mat.pierre);
+    boite(w+.3,.7,d+.3,cx,.35,cz,mat.socle,false);
+    boite(w+.45,.4,d+.45,cx,v.h-.2,cz,mat.corniche,false);
+    boite(w+.2,.22,d+.2,cx,4.45,cz,mat.corniche,false); // bandeau entre les niveaux
+  });
+  // toits : corps de logis, pavillons à toit haut, avant-corps pointu
+  toit(29,13,6,29,0,CH3.corps.h,0);
+  toit(15.5,10,9,5.5,(CH3.pg.x0+CH3.pg.x1)/2,CH3.pg.h,(CH3.pg.z0+CH3.pg.z1)/2,Math.PI/2);
+  toit(14.8,9,9,5.8,(CH3.pd.x0+CH3.pd.x1)/2,CH3.pd.h,(CH3.pd.z0+CH3.pd.z1)/2,Math.PI/2);
+  toit(5.4,5.4,7.5,0,0,CH3.centre.h,4.6);
+  // épis de faîtage
+  [[(CH3.pg.x0+CH3.pg.x1)/2,19,-3.0],[(CH3.pg.x0+CH3.pg.x1)/2,19,2.5],[16,19,-3.0],[16,19,2.8],[0,17.1,4.6]].forEach(([x,y,z])=>boite(.16,1.8,.16,x,y+.9,z,mat.epi));
+  // cheminées
+  [[-19.4,-4.6],[-13.6,4.4],[-6.5,0],[6.5,0],[18.4,-4.2],[13.6,4]].forEach(([x,z])=>{boite(1,6,1.9,x,15,z,mat.pierre);boite(1.3,.35,2.2,x,18.1,z,mat.corniche);});
+  // fenêtres, porte, perron (instances : 2 appels de dessin pour toutes les fenêtres)
+  const fen=[];
+  const baie=(x,y,z,ry,w=1.3,h=2.5)=>fen.push([x,y,z,ry,w,h]);
+  const niveaux=[2.6,6.8];
+  [-8.6,-4.6,4.6,8.6].forEach(x=>niveaux.forEach(y=>baie(x,y,CH3.corps.z1,0)));
+  baie(0,6.8,CH3.centre.z1,0);
+  [-8.6,-4.6,0,4.6,8.6].forEach(x=>niveaux.forEach(y=>baie(x,y,CH3.corps.z0,Math.PI)));
+  [[-18.6,-14.4,CH3.pg],[14.2,17.8,CH3.pd]].forEach(([a,b,v])=>[a,b].forEach(x=>niveaux.forEach(y=>{baie(x,y+.2,v.z1,0);baie(x,y+.2,v.z0,Math.PI);})));
+  [-3.6,3.2].forEach(z=>niveaux.forEach(y=>{baie(CH3.pg.x0,y+.2,z,-Math.PI/2);baie(CH3.pd.x1,y+.2,z,Math.PI/2);}));
+  // lucarnes (3e niveau) : sur le corps de logis, les pavillons et l'avant-corps
+  const lucarne=(x,zf,yb,ry=0)=>{
+    const g=new T.Group();g.position.set(x,yb,zf);g.rotation.y=ry;bat.add(g);
+    const m=new T.Mesh(new T.BoxGeometry(1.7,2.2,2),mat.pierre);m.position.set(0,1.1,-1);m.castShadow=true;g.add(m);
+    const t=new T.Mesh(geoToit(2.3,2,1.2,2.3),mat.ardoise);t.rotation.y=Math.PI/2;t.position.set(0,2.2,-1);t.castShadow=true;g.add(t);
+    const v=new T.Vector3(x,yb+1.05,zf).add(new T.Vector3(Math.sin(ry),0,Math.cos(ry)).multiplyScalar(.01));
+    fen.push([v.x,v.y,v.z,ry,1,1.5]);
+  };
+  [-8.6,-4.6,4.6,8.6].forEach(x=>{lucarne(x,CH3.corps.z1+.1,CH3.corps.h);lucarne(x,CH3.corps.z0-.1,CH3.corps.h,Math.PI);});
+  lucarne(0,CH3.centre.z1+.1,CH3.centre.h);
+  [-18.6,-14.4,14.2,17.8].forEach(x=>{const v=x<0?CH3.pg:CH3.pd;lucarne(x,v.z1+.1,v.h);lucarne(x,v.z0-.1,v.h,Math.PI);});
+  const n=fen.length, gv=new T.InstancedMesh(new T.PlaneGeometry(1,1),mat.vitre,n), gc=new T.InstancedMesh(new T.PlaneGeometry(1,1),mat.cadre,n);
+  const mm=new T.Matrix4(),q=new T.Quaternion(),e=new T.Euler(),pp=new T.Vector3(),sc=new T.Vector3();
+  fen.forEach(([x,y,z,ry,w,h],i)=>{
+    q.setFromEuler(e.set(0,ry,0));const nx=Math.sin(ry),nz=Math.cos(ry);
+    gc.setMatrixAt(i,mm.compose(pp.set(x+nx*.03,y,z+nz*.03),q,sc.set(w+.36,h+.36,1)));
+    gv.setMatrixAt(i,mm.compose(pp.set(x+nx*.05,y,z+nz*.05),q,sc.set(w,h,1)));
+  });
+  bat.add(gc);bat.add(gv);
+  boite(1.7,3,.2,0,2.1,CH3.centre.z1+.05,mat.porte,false);
+  [[5,.25,8.4],[4.4,.5,7.9],[3.8,.75,7.35]].forEach(([w,h,z])=>boite(w,h,1.2,0,h/2,z,mat.pierre,false));
+  // communs (au fond à droite) et quelques arbres, pour situer le château
+  boite(16,5,8,46,2.5,-24,mat.pierre);toit(17,9,3.5,9,46,5,-24,0,mat.tuile);
+  boite(4,8,4,38.5,4,-20.5,mat.pierre);toit(4.6,4.6,3,0,38.5,8,-20.5,0,mat.tuile);
+  const arbre=(x,z,s,type)=>{
+    const tr=new T.Mesh(new T.CylinderGeometry(.35*s,.5*s,3*s,6),mat.tronc);tr.position.set(x,1.5*s,z);tr.castShadow=true;scene.add(tr);
+    const f=type==="sapin"?new T.Mesh(new T.ConeGeometry(3.4*s,12*s,7),mat.sapin):new T.Mesh(new T.IcosahedronGeometry(4.2*s,0),type==="a"?mat.feuille1:mat.feuille2);
+    f.position.set(x,type==="sapin"?8.5*s:6.5*s,z);f.castShadow=true;scene.add(f);
+  };
+  [[-30,-26,1.2,"sapin"],[6,-30,1.4,"sapin"],[30,-16,1,"a"],[-40,6,1.1,"b"],[-24,-40,1,"a"],[20,-40,1.2,"b"],[60,-6,1.1,"sapin"],[-46,-14,1,"a"],[-30,34,1,"b"]]
+    .forEach(([x,z,s,t])=>arbre(x,z,s,t));
+  for(let i=0;i<6;i++){const b=new T.Mesh(new T.SphereGeometry(.9,8,6),mat.buis);b.position.set(-17.5+i*7,.8,27);b.castShadow=true;scene.add(b);}
+
+  const layer=el("div");layer.style.cssText="position:absolute;inset:0;pointer-events:none";
+  const pts=[];let sale=true,lw=0,lh=0,box=null,cadre=false;
+  const etiquettes=[["Côté Balançoire",[-16.5,.6,12]],["Entrée",[0,.6,11]],["Côté Cuisine",[16,.6,12]]];
+  const v3=new T.Vector3(),tmp=new T.Vector3(),ray=new T.Raycaster();
+  function placer(){
+    const w=box.clientWidth,h=box.clientHeight,cam=camera.position;
+    pts.forEach(o=>{
+      v3.copy(o.p).project(camera);
+      let vis=v3.z<1&&Math.abs(v3.x)<1.05&&Math.abs(v3.y)<1.05&&(!o.n||tmp.copy(cam).sub(o.p).dot(o.n)>0);
+      if(vis){const d=tmp.copy(o.p).sub(cam).length();ray.set(cam,tmp.normalize());ray.far=d-.8;vis=!ray.intersectObjects(caches,false).length;}
+      o.el.classList.toggle("hid",!vis);
+      if(vis){o.el.style.left=((v3.x+1)/2*w).toFixed(1)+"px";o.el.style.top=((1-v3.y)/2*h).toFixed(1)+"px";}
+    });
+  }
+  function boucle(){
+    if(!renderer.domElement.isConnected){vue.tourne=false;return;}
+    const w=box.clientWidth,h=box.clientHeight;
+    if(w&&h&&(w!==lw||h!==lh)){lw=w;lh=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(!cadre){cadre=true;recentrer();}sale=true;}
+    if(controls.update()||sale){renderer.render(scene,camera);placer();sale=false;}
+    requestAnimationFrame(boucle);
+  }
+  const vue={tourne:false,
+    attacher(b,pos){
+      box=b;lw=lh=0;sale=true;
+      b.appendChild(renderer.domElement);layer.innerHTML="";b.appendChild(layer);pts.length=0;
+      etiquettes.forEach(([t,p])=>{const d=el("span","p3-lab");d.textContent=t;layer.appendChild(d);pts.push({el:d,p:new T.Vector3(...p)});});
+      pos.forEach((p,i)=>{
+        const s=statut(p.c),r=repere3D(p);
+        const pin=el("button","pin "+(s.libre?"free":"busy"),String(i+1));pin.style.pointerEvents="auto";
+        pin.title=p.c.nom+(s.libre?" · libre":" · "+s.qui);
+        pin.setAttribute("aria-label",p.c.nom+(s.libre?", libre":", réservée"));
+        pin.onclick=()=>openRoom(p.c.id);
+        layer.appendChild(pin);pts.push({el:pin,p:new T.Vector3(...r.p),n:new T.Vector3(...r.n)});
+      });
+      const rb=el("button","p3-reset","Recentrer");rb.onclick=()=>{recentrer();sale=true;};b.appendChild(rb);
+      if(!vue.tourne){vue.tourne=true;requestAnimationFrame(boucle);}
+    }};
+  return vue;
+}
+function renderPlan3D(z,pos){
+  const box=el("div","plan3d");z.appendChild(box);
+  z.appendChild(el("p","muted","Un doigt (ou la souris) pour tourner autour du château, deux doigts pour zoomer et déplacer (molette et clic droit à la souris). Touchez un numéro pour ouvrir la chambre."));
+  if(!(window.THREE&&THREE.OrbitControls)){
+    box.appendChild(el("div","p3-msg","Chargement du modèle 3D…"));
+    chargerThree().then(()=>{if(box.isConnected)refreshChambres();})
+      .catch(()=>{box.innerHTML="";box.appendChild(el("div","p3-msg","Impossible de charger la vue 3D. Vérifiez la connexion puis réessayez."));});
+    return;
+  }
+  try{vue3d=vue3d||creerVue3D();vue3d.attacher(box,pos);}
+  catch(err){console.error(err);box.innerHTML="";box.appendChild(el("div","p3-msg","La vue 3D n'est pas disponible sur cet appareil. Utilisez la photo."));}
 }
 
 function renderPlanning(z){
