@@ -3167,8 +3167,10 @@ function telecharger({filename,data}){
 let clientsAbonne=false;
 const arriveeParLien=/access_token|error_description/.test(location.hash);
 /* ---------- I Armagnac : assistant vocal ----------
-   Écoute (reconnaissance vocale du navigateur), réponse de la fonction Supabase « i-armagnac » (Claude),
-   lue à voix haute (synthèse vocale du téléphone, voix française). Réservé aux membres connectés. */
+   Écoute (reconnaissance vocale du navigateur), réponse calculée ici à partir des données de l'app
+   (questions prévues : stock, prix, chiffre d'affaires, vendeurs, notes de dégustation, clients…),
+   lue à voix haute (synthèse vocale du téléphone, voix française). Aucune donnée ne quitte l'app.
+   Réservé aux membres connectés. La fonction Supabase « i-armagnac » (Claude) reste prête si une clé API est ajoutée. */
 let iaMsgs=[], iaVoix=true, iaEcoute=null, iaOccupe=false;
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 function iaAjouter(role,texte){
@@ -3184,16 +3186,102 @@ function iaParler(texte){
     speechSynthesis.cancel();speechSynthesis.speak(u);
   }catch(e){}
 }
+let iaDegu=null;
+const iaEur=n=>{const v=Math.round((Number(n)||0)*100)/100;return (Number.isInteger(v)?String(v):v.toFixed(2).replace(".",","))+" euros";};
+const iaPl=(n,mot,pl)=>`${n} ${n>1?(pl||mot+"s"):mot}`;
+const iaJour=d=>d?new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"long"}):"";
+// la vente dont on parle : celle ouverte à l'écran, sinon la dernière en cours, sinon la plus récente
+function iaVente(q){
+  const nommee=ventes.find(v=>v.nom&&normTxt(q).includes(normTxt(v.nom)));if(nommee)return nommee;
+  if(venteId&&["vente","saisie"].includes(page)){const v=getVente();if(v)return v;}
+  const tri=[...ventes].sort((a,b)=>String(b.dateDebut||b.createdAt||"").localeCompare(String(a.dateDebut||a.createdAt||"")));
+  return tri.find(v=>!v.cloturee)||tri[0];
+}
+const iaRefsDe=(v,an,q)=>(v.refs||[]).filter(r=>an?String(r.nom).includes(an):normTxt(q).includes(normTxt(r.nom).replace(/^millesime /,"")));
+async function iaRepondre(question){
+  const q=normTxt(question),an=(question.match(/\b(19[5-9]\d|20[0-2]\d)\b/)||[])[0];
+  const v=iaVente(q),tv=v?txsOf(v.id):[];
+  const a=(...mots)=>mots.some(m=>(" "+q+" ").includes(m));
+  // aide
+  if(a("aide","que sais","quoi demander","tu sais faire","peux tu faire"))
+    return "Demandez-moi le stock d'un millésime, son prix, sa note de dégustation, le chiffre d'affaires de la vente, qui a le plus vendu, les paiements en attente, ou ce qu'a acheté un client.";
+  // dégustation
+  if(a("degust","note","nez","bouche","robe","arome","gout","accord")){
+    if(!iaDegu)iaDegu=await chargerContenu("degustation").catch(()=>null);
+    if(!iaDegu)return "Je n'arrive pas à lire les notes de dégustation.";
+    if(!an){const f=iaDegu.familles||[];return `${iaDegu.titre||"L'ordre de dégustation"} : ${f.map(x=>`famille ${x.nom}, ${x.millesimes.join(", ")}`).join(" ; puis ")}.`;}
+    const n=(iaDegu.notes||{})[an];if(!n)return `Hè bé, je n'ai pas de note de dégustation pour le ${an}.`;
+    const ph=t=>{t=String(t).trim();return t.charAt(0).toUpperCase()+t.slice(1).replace(/[.s]*$/,".");};
+    return [`Le ${an}${n.robe?", robe "+n.robe.toLowerCase():""}.`,n.nez?ph("au nez, "+n.nez.charAt(0).toLowerCase()+n.nez.slice(1)):"",n.bouche?ph("en bouche, "+n.bouche.charAt(0).toLowerCase()+n.bouche.slice(1)):"",n.accord?ph(n.accord):"",n.medaille?ph(n.medaille):""].filter(Boolean).join(" ");
+  }
+  // prix
+  if(a("prix","coute","tarif","combien vaut")){
+    if(!an)return "De quel millésime voulez-vous le prix ?";
+    const enVente=v?iaRefsDe(v,an,q):[];
+    if(enVente.length)return `Sur la vente « ${v.nom} », le ${an} est à ${enVente.map(r=>`${iaEur(r.prix)} en ${r.format}`).join(", ")}.`;
+    const m=MILL.find(x=>x.an===an);if(!m)return `Je n'ai pas de prix pour le ${an}.`;
+    return `Le ${an} est à ${m.formats.map(f=>`${iaEur(f.p)} en ${f.f}`).join(", ")}.`;
+  }
+  // paiements en attente
+  if(a("attente","pas paye","impaye","sumup")){
+    const at=txs.filter(enAttente);if(!at.length)return "Aucun paiement par carte en attente. Tout est encaissé.";
+    return `${iaPl(at.length,"paiement")} par carte en attente, pour ${iaEur(at.reduce((s,x)=>s+(x.total||0),0))} : ${at.slice(0,4).map(x=>`${nomClient(x)}, ${iaEur(x.total)}`).join(" ; ")}.`;
+  }
+  // stock
+  if(a("stock","reste","restant","rupture","combien de bouteille","il en reste")){
+    if(!v)return "Il n'y a aucune vente pour l'instant.";
+    const refs=an||iaRefsDe(v,"",q).length?iaRefsDe(v,an,q):v.refs||[];
+    if(!refs.length)return `Le ${an||"produit"} n'est pas dans la vente « ${v.nom} ».`;
+    const etat=r=>{const reste=r.stock?resteDispo(v,r):null;return `${r.nom} ${r.format} : ${reste===null?"sans limite, "+iaPl(venduDe(v.id,r.id),"vendue"):reste<=0?(reste<0?`à découvert de ${-reste}`:"plus rien"):iaPl(reste,"bouteille")}`;};
+    if(refs.length<=3)return `Sur la vente « ${v.nom} », ${refs.map(etat).join(" ; ")}.`;
+    const bas=refs.filter(r=>r.stock&&resteDispo(v,r)<=2);
+    return `La vente « ${v.nom} » a ${iaPl(refs.length,"produit")}.${bas.length?` Attention, presque plus de : ${bas.map(etat).join(" ; ")}.`:" Aucun produit n'est presque épuisé."} Demandez-moi un millésime pour le détail.`;
+  }
+  // vendeurs
+  if(a("vendeur","qui a vendu","qui a le plus","meilleur","classement")){
+    if(!v)return "Il n'y a aucune vente pour l'instant.";
+    const par={};tv.forEach(x=>{const n=x.vendeurPrenom||"Inconnu";par[n]=(par[n]||0)+montant(x);});
+    const cl=Object.entries(par).filter(x=>x[1]>0).sort((x,y)=>y[1]-x[1]);if(!cl.length)return `Personne n'a encore vendu sur « ${v.nom} ».`;
+    return `Sur « ${v.nom} », ${cl.slice(0,3).map(([n,m],i)=>`${i?"":"en tête "}${n} avec ${iaEur(m)}`).join(", puis ")}.`;
+  }
+  // client
+  if(a("client","achete","a pris","dernier achat","commande")){
+    const liste=clientsFusion();
+    const mots=q.split(/[^a-z0-9-]+/).filter(m=>m.length>2&&!["client","cliente","quoi","qu'a","achete","dernier","achat","combien","est","que","les","des","pour","avec","commande","pris"].includes(m));
+    const trouves=liste.filter(c=>{const n=normTxt([c.prenom,c.nom].join(" "));return mots.length&&mots.every(m=>n.includes(m));});
+    if(!mots.length||!trouves.length){
+      if(a("combien de client","nombre de client"))return `Le fichier compte ${iaPl(liste.length,"client")}.`;
+      return "Quel client ? Dites son prénom et son nom.";
+    }
+    if(trouves.length>3)return `J'ai ${trouves.length} clients qui correspondent. Précisez le nom.`;
+    return trouves.map(c=>{const d=c.achats&&c.achats[0];
+      return `${[c.prenom,c.nom].filter(Boolean).join(" ")}${c.ville?", de "+c.ville:""} : ${iaPl(c.nbAchats||0,"achat")} pour ${iaEur(c.total)}`
+        +(d?`, le dernier le ${iaJour(d.date)}${(d.produits||[]).length?" : "+d.produits.slice(0,3).map(p=>`${p.qte} ${p.nom}`).join(", "):""}`:"");}).join(". ")+".";
+  }
+  // chiffre d'affaires
+  if(a("chiffre","ca ","combien on a","combien avons","vendu","total","encaisse","recette","aujourd")){
+    if(a("aujourd")){const auj=new Date().toDateString(),t=txs.filter(x=>x.date&&new Date(x.date).toDateString()===auj);
+      return t.length?`Aujourd'hui : ${iaPl(t.length,"transaction")}, ${iaEur(t.reduce((s,x)=>s+montant(x),0))}.`:"Pas encore de vente aujourd'hui.";}
+    if(!v)return "Il n'y a aucune vente pour l'instant.";
+    const btl=tv.reduce((s,x)=>s+(x.lignes||[]).reduce((a2,l)=>a2+(l.qte||0),0),0);
+    return `La vente « ${v.nom} » fait ${iaEur(tv.reduce((s,x)=>s+montant(x),0))}, en ${iaPl(tv.length,"transaction")} et ${iaPl(btl,"bouteille")}.`;
+  }
+  // ventes
+  if(a("vente","quelle vente","en cours","prochaine")){
+    const enCours=ventes.filter(x=>!x.cloturee);
+    return enCours.length?`${iaPl(enCours.length,"vente")} en cours : ${enCours.map(x=>`« ${x.nom} » à ${x.lieu||"?"}`).join(", ")}.`:"Aucune vente en cours.";
+  }
+  if(a("bonjour","salut","adishatz","coucou"))return `Adishatz ${(monPrenom||"").split(" ")[0]} ! Que voulez-vous savoir ?`;
+  if(a("merci"))return "Avec plaisir, macarel !";
+  return "Hè bé, je n'ai pas compris. Demandez-moi par exemple : combien il reste de 1992, le prix du 1983, la note du 1987, ou le chiffre de la vente.";
+}
 async function iaDemander(question){
   question=String(question||"").trim();if(!question||iaOccupe)return;
   iaOccupe=true;iaAjouter("user",question);iaMsgs.push({role:"user",content:question});
   const att=iaAjouter("assistant","…");att.classList.add("attente");
   let texte;
   try{
-    let h=iaMsgs.slice(-12);while(h.length&&h[0].role!=="user")h=h.slice(1);
-    const {data,error}=await sb.functions.invoke("i-armagnac",{body:{messages:h}});
-    if(error){let m="";try{m=(await error.context.json()).erreur;}catch(e){}throw new Error(m||"I Armagnac ne répond pas pour l'instant.");}
-    texte=data&&data.texte;if(!texte)throw new Error((data&&data.erreur)||"Pas de réponse.");
+    texte=await iaRepondre(question);
     iaMsgs.push({role:"assistant",content:texte});att.classList.remove("attente");att.textContent=texte;iaParler(texte);
   }catch(e){att.classList.remove("attente");att.classList.add("erreur");att.textContent=e.message;iaMsgs.pop();}
   finally{iaOccupe=false;}
