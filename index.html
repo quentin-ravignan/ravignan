@@ -21,9 +21,10 @@ html,body{height:100%}
 .autre-methode[open]{display:flex;flex-direction:column;gap:8px}
 /* Layout: one narrow mobile column (caisse de salon), sticky cognac header, cards by role */
 :root{
-  --bg:#f8f5f0; --surface:#ffffff; --sunk:#f2ede5; --fg:#22190f; --muted:#76695a; --line:#e9e1d5;
-  --accent:#a24c0b; --accent-ink:#7a3907; --accent-soft:#fcf1e2; --on-accent:#ffffff;
-  --hdr:#8c3f08; --hdr-ink:#fff7ec; --hdr-soft:#f6d9b2;
+  /* blanc épuré, notes de couleur du blason (brun #5a2f28) */
+  --bg:#ffffff; --surface:#ffffff; --sunk:#f8f5f4; --fg:#1e1513; --muted:#7b6b66; --line:#eee7e4;
+  --accent:#5a2f28; --accent-ink:#4a2520; --accent-soft:#f6efed; --on-accent:#ffffff;
+  --hdr:#ffffff; --hdr-ink:#4a2520; --hdr-soft:#8f6f67;
   --ok:#0d7a52; --ok-soft:#dcf3e8; --warn:#a76a0c; --warn-soft:#fbefd9; --bad:#b9362a; --bad-soft:#fbe7e4;
   --shadow:0 1px 3px rgba(60,35,10,.08);
   --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s0:#b5ada3;
@@ -31,14 +32,14 @@ html,body{height:100%}
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#16120e; --surface:#211b15; --sunk:#1b1611; --fg:#f2eae0; --muted:#a8998a; --line:#382e25;
-  --accent:#e08a3c; --accent-ink:#f2b878; --accent-soft:#33230f; --on-accent:#1a1006;
-  --hdr:#3a1f0a; --hdr-ink:#fbeedd; --hdr-soft:#e9b981;
+  --accent:#d6a196; --accent-ink:#ecc7be; --accent-soft:#2e1d1a; --on-accent:#1a0f0d;
+  --hdr:#16120e; --hdr-ink:#ecc7be; --hdr-soft:#b48c83;
   --ok:#3fcf92; --ok-soft:#12301f; --warn:#e7b04a; --warn-soft:#3a2a10; --bad:#ff7d6e; --bad-soft:#3b1a15;
   --shadow:0 1px 3px rgba(0,0,0,.4); --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s0:#5c5550; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#16120e; --surface:#211b15; --sunk:#1b1611; --fg:#f2eae0; --muted:#a8998a; --line:#382e25;
-  --accent:#e08a3c; --accent-ink:#f2b878; --accent-soft:#33230f; --on-accent:#1a1006;
-  --hdr:#3a1f0a; --hdr-ink:#fbeedd; --hdr-soft:#e9b981;
+  --accent:#d6a196; --accent-ink:#ecc7be; --accent-soft:#2e1d1a; --on-accent:#1a0f0d;
+  --hdr:#16120e; --hdr-ink:#ecc7be; --hdr-soft:#b48c83;
   --ok:#3fcf92; --ok-soft:#12301f; --warn:#e7b04a; --warn-soft:#3a2a10; --bad:#ff7d6e; --bad-soft:#3b1a15;
   --shadow:0 1px 3px rgba(0,0,0,.4); --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s0:#5c5550; color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -53,6 +54,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .wrap>.body.wide{max-width:900px}
 .side{width:236px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);position:sticky;top:0;height:100vh;height:100dvh;padding:20px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
 .brand{display:flex;flex-direction:column;gap:2px;padding:4px 10px 18px}
+.brand-logo{width:64px;height:64px;border-radius:14px;background:#fff;object-fit:contain;margin-bottom:8px}
+.hdr-logo{width:34px;height:34px;border-radius:8px;background:#fff;object-fit:contain;margin-left:auto}
 .brand-mark{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:800}
 .brand-name{font-size:16px;font-weight:800;color:var(--fg)}
 .nav-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;background:none;border-radius:10px;padding:10px;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer}
@@ -256,7 +259,7 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .logo-src.vp svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .crm-tbl .tag{margin:1px 2px}
 .search{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;background:var(--surface)}
-.hdr{background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
+.hdr{border-bottom:1px solid var(--line);background:var(--hdr);color:var(--hdr-ink);padding-block:12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
 .hdr h1{font-size:17px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-wrap:balance}
 .hdr .mark{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--hdr-soft);font-weight:700}
 .hdr .back{color:var(--hdr-soft);background:none;border:none;cursor:pointer;font-size:22px;line-height:1;padding:0 4px}
@@ -374,6 +377,25 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .journal-txt{flex:1;min-width:0;display:flex;flex-direction:column;font-size:14px}
 .journal-txt small{font-size:12px}
 .journal-val{font-weight:800;white-space:nowrap}
+/* I Armagnac */
+.ia-btn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent-ink);font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(60,25,20,.18);cursor:pointer}
+.ia-btn img{width:40px;height:40px;border-radius:50%;background:#fff;object-fit:contain;border:1px solid var(--line)}
+.ia-panel{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:41;width:min(380px,calc(100vw - 32px));height:min(540px,calc(100dvh - 120px));display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 40px rgba(60,25,20,.22);overflow:hidden}
+.ia-tete{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.ia-tete img{border-radius:50%;background:#fff;object-fit:contain}
+.ia-tete div{flex:1;min-width:0;display:flex;flex-direction:column}.ia-tete small{font-size:12px}
+.ia-ico{background:none;border:none;font-size:18px;cursor:pointer;padding:4px 6px;color:var(--muted)}
+.ia-fil{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.ia-bulle{max-width:85%;padding:9px 12px;border-radius:14px;font-size:15px;line-height:1.4;white-space:pre-wrap}
+.ia-bulle.lui{align-self:flex-start;background:var(--accent-soft);color:var(--fg);border-bottom-left-radius:4px}
+.ia-bulle.moi{align-self:flex-end;background:var(--accent);color:var(--on-accent);border-bottom-right-radius:4px}
+.ia-bulle.attente{opacity:.6}.ia-bulle.erreur{background:var(--bad-soft);color:var(--bad)}
+.ia-saisie{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line);align-items:center}
+.ia-saisie input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font:inherit;font-size:16px;background:var(--surface);color:var(--fg)}
+.ia-micro{width:44px;height:44px;flex:none;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:20px;cursor:pointer}
+.ia-micro.ecoute{background:var(--bad);animation:ia-pulse 1s ease-in-out infinite}
+@keyframes ia-pulse{50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion:reduce){.ia-micro.ecoute{animation:none}}
 .ajout-produit{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .badge.attente{background:var(--warn-soft);color:var(--warn)}
 .tx-attente{border-left:4px solid var(--warn)}
@@ -406,7 +428,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 
 <div class="shell">
   <nav class="side" id="side" aria-label="Menu principal">
-    <div class="brand"><span class="brand-mark">Armagnac</span><span class="brand-name">Domaine de Ravignan</span></div>
+    <div class="brand"><img class="brand-logo" src="images/blason.jpg" alt="Blason de Ravignan" width="64" height="64"><span class="brand-mark">Armagnac</span><span class="brand-name">Domaine de Ravignan</span></div>
     <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes<span class="nav-cle" title="Réservé aux personnes connectées" aria-label="connexion requise">🔑</span></button>
     <button class="nav-item" data-nav="clients"><span class="nav-ico" aria-hidden="true">👥</span>Clients<span class="nav-cle" title="Réservé aux administrateurs" aria-label="connexion requise">🔑</span></button>
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
@@ -424,7 +446,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       <button class="menu-btn" id="btn-menu" aria-label="Ouvrir le menu" aria-controls="side" aria-expanded="false">☰</button>
       <button class="back" id="btn-back" hidden aria-label="Retour">←</button>
       <h1 id="hdr-title">Domaine de Ravignan</h1>
-      <span class="mark">Armagnac</span>
+      <img class="hdr-logo" src="images/blason.jpg" alt="" width="34" height="34">
     </header>
     <div id="flash" class="body" style="padding-block:12px 0;flex:none" hidden></div>
     <main class="body" id="main">
@@ -432,6 +454,15 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     </main>
   </div>
 </div>
+
+<button class="ia-btn" id="ia-btn" type="button" hidden aria-label="Parler à I Armagnac" aria-controls="ia-panel" aria-expanded="false"><img src="images/blason.jpg" alt="" width="40" height="40"><span>I Armagnac</span></button>
+<section class="ia-panel" id="ia-panel" role="dialog" aria-label="I Armagnac" hidden>
+  <header class="ia-tete"><img src="images/blason.jpg" alt="" width="36" height="36"><div><b>I Armagnac</b><small class="muted">L'assistant du Château de Ravignan</small></div>
+    <button class="ia-ico" id="ia-son" type="button" aria-pressed="true" title="Couper la voix">🔊</button><button class="ia-ico" id="ia-fermer" type="button" aria-label="Fermer">✕</button></header>
+  <div class="ia-fil" id="ia-fil" aria-live="polite"></div>
+  <form class="ia-saisie" id="ia-form"><button class="ia-micro" id="ia-micro" type="button" aria-label="Parler">🎙️</button>
+    <input id="ia-texte" autocomplete="off" placeholder="Posez votre question…" aria-label="Votre question"><button class="btn go sm" type="submit">Envoyer</button></form>
+</section>
 
 <script>
 const SUPA_URL="https://zvrzpfyxtqygzsihjccu.supabase.co", SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2cnpwZnl4dHF5Z3pzaWhqY2N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjYwNzMsImV4cCI6MjEwODM0MjA3M30.XImY1lOpd-CIZ4ZTx_7ADpUlrwqE1xYH8-23NPkDZXo";
@@ -3135,9 +3166,68 @@ function telecharger({filename,data}){
 // Administration : connexion par lien email, réservée aux adresses « admin » de la table membres.
 let clientsAbonne=false;
 const arriveeParLien=/access_token|error_description/.test(location.hash);
+/* ---------- I Armagnac : assistant vocal ----------
+   Écoute (reconnaissance vocale du navigateur), réponse de la fonction Supabase « i-armagnac » (Claude),
+   lue à voix haute (synthèse vocale du téléphone, voix française). Réservé aux membres connectés. */
+let iaMsgs=[], iaVoix=true, iaEcoute=null, iaOccupe=false;
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function iaAjouter(role,texte){
+  const b=el("div","ia-bulle "+(role==="user"?"moi":"lui"));b.textContent=texte;qs("#ia-fil").appendChild(b);
+  qs("#ia-fil").scrollTop=qs("#ia-fil").scrollHeight;return b;
+}
+function iaParler(texte){
+  if(!iaVoix||!window.speechSynthesis)return;
+  try{
+    const u=new SpeechSynthesisUtterance(texte);u.lang="fr-FR";u.rate=1.02;u.pitch=0.9;
+    const voix=speechSynthesis.getVoices().filter(v=>/^fr/i.test(v.lang));
+    u.voice=voix.find(v=>/thomas|henri|paul|mathieu|nicolas|male|homme/i.test(v.name)&&!/female|amelie|audrey|marie|julie|virginie/i.test(v.name))||voix.find(v=>/fr-FR/i.test(v.lang))||voix[0]||null;
+    speechSynthesis.cancel();speechSynthesis.speak(u);
+  }catch(e){}
+}
+async function iaDemander(question){
+  question=String(question||"").trim();if(!question||iaOccupe)return;
+  iaOccupe=true;iaAjouter("user",question);iaMsgs.push({role:"user",content:question});
+  const att=iaAjouter("assistant","…");att.classList.add("attente");
+  let texte;
+  try{
+    let h=iaMsgs.slice(-12);while(h.length&&h[0].role!=="user")h=h.slice(1);
+    const {data,error}=await sb.functions.invoke("i-armagnac",{body:{messages:h}});
+    if(error){let m="";try{m=(await error.context.json()).erreur;}catch(e){}throw new Error(m||"I Armagnac ne répond pas pour l'instant.");}
+    texte=data&&data.texte;if(!texte)throw new Error((data&&data.erreur)||"Pas de réponse.");
+    iaMsgs.push({role:"assistant",content:texte});att.classList.remove("attente");att.textContent=texte;iaParler(texte);
+  }catch(e){att.classList.remove("attente");att.classList.add("erreur");att.textContent=e.message;iaMsgs.pop();}
+  finally{iaOccupe=false;}
+}
+function iaOuvrir(ouvert){
+  qs("#ia-panel").hidden=!ouvert;qs("#ia-btn").setAttribute("aria-expanded",String(ouvert));
+  if(ouvert){if(!iaMsgs.length&&!qs("#ia-fil").children.length)iaAjouter("assistant",`Adishatz ${(monPrenom||"").split(" ")[0]} ! Demandez-moi une vente, un millésime ou un client${SR?" : appuyez sur le micro et parlez.":"."}`);
+    try{speechSynthesis.getVoices();}catch(e){}if(!SR)qs("#ia-texte").focus();}
+  else{try{speechSynthesis.cancel();iaEcoute&&iaEcoute.abort();}catch(e){}}
+}
+function iaMicro(){
+  if(!SR)return;
+  if(iaEcoute){iaEcoute.stop();return;}
+  try{speechSynthesis.cancel();}catch(e){}
+  const r=new SR();r.lang="fr-FR";r.interimResults=true;r.maxAlternatives=1;iaEcoute=r;
+  const m=qs("#ia-micro"),inp=qs("#ia-texte");m.classList.add("ecoute");m.setAttribute("aria-label","Arrêter l'écoute");
+  let final="";
+  r.onresult=e=>{let t="";for(const x of e.results){t+=x[0].transcript;if(x.isFinal)final=t;}inp.value=t;};
+  r.onerror=e=>{if(e.error==="not-allowed")flash("Autorisez le micro pour parler à I Armagnac.");};
+  r.onend=()=>{iaEcoute=null;m.classList.remove("ecoute");m.setAttribute("aria-label","Parler");
+    const q=(final||inp.value).trim();if(q){inp.value="";iaDemander(q);}};
+  r.start();
+}
+qs("#ia-btn").onclick=()=>iaOuvrir(qs("#ia-panel").hidden);
+qs("#ia-fermer").onclick=()=>iaOuvrir(false);
+qs("#ia-son").onclick=e=>{iaVoix=!iaVoix;e.currentTarget.textContent=iaVoix?"🔊":"🔇";e.currentTarget.setAttribute("aria-pressed",String(iaVoix));
+  e.currentTarget.title=iaVoix?"Couper la voix":"Remettre la voix";if(!iaVoix)try{speechSynthesis.cancel();}catch(x){}};
+qs("#ia-micro").hidden=!SR;qs("#ia-micro").onclick=iaMicro;
+qs("#ia-form").onsubmit=e=>{e.preventDefault();const i=qs("#ia-texte");const q=i.value;i.value="";iaDemander(q);};
+
 function majPied(){
   qs("#side-user").textContent=myEmail?"Connecté : "+myEmail:"";
   qs("#btn-logout").hidden=!myEmail;
+  qs("#ia-btn").hidden=!estMembre;if(!estMembre)iaOuvrir(false);
 }
 function demarrerDonnees(){
   db=makeDb();downloads={save:telecharger};
