@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       for (const [email, prenom] of destinataires) {
         const paragraphes = [
           `Bonjour${prenom ? " " + prenom : ""},`,
-          `Merci d'être venu·e à notre vente « ${nom} »${lieu} ! C'était super : un vrai plaisir de vous y retrouver et de partager nos armagnacs avec vous.`,
+          `Merci de votre visite à notre vente « ${nom} »${lieu} ! C'était super : un vrai plaisir de vous y retrouver et de partager nos armagnacs avec vous.`,
           "Nous espérons que vos bouteilles vous régalent déjà. À très bientôt au Château de Ravignan !",
           AVIS_TXT,
         ];

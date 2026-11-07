@@ -723,7 +723,7 @@ function renderDashboard(m){
   const parVente={};t.forEach(x=>{parVente[x.venteId]=(parVente[x.venteId]||0)+montant(x);});
   const top=(o,n=5)=>Object.entries(o).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n);
   const g=el("div","dash-grille");
-  g.appendChild(barres("Meilleur·e·s vendeur·se·s",top(parV),fmt));
+  g.appendChild(barres("Meilleurs vendeurs",top(parV),fmt));
   g.appendChild(barres("Meilleurs clients",[...clientsMap.values()].filter(o=>o.total>0).sort((a,b)=>b.total-a.total).slice(0,5).map(o=>[o.nom,o.total,o.n>1?o.n+" achats":""]),fmt));
   g.appendChild(barres("Produits les plus vendus",top(parP),v=>v+" btl"));
   g.appendChild(barres("Meilleures ventes",top(parVente).map(([id,v])=>[(ventes.find(w=>w.id===id)||{}).nom||"Vente",v]),fmt));
@@ -1036,7 +1036,7 @@ function renderVente(m){
   }else m.appendChild(txt("p","muted","Vente commencée : seul un administrateur peut la supprimer."));
 }
 
-// podium des 3 meilleur·e·s vendeur·se·s de la vente (chiffre d'affaires encaissé)
+// podium des 3 meilleurs vendeurs de la vente (chiffre d'affaires encaissé)
 function renderPodium(m,t){
   const par={};t.forEach(x=>{const n=(x.vendeurPrenom||"").trim();if(n)par[n]=(par[n]||0)+montant(x);});
   const top=Object.entries(par).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -2769,7 +2769,20 @@ const lienWhatsApp=tel=>{let n=String(tel||"").replace(/[^\d+]/g,"");if(n.starts
 const lienReseau=(r,v)=>{v=String(v||"").trim();if(!v)return null;if(/^https?:\/\//.test(v))return v;const base=RESEAUX[r];return base?base+v.replace(/^@/,""):null;};
 let famille=[], familleChargee=false, famSel=null, famEdit=null, famVue={x:0,y:0,k:1}, famResume="";
 const NW=176, NH=64, GX=26, GY=96;
-const BADGES={voilier:{ico:"⛵",lab:"Voile"},surf:{ico:"🏄",lab:"Surf"},coeur:{ico:"♥",lab:"Disparu·e, dans nos cœurs",cls:"coeur"},chat:{ico:"🐈",lab:"Chat"}};
+const BADGES={voilier:{ico:"⛵",lab:"Voile"},surf:{ico:"🏄",lab:"Surf"},coeur:{ico:"♥",lab:"Disparu, dans nos cœurs",labF:"Disparue, dans nos cœurs",cls:"coeur"},chat:{ico:"🐈",lab:"Chat"}};
+// sexe d'une personne : « F » ou « H » indiqué sur la fiche, sinon déduit du premier prénom
+const PRENOMS_H=new Set(["pierre","maurice","patrice","fabrice","remy","rémy","philippe","jerome","guillaume","antoine","etienne","andre","rene","claude","maxime","baptiste","jean-baptiste","joseph","george","georges","jules","charles","louis","luc","dominique","xavier","alexandre","alphonse","ange","auguste","aime","emile","eugene","felix","hippolyte","jacques","jean","jean-dominique","jean-pierre","julien","laurent","lucien","marc","michel","nicolas","olivier","pascal","paul","bernard","bernard-paul","raphael","remi","theophile","thibault","valentin","vincent","yves","benoit","francois","henri","hubert","arnaud","gaston","leon","jean-marie","marie-joseph","bruno","adrien","clement","come","cyrille","edme","fernand","jean-jacques","pierre-marie"]);
+const PRENOMS_F=new Set(["marie","marie-therese","catherine","agnes","alix","beatrix","beatrice","ines","isabelle","claire","gabrielle","anne","jeanne","marguerite","louise","josephine","elisabeth","elizabeth","rose","edith","ruth","solange","ingrid","astrid","maud","gwendoline","aude","ombeline","sibylle","sixtine","margaux","chloe","zoe","noemie","salome","nathalie","agathe","berengere","mathilde","clotilde","bathilde","adelaide","hermine"]);
+function estFemme(p){
+  if(p&&p.sexe)return p.sexe==="F";
+  const pr=normTxt(String(p&&p.prenom||"").trim().split(/\s+/)[0]||"");
+  if(!pr)return false;
+  if(PRENOMS_H.has(pr))return false;if(PRENOMS_F.has(pr))return true;
+  if(pr.includes("-")&&PRENOMS_H.has(pr.split("-")[0]))return false;
+  if(pr.startsWith("marie-")&&!PRENOMS_H.has(pr))return true;
+  return /(a|ette|ine|elle|ie|ise|ence|ude|ilde|ene|eve|ice|ys)$/.test(pr);
+}
+const accord=(p,m,f)=>estFemme(p)?f:m;
 const annee=d=>d?String(d).slice(0,4):"";
 const nomComplet=p=>[p.titre,p.prenom,p.nom].filter(Boolean).join(" ");
 const datesDe=p=>p.vivant?"":(p.naissance||p.deces?`${annee(p.naissance)||"?"} – ${annee(p.deces)||(p.naissance&&+annee(p.naissance)<1925?"?":"")}`:"");
@@ -2948,16 +2961,16 @@ function ficheFamille(){
   const h=el("div","row");h.appendChild(txt("h2","sheet-title",nomComplet(p)));
   const x=el("button","x","×");x.setAttribute("aria-label","Fermer la fiche");x.onclick=()=>{famSel=null;dessinerArbre();ficheFamille();};h.appendChild(x);c.appendChild(h);
   const vie=[];
-  if(!p.vivant){if(p.naissance)vie.push("Né·e "+(p.naissance.length>4?"le "+frDate(p.naissance):"en "+p.naissance)+(p.lieu_naissance?" à "+p.lieu_naissance:""));
-    if(p.deces)vie.push("Mort·e "+(p.deces.length>4?"le "+frDate(p.deces):"en "+p.deces)+(p.lieu_deces?" à "+p.lieu_deces:""));}
+  if(!p.vivant){if(p.naissance)vie.push(accord(p,"Né ","Née ")+(p.naissance.length>4?"le "+frDate(p.naissance):"en "+p.naissance)+(p.lieu_naissance?" à "+p.lieu_naissance:""));
+    if(p.deces)vie.push(accord(p,"Mort ","Morte ")+(p.deces.length>4?"le "+frDate(p.deces):"en "+p.deces)+(p.lieu_deces?" à "+p.lieu_deces:""));}
   if(vie.length)c.appendChild(txt("p","muted",vie.join(" · ")));
-  if(p.badges?.length){const w=el("div","fam-liens");p.badges.filter(k=>BADGES[k]).forEach(k=>{const t=el("span","tag badge-"+k);t.textContent=BADGES[k].ico+" "+BADGES[k].lab;w.appendChild(t);});c.appendChild(w);}
+  if(p.badges?.length){const w=el("div","fam-liens");p.badges.filter(k=>BADGES[k]).forEach(k=>{const t=el("span","tag badge-"+k);t.textContent=BADGES[k].ico+" "+(estFemme(p)&&BADGES[k].labF||BADGES[k].lab);w.appendChild(t);});c.appendChild(w);}
   if(p.role)c.appendChild(txt("p","",p.role));
   if(p.bio)c.appendChild(txt("p","",p.bio));
   if(p.incertain)c.appendChild(txt("span","tag","Lien ou date incertains"));
   const liens=(lab,ids)=>{ids=(ids||[]).filter(id=>byId.has(id));if(!ids.length)return;const r=el("div","fam-liens");r.appendChild(txt("span","muted",lab+" : "));
     ids.forEach(id=>{const b=txt("button","chip",nomComplet(byId.get(id)));b.onclick=()=>{famSel=id;centrerSur(id);dessinerArbre();ficheFamille();};r.appendChild(b);});c.appendChild(r);};
-  liens("Parents",p.parents);liens("Conjoint·e",p.conjoints);
+  liens("Parents",p.parents);liens((p.conjoints||[]).length>1?"Conjoints":(()=>{const q=famille.find(x=>x.id===(p.conjoints||[])[0]);return q?accord(q,"Époux","Épouse"):"Conjoint";})(),p.conjoints);
   liens("Enfants",famille.filter(q=>(q.parents||[]).includes(p.id)).sort((x,y)=>(x.ordre??99)-(y.ordre??99)).map(q=>q.id));
   if(p.photo&&String(p.photo).startsWith("https://")){const im=el("img","fam-photo");im.src=p.photo;im.alt="Portrait de "+nomComplet(p);im.onerror=()=>im.remove();c.insertBefore(im,c.children[1]);}
   const co=el("div","fam-coords");co.appendChild(txt("h3","sub","Coordonnées"));
@@ -2984,6 +2997,9 @@ function formFamille(p){
     const i=el("input");i.id="fm-"+id;i.type=type;i.value=val??"";i.placeholder=ph;i.autocomplete="off";d.appendChild(i);return d;};
   const g1=el("div","grid2");g1.appendChild(champ("prenom","Prénom",p.prenom));g1.appendChild(champ("nom","Nom",p.nom));form.appendChild(g1);
   form.appendChild(champ("titre","Titre (comte, abbé…)",p.titre));
+  {const d=el("div","field");d.appendChild(Object.assign(txt("label","","Sexe (pour les accords : né / née…)"),{htmlFor:"fm-sexe"}));
+    const sx=el("select");sx.id="fm-sexe";[["","Déduit du prénom ("+(estFemme({prenom:p.prenom})?"femme":"homme")+")"],["F","Femme"],["H","Homme"]].forEach(([v2,l])=>{const o=el("option");o.value=v2;o.textContent=l;o.selected=(p.sexe||"")===v2;sx.appendChild(o);});
+    d.appendChild(sx);form.appendChild(d);}
   const g2=el("div","grid2");g2.appendChild(champ("naissance","Naissance (AAAA ou AAAA-MM-JJ)",p.naissance,"text","1795"));g2.appendChild(champ("lieu_naissance","Lieu de naissance",p.lieu_naissance));form.appendChild(g2);
   const g3=el("div","grid2");g3.appendChild(champ("deces","Décès",p.deces,"text","1858"));g3.appendChild(champ("lieu_deces","Lieu de décès",p.lieu_deces));form.appendChild(g3);
   form.appendChild(champ("role","Rôle (une phrase)",p.role));
@@ -2992,7 +3008,7 @@ function formFamille(p){
     const s=el("select");s.id="fm-"+id;s.multiple=true;s.size=5;
     [...famille].filter(x=>x.id!==p.id).sort((a,b)=>nomComplet(a).localeCompare(nomComplet(b))).forEach(x=>{const o=el("option");o.value=x.id;o.textContent=nomComplet(x)+(datesDe(x)?" ("+datesDe(x)+")":"");o.selected=(sel||[]).includes(x.id);s.appendChild(o);});
     d.appendChild(s);d.appendChild(txt("span","muted","Ctrl ou Cmd + clic pour en choisir plusieurs"));return d;};
-  form.appendChild(choix("parents","Parents",p.parents));form.appendChild(choix("conjoints","Conjoint·e·s",p.conjoints));
+  form.appendChild(choix("parents","Parents",p.parents));form.appendChild(choix("conjoints","Conjoints",p.conjoints));
   const ph=el("div","field fm-photo");ph.appendChild(txt("label","","Photo"));
   const apercu=el("div","row");apercu.style.justifyContent="flex-start";
   const img=el("img","fam-photo");img.alt="";img.hidden=!p.photo;if(p.photo)img.src=p.photo;apercu.appendChild(img);
@@ -3030,7 +3046,7 @@ function formFamille(p){
   form.appendChild(r);
   form.onsubmit=async e=>{e.preventDefault();
     const v=id=>form.querySelector("#fm-"+id).value.trim();const sel=id=>[...form.querySelector("#fm-"+id).selectedOptions].map(o=>o.value);
-    const d={prenom:v("prenom"),nom:v("nom"),titre:v("titre")||null,naissance:v("naissance")||null,lieu_naissance:v("lieu_naissance")||null,deces:v("deces")||null,lieu_deces:v("lieu_deces")||null,
+    const d={prenom:v("prenom"),nom:v("nom"),sexe:v("sexe")||null,titre:v("titre")||null,naissance:v("naissance")||null,lieu_naissance:v("lieu_naissance")||null,deces:v("deces")||null,lieu_deces:v("lieu_deces")||null,
       role:v("role")||null,bio:form.querySelector("#fm-bio").value.trim()||null,parents:sel("parents"),conjoints:sel("conjoints"),source:v("source")||null,photo:v("photo")||null,badges:[...form.querySelectorAll(".fm-badge:checked")].map(i=>i.value),ordre:v("ordre")?+v("ordre"):null,
       vivant:form.querySelector("#fm-vivant").checked,incertain:form.querySelector("#fm-incertain").checked};
     if(!d.prenom&&!d.nom)return flash("Indiquez au moins un prénom ou un nom.");
