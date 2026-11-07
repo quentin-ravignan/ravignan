@@ -415,6 +415,11 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .dash-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .dash-boutique{margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
 .dash-boutique .row h3{margin:0}
+.avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent-ink);font-weight:800;font-size:13px;vertical-align:middle;margin-right:7px;flex:none}
+.avatar.mini{width:22px;height:22px;font-size:11px}
+.avatar.pod-av{width:46px;height:46px;font-size:19px;margin:0 0 4px;border:2px solid #fff;box-shadow:0 1px 5px rgba(60,25,20,.2)}
+.membre-photo{cursor:pointer;display:flex}.membre-photo .avatar{width:38px;height:38px;margin:0}
+.combo-opt .avatar,.chip .avatar{margin-right:2px}
 .dash-titre{margin:18px 2px 8px;font-size:15px}
 .podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
 .pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
@@ -714,11 +719,11 @@ function renderDashboard(m){
     .forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
   c.appendChild(k);
   // classements en barres
-  const barres=(titre,lignes,format,vide)=>{const b=el("div","dash-bloc");b.appendChild(txt("h3","sub",titre));
+  const barres=(titre,lignes,format,vide,avec)=>{const b=el("div","dash-bloc");b.appendChild(txt("h3","sub",titre));
     if(!lignes.length){b.appendChild(txt("p","muted",vide||"–"));return b;}
     const max=Math.max(...lignes.map(l=>l[1]),1);
     lignes.forEach(([nom,val,detail],i)=>{const r=el("div","dash-ligne");
-      r.innerHTML=`<span class="dash-rang">${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="dash-nom" title="${esc(nom)}">${esc(nom)}${detail?` <small class="muted">${esc(detail)}</small>`:""}</span><b class="num">${format(val)}</b><span class="dash-barre"><i style="width:${Math.max(2,val/max*100).toFixed(1)}%"></i></span>`;
+      r.innerHTML=`<span class="dash-rang">${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="dash-nom" title="${esc(nom)}">${avec?avatar(nom,"mini"):""}${esc(nom)}${detail?` <small class="muted">${esc(detail)}</small>`:""}</span><b class="num">${format(val)}</b><span class="dash-barre"><i style="width:${Math.max(2,val/max*100).toFixed(1)}%"></i></span>`;
       b.appendChild(r);});
     return b;};
   const parV={};t.forEach(x=>{const n=(x.vendeurPrenom||"").trim();if(n&&!estGratuit(x.paiement))parV[n]=(parV[n]||0)+montant(x);});
@@ -726,7 +731,7 @@ function renderDashboard(m){
   const parVente={};t.forEach(x=>{parVente[x.venteId]=(parVente[x.venteId]||0)+montant(x);});
   const top=(o,n=5)=>Object.entries(o).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n);
   const g=el("div","dash-grille");
-  g.appendChild(barres("Meilleurs vendeurs",top(parV),fmt));
+  g.appendChild(barres("Meilleurs vendeurs",top(parV),fmt,"",true));
   g.appendChild(barres("Meilleurs clients",[...clientsMap.values()].filter(o=>o.total>0).sort((a,b)=>b.total-a.total).slice(0,5).map(o=>[o.nom,o.total,o.n>1?o.n+" achats":""]),fmt));
   g.appendChild(barres("Produits les plus vendus",top(parP),v=>v+" btl"));
   g.appendChild(barres("Meilleures ventes",top(parVente).map(([id,v])=>[(ventes.find(w=>w.id===id)||{}).nom||"Vente",v]),fmt));
@@ -790,6 +795,36 @@ function blocBoutique(dans){
   return b;
 }
 
+// photos des vendeurs : photo du compte Google (enregistrée à la connexion) ou choisie par un administrateur
+let photosVendeurs=new Map();
+async function chargerPhotos(){
+  const {data}=await sb.rpc("photos_vendeurs");
+  if(Array.isArray(data)){photosVendeurs=new Map(data.map(x=>[x.nom,x.photo]));if(["home","vente","new-vente","admin"].includes(page))render();}
+}
+function photoDe(nom){
+  if(!nom)return null;if(photosVendeurs.has(nom))return photosVendeurs.get(nom);
+  // vendeur saisi au prénom seul : la photo si un seul membre porte ce prénom
+  const p=normTxt(nom).split(" ")[0];const t=[...photosVendeurs].filter(([n])=>normTxt(n).split(" ")[0]===p);
+  return t.length===1?t[0][1]:null;
+}
+function avatar(nom,cls){
+  const u=photoDe(nom),ini=esc(String(nom||"?").trim().charAt(0).toUpperCase()||"?");
+  return u?`<img class="avatar ${cls||""}" src="${esc(u)}" alt="" referrerpolicy="no-referrer" loading="lazy" data-ini="${ini}" onerror="avatarKo(this)">`:`<span class="avatar ini ${cls||""}" aria-hidden="true">${ini}</span>`;
+}
+function avatarKo(img){const s=document.createElement("span");s.className=img.className+" ini";s.textContent=img.dataset.ini||"?";img.replaceWith(s);}
+async function envoyerPhotoVendeur(fichier,email){
+  if(!String(fichier.type).startsWith("image/"))throw new Error("ce fichier n'est pas une image");
+  const bmp=await createImageBitmap(fichier);
+  const c=Math.min(bmp.width,bmp.height),t=Math.min(320,c);
+  const cv=document.createElement("canvas");cv.width=t;cv.height=t;
+  cv.getContext("2d").drawImage(bmp,(bmp.width-c)/2,(bmp.height-c)/2,c,c,0,0,t,t);
+  const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",0.85));
+  const chemin=email.replace(/[^a-z0-9]/gi,"-")+"-"+Date.now()+".jpg";
+  const {error}=await sb.storage.from("vendeurs").upload(chemin,blob,{contentType:"image/jpeg",upsert:false});
+  if(error)throw error;
+  return sb.storage.from("vendeurs").getPublicUrl(chemin).data.publicUrl;
+}
+
 /* ---------- création d'une vente ---------- */
 function renderNewVente(m){
   const c=el("div","card",`<h2>Informations</h2>
@@ -810,7 +845,7 @@ function renderNewVente(m){
   const dessinerVendeurs=()=>{cv.innerHTML="<h2>Vendeurs</h2>";
     if(!nv.vendeurs)nv.vendeurs=nv.vendeur?[nv.vendeur]:[];
     const liste=[...new Set([monPrenom,...listeVendeurs(),...nv.vendeurs].filter(Boolean))];
-    const nom=p=>esc(p)+(p===monPrenom?" (moi)":"");
+    const nom=p=>avatar(p,"mini")+esc(p)+(p===monPrenom?" (moi)":"");
     const choisis=el("div","chips");
     nv.vendeurs.forEach((p,k)=>{const c=el("span","chip sel",(k===0?"★ ":"")+nom(p));c.title=k===0?"Vendeur principal":"";
       const x=el("button","chip-x","×");x.type="button";x.setAttribute("aria-label","Retirer "+p);
@@ -1047,7 +1082,7 @@ function renderPodium(m,t){
   const p=el("div","podium");p.setAttribute("role","list");p.setAttribute("aria-label","Podium des vendeurs");
   [[1,"🥈","p2"],[0,"🥇","p1"],[2,"🥉","p3"]].forEach(([i,med,cl])=>{const e=top[i];const d=el("div","pod "+cl);
     if(e){d.setAttribute("role","listitem");d.setAttribute("aria-label",`${i+1}${i?"e":"er"} : ${e[0]}, ${fmt(e[1])}`);
-      d.innerHTML=`<span class="pod-nom" title="${esc(e[0])}">${esc(e[0].split(" ")[0])}</span><span class="pod-ca num">${fmt(e[1])}</span><div class="pod-marche"><span>${med}</span><b>${i+1}</b></div>`;}
+      d.innerHTML=`${avatar(e[0],"pod-av")}<span class="pod-nom" title="${esc(e[0])}">${esc(e[0].split(" ")[0])}</span><span class="pod-ca num">${fmt(e[1])}</span><div class="pod-marche"><span>${med}</span><b>${i+1}</b></div>`;}
     p.appendChild(d);});
   const c=el("div","card podium-card");c.appendChild(txt("h2","","🏆 Podium des vendeurs"));c.appendChild(p);m.appendChild(c);
 }
@@ -3363,10 +3398,15 @@ function renderAdminAcces(m){
   const liste=el("div","stack");c.appendChild(liste);
   m.appendChild(c);
   (async()=>{
-    const {data,error}=await sb.from("membres").select("email,role,nom").order("nom",{nullsFirst:true}).order("email");
+    const {data,error}=await sb.from("membres").select("email,role,nom,photo").order("nom",{nullsFirst:true}).order("email");
     if(error){liste.appendChild(el("p","muted","Impossible de charger la liste."));return;}
     data.forEach(mb=>{
       const r=el("div","email-row membre-row");
+      {const ph=el("label","membre-photo");ph.title="Changer la photo de "+(mb.nom||mb.email);
+        ph.innerHTML=(mb.photo?`<img class="avatar" src="${esc(mb.photo)}" alt="" referrerpolicy="no-referrer" data-ini="${esc((mb.nom||mb.email).charAt(0).toUpperCase())}" onerror="avatarKo(this)">`:`<span class="avatar ini">📷</span>`);
+        const fi=el("input");fi.type="file";fi.accept="image/*";fi.hidden=true;fi.setAttribute("aria-label","Photo de "+(mb.nom||mb.email));
+        fi.onchange=async()=>{const f=fi.files[0];if(!f)return;try{const url=await envoyerPhotoVendeur(f,mb.email);await majMembre(mb.email,{photo:url});chargerPhotos();render();}catch(e){flash("Photo non enregistrée : "+(e.message||e));}};
+        ph.appendChild(fi);r.appendChild(ph);}
       const id=el("div","membre-id");const nm=el("input");nm.value=mb.nom||"";nm.placeholder="Nom à afficher";nm.setAttribute("aria-label","Nom de "+mb.email);
       nm.onchange=()=>majMembre(mb.email,{nom:nm.value.trim()||null});id.appendChild(nm);
       const n=el("span","muted");n.textContent=mb.email;id.appendChild(n);r.appendChild(id);
@@ -3405,7 +3445,7 @@ function renderAdminAcces(m){
 }
 async function majMembre(email,patch){
   const {error}=await sb.from("membres").update(patch).eq("email",email);
-  if(error)flash("Modification impossible : "+error.message);else{flash(patch.nom!==undefined?"Nom mis à jour.":"Rôle mis à jour.","ok");if(patch.nom!==undefined)chargerVendeurs();}
+  if(error)flash("Modification impossible : "+error.message);else{flash(patch.photo!==undefined?"Photo mise à jour.":patch.nom!==undefined?"Nom mis à jour.":"Rôle mis à jour.","ok");if(patch.nom!==undefined)chargerVendeurs();}
 }
 async function retirerMembre(email){
   const {error}=await sb.from("membres").delete().eq("email",email);
@@ -3705,6 +3745,8 @@ async function verifierSession(session){
   monPrenom=String(session.user.user_metadata?.full_name||session.user.user_metadata?.name||"").trim().split(/\s+/)[0]||"";
   const {data}=await sb.from("membres").select("role,nom").eq("email",myEmail).maybeSingle();
   if(data&&data.nom)monPrenom=data.nom;
+  {const pic=session.user.user_metadata?.avatar_url||session.user.user_metadata?.picture;
+    if(data&&pic&&/^https:\/\//.test(pic))sb.rpc("maj_ma_photo",{url:pic}).then(()=>chargerPhotos());}
   // le vendeur proposé par défaut est la personne connectée, sous son nom de la liste des accès
   if(monPrenom){
     store.set(VENDEUR_KEY,monPrenom);
@@ -3712,6 +3754,7 @@ async function verifierSession(session){
     if(!sv.lignes.length)sv.vendeur=monPrenom;
   }
   isOwner=!!data&&data.role==="admin";estMembre=!!data;
+  if(estMembre)chargerPhotos();
   accesPrive=estMembre&&(await sb.rpc("acces_prive")).data===true;
   if(isOwner||accesPrive)db.recharger("famille");
   if(accesPrive)["chambres","reservations"].forEach(db.recharger);

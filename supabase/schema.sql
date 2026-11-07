@@ -206,3 +206,5 @@ on conflict (email) do update set role = 'admin';
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('factures', 'factures', true, 3000000, array['application/pdf'])
 on conflict (id) do nothing;
+
+-- Photos des vendeurs : voir maj-2026-11-07e.sql (colonne membres.photo, maj_ma_photo, photos_vendeurs, bucket « vendeurs »)
