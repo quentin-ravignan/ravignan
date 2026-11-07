@@ -397,6 +397,23 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 @keyframes ia-pulse{50%{transform:scale(1.08)}}
 @media (prefers-reduced-motion:reduce){.ia-micro.ecoute{animation:none}}
 .podium-card h2{margin-bottom:6px}
+.dash-tete{flex-wrap:wrap;gap:8px;align-items:center}.dash-tete h2{margin:0}
+.dash-per{display:flex;gap:4px;background:var(--sunk);border-radius:999px;padding:3px}
+.dash-per button{border:none;background:none;font:inherit;font-size:13px;font-weight:700;padding:5px 11px;border-radius:999px;color:var(--muted);cursor:pointer}
+.dash-per button.active{background:var(--surface);color:var(--accent-ink);box-shadow:0 1px 3px rgba(60,25,20,.15)}
+.dash-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.dash-kpis .kpi .val{font-size:18px}
+.dash-grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px 22px}
+.dash-bloc{margin-top:6px;min-width:0}.dash-bloc h3{margin:6px 0 8px}
+.dash-ligne{display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;column-gap:6px;row-gap:3px;margin-bottom:9px;font-size:14px}
+.dash-rang{text-align:center;font-weight:800;color:var(--muted)}
+.dash-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.dash-barre{grid-column:2/4;height:6px;border-radius:3px;background:var(--sunk);overflow:hidden}
+.dash-barre i{display:block;height:100%;border-radius:3px;background:var(--accent)}
+.dash-pile{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px}.dash-pile i{display:block;height:100%}
+.dash-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px}
+.dash-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.dash-titre{margin:18px 2px 8px;font-size:15px}
 .podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
 .pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
 .pod-nom{font-weight:800;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -582,7 +599,7 @@ const nomClient=x=>{const c=clientOf(x);return (c.nom?`${c.prenom||""} ${c.nom}`
 // paiement par carte : la transaction attend la confirmation de SumUp (statut « attente »)
 const enAttente=x=>x.statut==="attente";
 const montant=x=>enAttente(x)?0:(x.total||0);
-const txsOf=vid=>txs.filter(t=>t.venteId===vid).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+const txsOf=vid=>txs.filter(t=>t.venteId===vid&&t.statut!=="abandonnee").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
 const venduDe=(vid,refId)=>txsOf(vid).reduce((s,t)=>s+(t.lignes||[]).filter(l=>l.refId===refId).reduce((a,l)=>a+(l.qte||0),0),0);
 
 function flash(text,kind="err"){
@@ -648,6 +665,8 @@ function renderHome(m){
   else m.appendChild(el("div","msg info","Lecture seule : demandez au propriétaire de vous inviter comme Éditeur pour saisir des ventes."));
   if(!loaded.ventes){m.appendChild(el("div","empty","Chargement…"));return;}
   if(ventes.length===0){m.appendChild(el("div","empty","Aucune vente pour l'instant.<br>Créez la première avec le bouton ci-dessus."));return;}
+  renderDashboard(m);
+  m.appendChild(txt("h2","dash-titre","Toutes les ventes"));
   const list=[...ventes].sort((a,b)=>(a.cloturee-b.cloturee)||(b.dateDebut||"").localeCompare(a.dateDebut||""));
   list.forEach(v=>{
     const t=txsOf(v.id);const ca=t.reduce((s,x)=>s+montant(x),0);
@@ -659,6 +678,64 @@ function renderHome(m){
     c.onclick=()=>go("vente",v.id);
     m.appendChild(c);
   });
+}
+
+/* ---------- tableau de bord de toutes les ventes ---------- */
+let dashPeriode="tout";
+function renderDashboard(m){
+  const maintenant=new Date(),annee=String(maintenant.getFullYear());
+  const periodes=[["tout","Tout"],["annee",annee],["30j","30 jours"]];
+  const dans=x=>{if(dashPeriode==="tout")return true;const d=x.date?new Date(x.date):null;if(!d)return false;
+    return dashPeriode==="annee"?String(d.getFullYear())===annee:maintenant-d<30*864e5;};
+  const ids=new Set(ventes.map(v=>v.id));
+  const t=txs.filter(x=>ids.has(x.venteId)&&x.statut!=="abandonnee"&&!enAttente(x)&&dans(x));
+  const ventesT=t.filter(x=>x.type!=="avoir"&&!estGratuit(x.paiement));
+  const ca=t.reduce((s,x)=>s+montant(x),0);
+  const btl=t.filter(x=>!estGratuit(x.paiement)).reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
+  const panier=ventesT.length?ca/ventesT.length:0;
+  const c=el("div","card dash");
+  const tete=el("div","row dash-tete");tete.appendChild(txt("h2","","📊 Tableau de bord"));
+  const ch=el("div","dash-per");periodes.forEach(([k,lab])=>{const b=el("button",dashPeriode===k?"active":"",lab);b.onclick=()=>{dashPeriode=k;render();};ch.appendChild(b);});
+  tete.appendChild(ch);c.appendChild(tete);
+  if(!t.length){c.appendChild(txt("p","muted","Aucune transaction sur cette période."));m.appendChild(c);return;}
+  // chiffres clés
+  const clientsMap=new Map();
+  ventesT.concat(t.filter(x=>x.type==="avoir")).forEach(x=>{const cl=clientOf(x);
+    const k=(cl.email?String(cl.email).toLowerCase():normTxt([cl.prenom,cl.nom||cl.initiale].join(" ")))||x.id;
+    const o=clientsMap.get(k)||{nom:nomClient(x),total:0,n:0};o.total+=montant(x);if(x.type!=="avoir")o.n++;clientsMap.set(k,o);});
+  const fideles=[...clientsMap.values()].filter(o=>o.n>1).length;
+  const k=el("div","dash-kpis");
+  [[fmt(ca),"Chiffre d'affaires"],[String(ventesT.length),"Achats"],[String(btl),"Bouteilles"],[fmt(panier),"Panier moyen"],[String(clientsMap.size),"Clients"],[clientsMap.size?Math.round(fideles/clientsMap.size*100)+" %":"–","Clients revenus"]]
+    .forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
+  c.appendChild(k);
+  // classements en barres
+  const barres=(titre,lignes,format,vide)=>{const b=el("div","dash-bloc");b.appendChild(txt("h3","sub",titre));
+    if(!lignes.length){b.appendChild(txt("p","muted",vide||"–"));return b;}
+    const max=Math.max(...lignes.map(l=>l[1]),1);
+    lignes.forEach(([nom,val,detail],i)=>{const r=el("div","dash-ligne");
+      r.innerHTML=`<span class="dash-rang">${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="dash-nom" title="${esc(nom)}">${esc(nom)}${detail?` <small class="muted">${esc(detail)}</small>`:""}</span><b class="num">${format(val)}</b><span class="dash-barre"><i style="width:${Math.max(2,val/max*100).toFixed(1)}%"></i></span>`;
+      b.appendChild(r);});
+    return b;};
+  const parV={};t.forEach(x=>{const n=(x.vendeurPrenom||"").trim();if(n&&!estGratuit(x.paiement))parV[n]=(parV[n]||0)+montant(x);});
+  const parP={};t.filter(x=>!estGratuit(x.paiement)).forEach(x=>(x.lignes||[]).forEach(l=>{const n=[l.nom,l.format].filter(Boolean).join(" ");parP[n]=(parP[n]||0)+(l.qte||0);}));
+  const parVente={};t.forEach(x=>{parVente[x.venteId]=(parVente[x.venteId]||0)+montant(x);});
+  const top=(o,n=5)=>Object.entries(o).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n);
+  const g=el("div","dash-grille");
+  g.appendChild(barres("Meilleur·e·s vendeur·se·s",top(parV),fmt));
+  g.appendChild(barres("Meilleurs clients",[...clientsMap.values()].filter(o=>o.total>0).sort((a,b)=>b.total-a.total).slice(0,5).map(o=>[o.nom,o.total,o.n>1?o.n+" achats":""]),fmt));
+  g.appendChild(barres("Produits les plus vendus",top(parP),v=>v+" btl"));
+  g.appendChild(barres("Meilleures ventes",top(parVente).map(([id,v])=>[(ventes.find(w=>w.id===id)||{}).nom||"Vente",v]),fmt));
+  c.appendChild(g);
+  // moyens de paiement
+  const pm=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+montant(x),0)]).filter(x=>x[1]>0);
+  const totPm=pm.reduce((s,x)=>s+x[1],0);
+  if(totPm>0){const b=el("div","dash-bloc");b.appendChild(txt("h3","sub","Moyens de paiement"));
+    const barre=el("div","dash-pile");const couleurs=["var(--accent)","#b0826f","#d9bfb4","#8a6a5f","#ead9d2"];
+    pm.forEach(([lab,v],i)=>{const sg=el("i");sg.style.cssText=`width:${(v/totPm*100).toFixed(1)}%;background:${couleurs[i%couleurs.length]}`;sg.title=lab+" : "+fmt(v);barre.appendChild(sg);});
+    b.appendChild(barre);
+    const leg=el("div","dash-leg");pm.forEach(([lab,v],i)=>leg.appendChild(el("span","",`<i style="background:${couleurs[i%couleurs.length]}"></i>${esc(lab)} <b class="num">${Math.round(v/totPm*100)} %</b>`)));
+    b.appendChild(leg);c.appendChild(b);}
+  m.appendChild(c);
 }
 
 /* ---------- création d'une vente ---------- */
@@ -1363,11 +1440,16 @@ async function chargerVendeurs(){const {data}=await sb.rpc("liste_vendeurs");if(
 // au retour, SumUp rouvre l'app en ajoutant à l'adresse smp-status (success / failed), smp-tx-code, smp-message et foreign-tx-id
 // « total » + « callback » : app Android ; « amount » + « callbacksuccess » / « callbackfail » : app iPhone.
 // Le lien ne permet pas de choisir Tap to Pay ou le terminal : SumUp le demande lui-même.
-function ouvrirSumUp(x){
+async function ouvrirSumUp(x){
   const cle=reglages.sumup_cle;
   const retour=location.origin+location.pathname;
   const v=ventes.find(w=>w.id===x.venteId);
-  const q=new URLSearchParams({total:Number(x.total).toFixed(2),amount:Number(x.total).toFixed(2),currency:"EUR",title:("Ravignan · "+(v?v.nom:"Vente")).slice(0,60),"foreign-tx-id":x.id,
+  // libellé côté SumUp : « Nom de la vente - numéro de facture » (le numéro est réservé dès l'ouverture de SumUp)
+  if(!x.facture){try{const {data,error}=await sb.rpc("numero_facture",{tx:x.id});if(error)throw error;x.facture=data;}catch(e){console.error(e);}}
+  const num=x.facture||"";const nomV=v?v.nom:"Vente";
+  const titre=num?nomV.slice(0,Math.max(10,60-num.length-3))+" - "+num:nomV.slice(0,60);
+  const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  const q=new URLSearchParams({total:Number(x.total).toFixed(2),amount:Number(x.total).toFixed(2),currency:"EUR",title:titre,"foreign-tx-id":x.id,
     callback:retour,callbacksuccess:retour,callbackfail:retour,"skip-screen-success":"false"});
   if(cle)q.set("affiliate-key",cle);
   const lienSumUp="sumupmerchant://pay/1.0?"+q.toString();
@@ -1375,14 +1457,16 @@ function ouvrirSumUp(x){
   const m=el("div","modal");m.id="sumup-modal";
   const sh=el("div","sheet",`<h2 class="sheet-title">Paiement par carte</h2>
     <div class="total"><small>Montant à encaisser</small><strong class="num">${fmt(x.total)}</strong></div>
-    <p class="muted">La vente reste « en attente » jusqu'à la confirmation de SumUp. Si l'app ne revient pas toute seule, indiquez ici le résultat.${cle?"":" L'app SumUp s'ouvrira sans le montant tant que la clé affiliée n'est pas renseignée (Administration) : saisissez-le à la main."}</p>`);
-  const go=el("a","btn go full","Ouvrir SumUp");go.href=lienSumUp;go.style.textAlign="center";go.style.textDecoration="none";sh.appendChild(go);
+    ${num?`<p class="muted">Libellé SumUp : <b>${esc(titre)}</b></p>`:""}
+    <p class="muted">La vente reste « en attente » jusqu'à la confirmation de SumUp. Si l'app ne revient pas toute seule, indiquez ici le résultat.${cle?"":" L'app SumUp s'ouvrira sans le montant tant que la clé affiliée n'est pas renseignée (Administration) : saisissez-le à la main."}</p>
+    ${mobile?"":`<p class="msg err">Sur ordinateur, l'app SumUp ne peut pas s'ouvrir. Encaissez ${fmt(x.total)} avec le téléphone ou le terminal SumUp (libellé « ${esc(titre)} »), puis appuyez sur « ✅ Paiement reçu ».</p>`}`);
+  const go=el("a","btn go full","Ouvrir SumUp");go.href=lienSumUp;go.style.textAlign="center";go.style.textDecoration="none";if(mobile)sh.appendChild(go);
   const ok=el("button","btn ghost full","✅ Paiement reçu");ok.onclick=()=>{m.remove();reglerPaiement(x,"payee");};sh.appendChild(ok);
   const ko=el("button","btn ghost full","❌ Paiement non abouti");ko.onclick=()=>{m.remove();paiementNonAbouti(x);};sh.appendChild(ko);
   const ferme=el("button","link","Fermer (la vente reste en attente)");ferme.onclick=()=>m.remove();sh.appendChild(ferme);
   m.appendChild(sh);document.body.appendChild(m);
   // sur téléphone, on tente d'ouvrir l'app directement
-  if(/Android|iPhone|iPad/i.test(navigator.userAgent))setTimeout(()=>{location.href=lienSumUp;},300);
+  if(mobile)setTimeout(()=>{location.href=lienSumUp;},300);
 }
 // résultat lu dans l'adresse au retour de SumUp, puis retiré de l'adresse
 const retourSumUp=(()=>{
@@ -1408,7 +1492,7 @@ async function reglerPaiement(x,action,code,mode){
   const {error}=await sb.rpc("regler_paiement",{tx:x.id,action,code:code||null,mode:mode||null});
   busy=false;
   if(error){console.error(error);return flash("Impossible d'enregistrer le paiement : "+error.message);}
-  if(action==="annuler"){txs=txs.filter(t=>t.id!==x.id);store.set(FACTURE_KEY,"");render();return flash("Vente annulée, les bouteilles sont revenues dans le stock.","ok");}
+  if(action==="annuler"){if(x.facture){x.statut="abandonnee";x.lignes=[];x.total=0;}else txs=txs.filter(t=>t.id!==x.id);store.set(FACTURE_KEY,"");render();return flash("Vente annulée, les bouteilles sont revenues dans le stock.","ok");}
   if(action==="mode"){x.paiement=mode;}
   delete x.statut;if(action==="payee"){x.statut="payee";if(code)x.sumup={code};}
   render();flash(action==="payee"?"Paiement par carte confirmé"+(code?" (SumUp "+code+").":"."):"Paiement enregistré en "+mode.toLowerCase()+".","ok");
@@ -1773,7 +1857,7 @@ async function exportGlobal(vs,t){
 /* ---------- chambres ---------- */
 const ETAGES=[[3,"3e étage"],[2,"2e étage"],[1,"1er étage"]];
 let chView="liste", resas=[], sejour={du:"",au:""}, roomOpenId=null, roomForm=null, adjustPins=false, planStart=today(), confirmResa=null;
-let planMode="photo";try{if(localStorage.getItem("planMode")==="3d")planMode="3d";}catch(e){}
+let planMode="3d";try{if(localStorage.getItem("planVue")==="photo")planMode="photo";}catch(e){}
 const addDays=(d,n)=>{const x=new Date(d+"T12:00:00");x.setDate(x.getDate()+n);return x.toISOString().slice(0,10);};
 const nuits=(a,b)=>Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/864e5);
 const frCourt=d=>new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"});
@@ -1912,7 +1996,7 @@ function renderPlan(z){
   const seg=el("div","seg");seg.setAttribute("role","group");seg.setAttribute("aria-label","Affichage du plan");
   [["photo","Photo"],["3d","3D"]].forEach(([k,lab])=>{
     const b=el("button",planMode===k?"active":"",lab);b.setAttribute("aria-pressed",String(planMode===k));
-    b.onclick=()=>{if(planMode===k)return;planMode=k;adjustPins=false;try{localStorage.setItem("planMode",k);}catch(e){}refreshChambres();};
+    b.onclick=()=>{if(planMode===k)return;planMode=k;adjustPins=false;try{localStorage.setItem("planVue",k);}catch(e){}refreshChambres();};
     seg.appendChild(b);
   });
   z.appendChild(seg);
@@ -1978,6 +2062,14 @@ function chargerThree(){
 }
 // volumes (m) : pavillon Balançoire, corps de logis, avant-corps d'entrée, pavillon Cuisine
 const CH3={pg:{x0:-21,x1:-12,z0:-7.5,z1:7,h:10},corps:{x0:-12,x1:12,z0:-6,z1:6,h:9},centre:{x0:-2.3,x1:2.3,z0:4,z1:6.7,h:9.6},pd:{x0:12,x1:20,z0:-7,z1:6.8,h:10}};
+// ravin en herbe derrière le château (z<0) : 2 fois la longueur du château (≈ 82 m), profond de la moitié de sa hauteur (≈ 9,5 m)
+const RAVIN={x:0,z:-36,lx:41,lz:21,p:9.5};
+function hSol(x,z){
+  const u=Math.abs(x-RAVIN.x)/RAVIN.lx,v=Math.abs(z-RAVIN.z)/RAVIN.lz;
+  if(u>=1||v>=1)return 0;
+  const fx=u<.7?1:.5+.5*Math.cos(Math.PI*(u-.7)/.3), fz=.5+.5*Math.cos(Math.PI*v);
+  return -RAVIN.p*fx*fz;
+}
 // position 3D d'un repère, déduite de sa position sur la photo (px, py en % du cadrage) et de son étage
 function repere3D(p){
   const xf=CROP.x+p.px/100*CROP.w, et=p.c.etage||1;
@@ -2015,7 +2107,7 @@ function creerVue3D(){
   controls.rotateSpeed=.8;controls.zoomSpeed=.9;
   const recentrer=()=>{const k=camera.aspect<1.2?1.22:1;camera.position.set(-38*k,30*k,52*k);controls.target.set(-1,7,0);controls.update();};
   recentrer();
-  controls.addEventListener("change",()=>{const t=controls.target;t.x=Math.max(-60,Math.min(60,t.x));t.z=Math.max(-60,Math.min(60,t.z));t.y=Math.max(0,Math.min(25,t.y));});
+  controls.addEventListener("change",()=>{const t=controls.target;t.x=Math.max(-60,Math.min(90,t.x));t.z=Math.max(-120,Math.min(60,t.z));t.y=Math.max(-10,Math.min(25,t.y));});
 
   scene.add(new T.HemisphereLight(0xffffff,0xb8b4a6,.72));
   const sun=new T.DirectionalLight(0xfff6ea,.62);sun.position.set(34,58,46);sun.castShadow=true;
@@ -2024,13 +2116,19 @@ function creerVue3D(){
 
   const M=c=>new T.MeshLambertMaterial({color:c});
   const mat={pierre:M(0xebe8e1),corniche:M(0xd9d4c8),socle:M(0xc4bdae),ardoise:M(0x4b555f),vitre:M(0x2b3945),cadre:M(0xf7f2e7),porte:M(0x5a2f28),
-    herbe:M(0x89b05a),gravier:M(0xdccba6),buis:M(0x3f6b33),sapin:M(0x2f5a36),tronc:M(0x6b4a33),feuille1:M(0xc79b45),feuille2:M(0x98a447),tuile:M(0xb86b45),epi:M(0x30363c)};
+    herbe:M(0x89b05a),eau:M(0x47a9d8),margelle:M(0xe9e2d3),court:M(0x3f6fa3),courtBord:M(0x4f8a5c),ligne:M(0xffffff),filet:M(0x22262a),vache:M(0xf4f1ea),tache:M(0x24211f),museau:M(0xd9a8a0),gravier:M(0xdccba6),buis:M(0x3f6b33),sapin:M(0x2f5a36),tronc:M(0x6b4a33),feuille1:M(0xc79b45),feuille2:M(0x98a447),tuile:M(0xb86b45),epi:M(0x30363c)};
   const bat=new T.Group();scene.add(bat);
   const caches=[]; // volumes qui masquent les repères situés derrière
   const boite=(w,h,d,x,y,z,m,ombre=true)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=ombre;o.receiveShadow=true;bat.add(o);if(w*h*d>20)caches.push(o);return o;};
   const toit=(w,d,h,r,x,y,z,ry=0,m=mat.ardoise)=>{const o=new T.Mesh(geoToit(w,d,h,r),m);o.position.set(x,y,z);o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;bat.add(o);caches.push(o);return o;};
   // sol, cour en gravier, allée
-  const sol=new T.Mesh(new T.CircleGeometry(170,48),mat.herbe);sol.rotation.x=-Math.PI/2;sol.receiveShadow=true;scene.add(sol);
+  const gs=new T.PlaneGeometry(340,340,170,170),ps=gs.attributes.position;
+  // herbe plus sombre au fond du ravin, pour bien voir le relief
+  const cHaut=new T.Color(0x89b05a),cBas=new T.Color(0x4f7a34),cols=[],cc=new T.Color();
+  for(let i=0;i<ps.count;i++){const h=hSol(ps.getX(i),-ps.getY(i));ps.setZ(i,h);cc.copy(cHaut).lerp(cBas,Math.min(1,-h/RAVIN.p));cols.push(cc.r,cc.g,cc.b);}
+  gs.setAttribute("color",new T.Float32BufferAttribute(cols,3));
+  gs.computeVertexNormals();
+  const sol=new T.Mesh(gs,new T.MeshLambertMaterial({vertexColors:true}));sol.rotation.x=-Math.PI/2;sol.receiveShadow=true;scene.add(sol);
   const plan=(w,d,x,z,m,y=.03)=>{const o=new T.Mesh(new T.PlaneGeometry(w,d),m);o.rotation.x=-Math.PI/2;o.position.set(x,y,z);o.receiveShadow=true;scene.add(o);};
   plan(54,22,0,0,mat.gravier);plan(64,16,4,17,mat.gravier,.04);plan(9,90,40,30,mat.gravier,.035);
   // volumes de pierre
@@ -2080,21 +2178,48 @@ function creerVue3D(){
   bat.add(gc);bat.add(gv);
   boite(1.7,3,.2,0,2.1,CH3.centre.z1+.05,mat.porte,false);
   [[5,.25,8.4],[4.4,.5,7.9],[3.8,.75,7.35]].forEach(([w,h,z])=>boite(w,h,1.2,0,h/2,z,mat.pierre,false));
-  // communs (au fond à droite) et quelques arbres, pour situer le château
-  boite(16,5,8,46,2.5,-24,mat.pierre);toit(17,9,3.5,9,46,5,-24,0,mat.tuile);
-  boite(4,8,4,38.5,4,-20.5,mat.pierre);toit(4.6,4.6,3,0,38.5,8,-20.5,0,mat.tuile);
-  const arbre=(x,z,s,type)=>{
-    const tr=new T.Mesh(new T.CylinderGeometry(.35*s,.5*s,3*s,6),mat.tronc);tr.position.set(x,1.5*s,z);tr.castShadow=true;scene.add(tr);
+  // quelques arbres, pour situer le château (posés sur le relief)
+  const arbre=(x,z,s,type)=>{const y0=hSol(x,z);
+    const tr=new T.Mesh(new T.CylinderGeometry(.35*s,.5*s,3*s,6),mat.tronc);tr.position.set(x,y0+1.5*s,z);tr.castShadow=true;scene.add(tr);
     const f=type==="sapin"?new T.Mesh(new T.ConeGeometry(3.4*s,12*s,7),mat.sapin):new T.Mesh(new T.IcosahedronGeometry(4.2*s,0),type==="a"?mat.feuille1:mat.feuille2);
-    f.position.set(x,type==="sapin"?8.5*s:6.5*s,z);f.castShadow=true;scene.add(f);
+    f.position.set(x,y0+(type==="sapin"?8.5*s:6.5*s),z);f.castShadow=true;scene.add(f);
   };
-  [[-30,-26,1.2,"sapin"],[6,-30,1.4,"sapin"],[30,-16,1,"a"],[-40,6,1.1,"b"],[-24,-40,1,"a"],[20,-40,1.2,"b"],[60,-6,1.1,"sapin"],[-46,-14,1,"a"],[-30,34,1,"b"]]
+  [[-30,-24,1.2,"sapin"],[8,-38,1.3,"b"],[34,-14,1,"a"],[-40,6,1.1,"b"],[-26,-44,1,"a"],[22,-48,1.1,"b"],[60,-6,1.1,"sapin"],[-50,-14,1,"a"],[-30,34,1,"b"],
+   [-52,-62,1.2,"sapin"],[-20,-66,1,"a"],[80,-60,1.1,"b"],[18,-118,1.2,"sapin"],[78,-112,1,"a"]]
     .forEach(([x,z,s,t])=>arbre(x,z,s,t));
+  // au fond à droite, derrière le ravin (côté Cuisine) : des vaches, puis la piscine et le tennis
+  const loin=new T.Group();scene.add(loin);
+  const bloc=(g,w,h,d,x,y,z,m)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;g.add(o);return o;};
+  const vache=(x,z,ry,broute)=>{const g=new T.Group();g.position.set(x,hSol(x,z),z);g.rotation.y=ry;loin.add(g);
+    bloc(g,2.3,1.1,1,0,1.35,0,mat.vache);
+    bloc(g,.8,.9,.02,.3,1.45,.51,mat.tache);bloc(g,.6,.6,.02,-.6,1.5,-.51,mat.tache);bloc(g,.7,.02,.6,-.2,1.91,.1,mat.tache);
+    const tete=bloc(g,.7,.6,.6,1.45,broute?.75:1.75,0,mat.vache);bloc(g,.22,.34,.62,1.85,broute?.62:1.62,0,mat.museau);
+    bloc(g,.08,.22,.08,1.35,(broute?.75:1.75)+.38,.22,mat.cadre);bloc(g,.08,.22,.08,1.35,(broute?.75:1.75)+.38,-.22,mat.cadre);
+    [[.85,.32],[.85,-.32],[-.85,.32],[-.85,-.32]].forEach(([lx,lz])=>bloc(g,.22,.85,.22,lx,.42,lz,mat.vache));
+    bloc(g,.08,.8,.08,-1.18,1.1,0,mat.tache);
+  };
+  [[30,-66,.4,1],[36,-63,2.1,0],[41,-69,-.6,1],[27,-72,1.2,1],[46,-64,3,0],[34,-75,-2.2,1]].forEach(([x,z,r,b])=>vache(x,z,r,b));
+  // piscine : margelle, bassin, eau
+  bloc(loin,15,.3,8,58,.15,-84,mat.margelle);
+  const eau=new T.Mesh(new T.PlaneGeometry(12,5.2),mat.eau);eau.rotation.x=-Math.PI/2;eau.position.set(58,.32,-84);loin.add(eau);
+  [[-4.5,-1.6],[-4.5,1.6],[4.5,0]].forEach(([dx,dz])=>{const t=new T.Mesh(new T.BoxGeometry(1.8,.25,.7),mat.porte);t.position.set(58+dx,.45,-84+(dz<0?-3.4:3.4));loin.add(t);});
+  // terrain de tennis (36 × 18 m, court de 23,77 × 10,97 m), filet au milieu
+  const tx=44,tz=-104,pl=(w,d,x,z,m,y)=>{const o=new T.Mesh(new T.PlaneGeometry(w,d),m);o.rotation.x=-Math.PI/2;o.position.set(x,y,z);o.receiveShadow=true;loin.add(o);};
+  pl(36,18,tx,tz,mat.courtBord,.05);pl(23.77,10.97,tx,tz,mat.court,.06);
+  const L=.1,lg=(w,d,x,z)=>pl(w,d,tx+x,tz+z,mat.ligne,.07);
+  [-11.885,11.885].forEach(x=>lg(L,10.97,x,0));[-5.485,5.485,-4.115,4.115].forEach(z=>lg(23.77,L,0,z));
+  [-6.4,6.4].forEach(x=>lg(L,8.23,x,0));lg(12.8,L,0,0);
+  bloc(loin,.06,.95,12.8,tx,.5,tz,mat.filet);bloc(loin,.08,.08,12.8,tx,1,tz,mat.ligne);
+  [-6.4,6.4].forEach(z=>bloc(loin,.12,1.1,.12,tx,.55,tz+z,mat.filet));
+  // grillage léger autour du court
+  const grillage=new T.MeshLambertMaterial({color:0x2e4a35,transparent:true,opacity:.35});
+  [[36,.1,tx,tz-9],[36,.1,tx,tz+9]].forEach(([w,d,x,z])=>bloc(loin,w,3,d,x,1.5,z,grillage));
+  [[.1,18,tx-18,tz],[.1,18,tx+18,tz]].forEach(([w,d,x,z])=>bloc(loin,w,3,d,x,1.5,z,grillage));
   for(let i=0;i<6;i++){const b=new T.Mesh(new T.SphereGeometry(.9,8,6),mat.buis);b.position.set(-17.5+i*7,.8,27);b.castShadow=true;scene.add(b);}
 
   const layer=el("div");layer.style.cssText="position:absolute;inset:0;pointer-events:none";
   const pts=[];let sale=true,lw=0,lh=0,box=null,cadre=false;
-  const etiquettes=[["Côté Balançoire",[-16.5,.6,12]],["Entrée",[0,.6,11]],["Côté Cuisine",[16,.6,12]]];
+  const etiquettes=[["Côté Balançoire",[-16.5,.6,12]],["Entrée",[0,.6,11]],["Côté Cuisine",[16,.6,12]],["Ravin",[0,hSol(0,-36)+1,-36]],["Vaches",[36,3.5,-68]],["Piscine",[58,1.5,-84]],["Tennis",[44,2.5,-104]]];
   const v3=new T.Vector3(),tmp=new T.Vector3(),ray=new T.Raycaster();
   function placer(){
     const w=box.clientWidth,h=box.clientHeight,cam=camera.position;
@@ -2113,7 +2238,7 @@ function creerVue3D(){
     if(controls.update()||sale){renderer.render(scene,camera);placer();sale=false;}
     requestAnimationFrame(boucle);
   }
-  const vue={tourne:false,
+  const vue={tourne:false,camera,controls,
     attacher(b,pos){
       box=b;lw=lh=0;sale=true;
       b.appendChild(renderer.domElement);layer.innerHTML="";b.appendChild(layer);pts.length=0;

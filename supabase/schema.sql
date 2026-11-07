@@ -133,7 +133,9 @@ declare n text; t text; st text;
 begin
   select data->>'facture', data->>'type', data->>'statut' into n, t, st from public.docs where collection = 'transactions' and id = tx for update;
   if not found then raise exception 'transaction inconnue'; end if;
-  if st = 'attente' then raise exception 'paiement par carte en attente'; end if;
+  -- une vente CB reçoit son numéro dès l'ouverture de SumUp (libellé « Nom de la vente - numéro ») ;
+  -- abandonnée ensuite, elle reste dans la base, vidée, pour garder la numérotation continue
+  if st = 'abandonnee' then raise exception 'vente abandonnée'; end if;
   if n is not null then return n; end if;
   -- les avoirs (annulations) ont leur propre série « AV-année-mois-jour-numéro »
   if t = 'avoir' then
@@ -169,7 +171,12 @@ begin
     update public.docs set data = (data - 'statut') || jsonb_build_object('paiement', mode), updated_at = now()
       where collection = 'transactions' and id = tx;
   elsif action = 'annuler' then
-    delete from public.docs where collection in ('transactions', 'clients') and id = tx;
+    if exists (select 1 from public.docs where collection = 'transactions' and id = tx and data ? 'facture') then
+      update public.docs set data = data || jsonb_build_object('statut', 'abandonnee', 'lignes_abandonnees', data->'lignes', 'lignes', '[]'::jsonb, 'total', 0, 'abandon_date', now()), updated_at = now()
+        where collection = 'transactions' and id = tx;
+    else
+      delete from public.docs where collection in ('transactions', 'clients') and id = tx;
+    end if;
   else
     raise exception 'action inconnue';
   end if;
