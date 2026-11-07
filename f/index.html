@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Votre facture – Château de Ravignan</title>
+<style>body{font-family:Georgia,serif;background:#fff;color:#2b1a17;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center}a{color:#5a2f28;font-weight:bold}</style></head>
+<body><main><img src="../images/blason.jpg" alt="" width="96" height="96"><h1 style="font-size:20px">Château de Ravignan</h1><p id="m">Ouverture de votre facture…</p></main>
+<script>
+// lien court envoyé par SMS : /f/?k=CODE → PDF de la facture (code aléatoire, impossible à deviner)
+const k=new URLSearchParams(location.search).get("k")||"";
+const m=document.getElementById("m");
+if(/^[A-Za-z0-9]{16,40}$/.test(k)){const u="https://zvrzpfyxtqygzsihjccu.supabase.co/storage/v1/object/public/factures/"+k+".pdf";
+  m.innerHTML='Si le téléchargement ne démarre pas, <a href="'+u+'">ouvrez votre facture ici</a>.';location.replace(u);}
+else m.textContent="Ce lien de facture n'est pas valide. Contactez-nous : 05 58 45 33 07 · contact@armagnac-ravignan.com";
+</script></body></html>

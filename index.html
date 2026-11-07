@@ -406,6 +406,8 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .p1 .pod-marche{height:92px;background:var(--accent);color:#fff;border-color:var(--accent)}
 .p2 .pod-marche{height:68px}.p3 .pod-marche{height:50px}
 .p1 .pod-nom{font-size:15px;color:var(--accent-ink)}
+.check-papier{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px;cursor:pointer}
+.check-papier input{width:18px;height:18px;accent-color:var(--accent)}
 .envoi-etat{font-size:12.5px;margin-top:6px}.envoi-etat.ok{color:var(--muted)}.envoi-etat.ko{color:var(--bad);font-weight:600}
 .envoi-alerte{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border-radius:10px;border:1px solid var(--bad);color:var(--bad);font-weight:700;font-size:14px}
 .merci-etat{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0;font-size:13.5px;color:var(--muted)}
@@ -534,7 +536,10 @@ let db=null, downloads=null, canWrite=true;
 let ventes=[], txs=[], loaded={ventes:false,txs:false}, dbError=null;
 let page="home", venteId=null, tab="tx", confirmClose=false, busy=false;
 const blankNv=()=>({nom:"",lieu:"",dateDebut:today(),dateFin:today(),vendeur:store.get(VENDEUR_KEY),refs:[],extras:[]});
-const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:"",cp:""},lignes:[],pmt:"CB",famille:false,vendeur:store.get(VENDEUR_KEY)});
+// portable français (06/07) ou numéro international : ce qui peut recevoir un SMS
+const estPortable=t=>{const d=String(t||"").replace(/[\s.\-()]/g,"");return /^(?:\+33|0033|0)[67]\d{8}$/.test(d)||(/^(?:\+|00)\d{8,15}$/.test(d)&&!/^(?:\+|00)33/.test(d));};
+const emailOk=e=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||"").trim());
+const blankSv=()=>({client:{nom:"",prenom:"",tel:"",email:"",cp:"",papier:false},lignes:[],pmt:"CB",famille:false,vendeur:store.get(VENDEUR_KEY)});
 const REMISE_FAMILLE=10; // en %
 const prixFamille=px=>Math.round(px*(100-REMISE_FAMILLE))/100;
 // produits exclus de la remise famille : les framboises à l'armagnac (catalogue ou hors catalogue)
@@ -1065,8 +1070,8 @@ function renderTxList(m,t){
       const env=x.facture_envois||[],der=env[env.length-1];
       const rl=el("button","link",env.length?"🔁 Relancer":"📧 Envoyer");rl.title=env.length?"Renvoyer la "+doc.toLowerCase()+" par email":"Envoyer la "+doc.toLowerCase()+" par email";
       rl.onclick=()=>relancerFacture(x,rl);act.appendChild(rl);
-      c.appendChild(txt("p","envoi-etat "+(env.length?"ok":"ko"),env.length
-        ?`📧 ${doc} envoyé${x.type==="avoir"?"":"e"} le ${new Date(der.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${der.a?" à "+der.a:""}${env.length>1?` (${env.length} envois)`:""}`
+      c.appendChild(txt("p","envoi-etat "+(env.length||x.facturePapier?"ok":"ko"),x.facturePapier&&!env.length?"📄 Facture papier à remettre au client":env.length
+        ?`${der.canal==="sms"?"💬":"📧"} ${doc} envoyé${x.type==="avoir"?"":"e"} le ${new Date(der.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${der.a?" à "+der.a:""}${env.length>1?` (${env.length} envois)`:""}`
         :`⚠️ ${doc} pas encore envoyé${x.type==="avoir"?"":"e"}${echecsEnvoi.has(x.id)?" : "+echecsEnvoi.get(x.id):""}`));}
     if(isAdmin()&&x.type!=="avoir"&&!x.annuleePar&&!enAttente(x)){const an=el("button","link",x.avoirs&&x.avoirs.length?"↩️ Annuler d'autres bouteilles":"↩️ Annuler (avoir)");an.style.color="var(--bad)";an.onclick=()=>confirmerAnnulation(x);act.appendChild(an);}
     if(act.children.length)c.appendChild(act);
@@ -1238,11 +1243,17 @@ function dessinerClientCaisse(cc){
   if(c.existant){
     const r=el("div","client-choisi");const t=el("div");t.appendChild(txt("b","",[c.prenom,c.nom].filter(Boolean).join(" ")));
     t.appendChild(txt("p","muted",[c.email,c.tel].filter(Boolean).join(" · ")||"Pas de coordonnées"));r.appendChild(t);
-    const ch=el("button","link","Changer");ch.onclick=()=>{sv.client={nom:"",prenom:"",tel:"",email:"",cp:""};dessinerClientCaisse(cc);};r.appendChild(ch);
+    const ch=el("button","link","Changer");ch.onclick=()=>{sv.client={nom:"",prenom:"",tel:"",email:"",cp:"",papier:false};dessinerClientCaisse(cc);};r.appendChild(ch);
     cc.appendChild(r);
+    // client connu sans email ni portable : on peut les compléter ici
+    if(c.sansCoord===undefined)c.sansCoord=!emailOk(c.email)&&!estPortable(c.tel);
+    if(c.sansCoord){const g=el("div","grid2",`<div class="field"><label for="cl-email">Email</label><input id="cl-email" type="email" autocomplete="off" placeholder="pour envoyer la facture"></div>
+      <div class="field"><label for="cl-tel">Portable</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="ou facture par SMS"></div>`);
+      [["cl-email","email"],["cl-tel","tel"]].forEach(([id,k])=>{const i=g.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
+      cc.appendChild(g);}
     const fc=el("div","field",`<label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190">`);
     const ic=fc.querySelector("input");ic.value=c.cp||"";ic.oninput=e=>{c.cp=e.target.value;e.target.classList.remove("invalide");};
-    cc.appendChild(fc);return;
+    cc.appendChild(fc);cc.appendChild(casePapier(c));return;
   }
   const modes=el("div","tabs");
   const bR=el("button",!c.nouveau?"active":"","Client existant"),bN=el("button",c.nouveau?"active":"","Nouveau client");
@@ -1259,17 +1270,23 @@ function dessinerClientCaisse(cc){
       if(!liste.length){res.appendChild(txt("p","muted","Aucun client trouvé."));const n=el("button","link","Créer ce client");n.onclick=()=>{c.nouveau=true;const [p,...rest]=q.value.trim().split(" ");c.prenom=p||"";c.nom=rest.join(" ");dessinerClientCaisse(cc);};res.appendChild(n);return;}
       liste.forEach(x=>{const b=el("button","client-res");const t2=el("span");t2.appendChild(txt("b","",[x.prenom,x.nom].filter(Boolean).join(" ")||x.email));
         t2.appendChild(txt("span","muted",[x.email,x.ville,x.nbAchats?x.nbAchats+" achat"+(x.nbAchats>1?"s":""):""].filter(Boolean).join(" · ")));b.appendChild(t2);b.appendChild(badgesOrigine(x));
-        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
+        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",papier:false,existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
     q.oninput=chercher;setTimeout(()=>q.focus(),50);return;
   }
   const f=el("div","stack",`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
     <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>
-    <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
-    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>
+    <div class="grid2"><div class="field"><label for="cl-email">Email</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
+    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="06…"></div></div>
+    <p class="muted" style="font-size:12.5px">Email ou portable obligatoire : la facture part par email, sinon par SMS. Ou cochez « Facture papier ».</p>
     <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div></div>`);
   cc.appendChild(f);
   const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-cp":"cp"};
   Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
+  cc.appendChild(casePapier(c));
+}
+function casePapier(c){
+  const l=el("label","check-papier",`<input type="checkbox" id="cl-papier"> <span>📄 Facture papier <small class="muted">(remise en main propre, rien n'est envoyé)</small></span>`);
+  const i=l.querySelector("input");i.checked=!!c.papier;i.onchange=e=>{c.papier=e.target.checked;};return l;
 }
 function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
   if(!ref.stock)return Infinity;
@@ -1428,7 +1445,10 @@ const AVIS_GOOGLE="https://maps.google.com/?cid=9627672053882881379"; // fiche G
 const INVITE_AVIS="Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup ! ⭐ "+AVIS_GOOGLE;
 // échecs d'envoi par email, pour les afficher sur la transaction (ex. « Pas d'email pour ce client »)
 const echecsEnvoi=new Map();
-const facturable=x=>!estGratuit(x.paiement)&&!enAttente(x);
+const facturable=x=>!estGratuit(x.paiement)&&!enAttente(x)&&!x.facturePapier;
+// message du SMS envoyé depuis le téléphone quand l'envoi automatique n'est pas possible
+const smsFacture=(x,lien)=>`Chateau de Ravignan : votre ${x.type==="avoir"?"avoir":"facture"} ${x.facture||""} (${fmt(x.total).replace(/\u202f|\u00a0/g," ")}) : ${lien} - Merci ! Un avis Google nous ferait plaisir : ${location.origin}/avis/`;
+const lienSms=(tel,texte)=>`sms:${String(tel||"").replace(/[^\d+]/g,"")}${/iPhone|iPad/i.test(navigator.userAgent)?"&":"?"}body=${encodeURIComponent(texte)}`;
 // numéro + PDF d'une transaction
 async function pdfFacture(x){
   const v=ventes.find(w=>w.id===x.venteId);
@@ -1442,16 +1462,19 @@ async function envoyerFactureEmail(x,blob){
   const b64=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(String(f.result).split(",")[1]);f.readAsDataURL(blob);});
   const {data,error}=await sb.functions.invoke("envoyer-facture",{body:{tx:x.id,pdf:b64}});
   let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
-  if(error||!data||!data.ok){const m=msg||"L'envoi a échoué.";echecsEnvoi.set(x.id,m);throw new Error(m);}
+  if(data&&data.lien)x.facture_lien=data.lien;
+  if(error||!data||!data.ok){const m=msg||"L'envoi a échoué.";echecsEnvoi.set(x.id,m);const er=new Error(m);if(data&&data.lien){er.lien=data.lien;er.tel=data.tel;}throw er;}
   echecsEnvoi.delete(x.id);
-  x.facture_envois=[...(x.facture_envois||[]),{date:new Date().toISOString(),a:data.a}];
+  x.facture_envois=[...(x.facture_envois||[]),{date:new Date().toISOString(),a:data.a,canal:data.canal||"email"}];
   return data.a;
 }
 // bouton « Relancer » d'une transaction : renvoie la facture sans ouvrir la fenêtre
 async function relancerFacture(x,btn){
   if(btn){btn.disabled=true;btn.textContent="Envoi…";}
   try{const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);flash((x.type==="avoir"?"Avoir":"Facture")+" envoyé"+(x.type==="avoir"?"":"e")+" à "+a+".","ok");}
-  catch(e){console.error(e);flash("Pas envoyée : "+(e.message||"l'envoi a échoué."));}
+  catch(e){console.error(e);
+    if(e.lien&&e.tel){location.href=lienSms(e.tel,smsFacture(x,e.lien));flash("SMS prêt dans Messages : appuyez sur Envoyer.","ok");}
+    else flash("Pas envoyée : "+(e.message||"l'envoi a échoué."));}
   render();
 }
 // toutes les factures pas encore envoyées d'une vente, l'une après l'autre
@@ -1559,14 +1582,18 @@ async function ouvrirFacture(id,auto){
     {
       const quand=e=>"le "+new Date(e.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" à "+e.a;
       const envois=()=>x.facture_envois||[];
-      const be=el("button","btn primary full"),ie=txt("p","muted");
-      const maj=()=>{const e=envois();be.disabled=false;be.textContent=e.length?"📧 Renvoyer par email depuis contact@":"📧 Envoyer par email depuis contact@";
-        ie.textContent=e.length?"✅ Envoyée "+e.map(quand).join(", ")+".":"Le client reçoit la "+docMin+" en pièce jointe, envoyée par la boîte du domaine.";};
-      be.onclick=async()=>{be.disabled=true;be.textContent="Envoi par email…";
+      const be=el("button","btn primary full"),ie=txt("p","muted"),bs=el("a","btn go full");bs.hidden=true;bs.style.cssText="text-align:center;text-decoration:none";
+      const maj=()=>{const e=envois();be.disabled=false;be.textContent=e.length?"📧 Renvoyer la "+docMin:"📧 Envoyer la "+docMin+" (email ou SMS)";
+        ie.textContent=x.facturePapier&&!e.length?"📄 Facture papier : à imprimer et remettre au client.":e.length?"✅ Envoyée "+e.map(quand).join(", ")+".":"Par email depuis contact@ si le client en a un, sinon par SMS avec un lien de téléchargement.";};
+      be.onclick=async()=>{be.disabled=true;be.textContent="Envoi…";
         try{const a=await envoyerFactureEmail(x,blob);maj();flash(doc+" envoyé"+(x.type==="avoir"?"":"e")+" à "+a+".","ok");render();}
-        catch(e){be.disabled=false;be.textContent="📧 Réessayer l'envoi par email";ie.textContent="⚠️ Pas envoyée : "+(e.message||"l'envoi a échoué.");render();}};
-      maj();sh.appendChild(be);sh.appendChild(ie);
-      if(auto&&!envois().length)be.onclick();
+        catch(e){be.disabled=false;be.textContent="📧 Réessayer l'envoi";
+          if(e.lien&&e.tel){bs.hidden=false;bs.href=lienSms(e.tel,smsFacture(x,e.lien));bs.textContent="💬 Envoyer le SMS avec le lien (depuis ce téléphone)";
+            ie.textContent="Le SMS automatique n'est pas disponible ("+e.message+"). Appuyez sur le bouton vert : le message est prêt, avec le lien de la "+docMin+".";}
+          else ie.textContent="⚠️ Pas envoyée : "+(e.message||"l'envoi a échoué.");render();}};
+      bs.onclick=()=>{flash("Appuyez sur Envoyer dans Messages.","ok");};
+      maj();sh.appendChild(be);sh.appendChild(bs);sh.appendChild(ie);
+      if(auto&&!envois().length&&!x.facturePapier)be.onclick();
     }
     const g=el("div","grid2");
     if(cl.email){const a=el("a","btn ghost","✉️ Email");a.href=`mailto:${encodeURIComponent(cl.email)}?subject=${encodeURIComponent(objet)}&body=${encodeURIComponent(message+"\n\n(Facture en pièce jointe.)")}`;a.style.cssText="text-align:center;text-decoration:none";
@@ -1587,7 +1614,10 @@ async function submitTx(){
   if(!sv.vendeur.trim())return flash("Indiquez votre prénom de vendeur.");
   const gratuit=estGratuit(sv.pmt);
   if(!gratuit&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
-  if(!gratuit&&sv.client.nouveau&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sv.client.email.trim()))return flash("Indiquez l'email du nouveau client.");
+  if(!gratuit&&sv.client.email.trim()&&!emailOk(sv.client.email)){qs("#cl-email")?.classList.add("invalide");return flash("L'email du client n'est pas valide.");}
+  if(!gratuit&&!sv.client.papier&&!emailOk(sv.client.email)&&!estPortable(sv.client.tel)){
+    (qs("#cl-email")||qs("#cl-papier"))?.classList.add("invalide");qs("#cl-email")?.focus();
+    return flash(sv.client.tel.trim()?"Ce numéro ne reçoit pas de SMS : indiquez un email ou un portable, ou cochez « Facture papier ».":"Indiquez l'email ou le portable du client, ou cochez « Facture papier ».");}
   if(!gratuit&&!/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(String(sv.client.cp||"").trim())){qs("#cl-cp")?.classList.add("invalide");qs("#cl-cp")?.focus();return flash("Indiquez le code postal du client.");}
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   const id="t"+uid();
@@ -1599,7 +1629,7 @@ async function submitTx(){
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
   const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
-    ...(sv.pmt==="CB"?{statut:"attente"}:{}),...(famille?{remise:{type:"Famille",taux:REMISE_FAMILLE}}:{})};
+    ...(sv.pmt==="CB"?{statut:"attente"}:{}),...(sv.client.papier&&!gratuit?{facturePapier:true}:{}),...(famille?{remise:{type:"Famille",taux:REMISE_FAMILLE}}:{})};
   busy=true;updateTotal();
   try{
     await db.collection("transactions").doc(id).set(tx);

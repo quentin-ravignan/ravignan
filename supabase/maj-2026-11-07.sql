@@ -28,3 +28,10 @@ select cron.schedule('remerciements-ventes', '0 8 * * *', $cron$
       'Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2cnpwZnl4dHF5Z3pzaWhqY2N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjYwNzMsImV4cCI6MjEwODM0MjA3M30.XImY1lOpd-CIZ4ZTx_7ADpUlrwqE1xYH8-23NPkDZXo'),
     body := '{}'::jsonb)
 $cron$);
+
+-- 4. Factures envoyées par SMS : PDF rangés dans le bucket « factures » sous un nom aléatoire de 22 caractères,
+--    lien court app.armagnac-ravignan.com/f/?k=…  Écriture par la fonction envoyer-facture seulement (service_role) ;
+--    aucune règle de lecture de storage.objects : impossible de lister les fichiers, seul qui a le lien l'ouvre.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('factures', 'factures', true, 3000000, array['application/pdf'])
+on conflict (id) do nothing;

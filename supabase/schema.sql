@@ -194,3 +194,8 @@ exception when duplicate_object then null; end $$;
 -- Premier administrateur
 insert into public.membres (email, role) values ('ADRESSE_ADMIN@exemple.fr', 'admin')
 on conflict (email) do update set role = 'admin';
+
+-- Factures envoyées par SMS (voir maj-2026-11-07.sql) : bucket public, noms aléatoires, écriture par la fonction seulement
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('factures', 'factures', true, 3000000, array['application/pdf'])
+on conflict (id) do nothing;
