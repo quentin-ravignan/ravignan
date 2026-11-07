@@ -4,7 +4,7 @@
 //   Le PDF est rangé dans le bucket « factures » sous un nom aléatoire impossible à deviner.
 //   Si OVH n'est pas configuré, la fonction renvoie le lien : l'app ouvre alors Messages sur le téléphone du vendeur.
 // Secrets (Edge Functions → Secrets) : GMAIL_USER, GMAIL_APP_PASSWORD ;
-//   pour le SMS : OVH_APP_KEY, OVH_APP_SECRET, OVH_CONSUMER_KEY, OVH_SMS_SERVICE (ex. sms-ab12345-1), OVH_SMS_SENDER (facultatif).
+//   pour le SMS : OVH_APP_KEY, OVH_APP_SECRET, OVH_CONSUMER_KEY ; OVH_SMS_SERVICE (sinon le 1er service du compte) et OVH_SMS_SENDER facultatifs.
 // L'adresse et le numéro sont relus dans la base (collection « clients ») : l'appelant ne peut pas les choisir.
 // Réservé aux membres connectés.
 import nodemailer from "npm:nodemailer@6.9.14";
@@ -54,21 +54,31 @@ const sha1 = async (t: string) =>
   Array.from(new Uint8Array(await crypto.subtle.digest("SHA-1", new TextEncoder().encode(t))), (b) => b.toString(16).padStart(2, "0")).join("");
 
 // SMS par l'API OVH (requête signée)
+async function appelOvh(methode: string, url: string, corps = "") {
+  const ak = Deno.env.get("OVH_APP_KEY")!, as = Deno.env.get("OVH_APP_SECRET")!, ck = Deno.env.get("OVH_CONSUMER_KEY")!;
+  const ts = String(await fetch("https://eu.api.ovh.com/1.0/auth/time").then((r) => r.text()).then((s) => parseInt(s)).catch(() => Math.round(Date.now() / 1000)));
+  const sig = "$1$" + await sha1([as, ck, methode, url, corps, ts].join("+"));
+  return fetch(url, {
+    method: methode, ...(corps ? { body: corps } : {}),
+    headers: { "Content-Type": "application/json", "X-Ovh-Application": ak, "X-Ovh-Consumer": ck, "X-Ovh-Timestamp": ts, "X-Ovh-Signature": sig },
+  });
+}
 async function smsOvh(numero: string, message: string) {
-  const ak = Deno.env.get("OVH_APP_KEY"), as = Deno.env.get("OVH_APP_SECRET"), ck = Deno.env.get("OVH_CONSUMER_KEY"), service = Deno.env.get("OVH_SMS_SERVICE");
-  if (!ak || !as || !ck || !service) throw new Error("SMS OVH pas encore configuré");
+  if (!Deno.env.get("OVH_APP_KEY") || !Deno.env.get("OVH_APP_SECRET") || !Deno.env.get("OVH_CONSUMER_KEY")) throw new Error("SMS OVH pas encore configuré");
+  // service SMS : secret OVH_SMS_SERVICE, sinon le premier service du compte
+  let service = Deno.env.get("OVH_SMS_SERVICE");
+  if (!service) {
+    const l = await appelOvh("GET", "https://eu.api.ovh.com/1.0/sms").then((r) => r.json()).catch(() => []);
+    service = Array.isArray(l) ? l[0] : undefined;
+    if (!service) throw new Error("Aucun service SMS sur le compte OVH");
+  }
   const sender = Deno.env.get("OVH_SMS_SENDER");
   const url = `https://eu.api.ovh.com/1.0/sms/${service}/jobs`;
   const corps = JSON.stringify({
     message, receivers: [numero], charset: "UTF-8", coding: "7bit", priority: "high", noStopClause: true,
     ...(sender ? { sender, senderForResponse: false } : { senderForResponse: true }),
   });
-  const ts = String(await fetch("https://eu.api.ovh.com/1.0/auth/time").then((r) => r.text()).then((s) => parseInt(s)).catch(() => Math.round(Date.now() / 1000)));
-  const sig = "$1$" + await sha1([as, ck, "POST", url, corps, ts].join("+"));
-  const r = await fetch(url, {
-    method: "POST", body: corps,
-    headers: { "Content-Type": "application/json", "X-Ovh-Application": ak, "X-Ovh-Consumer": ck, "X-Ovh-Timestamp": ts, "X-Ovh-Signature": sig },
-  });
+  const r = await appelOvh("POST", url, corps);
   const res = await r.json().catch(() => ({}));
   if (!r.ok || (Array.isArray(res.invalidReceivers) && res.invalidReceivers.length)) {
     console.error("OVH", r.status, res);
