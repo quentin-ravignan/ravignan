@@ -18,35 +18,40 @@ const CORS = {
 const MAX_ENVOIS = 5;
 const SITE = "https://app.armagnac-ravignan.com";
 const AVIS = "https://maps.google.com/?cid=9627672053882881379"; // fiche Google Maps du Château de Ravignan
-const AVIS_TXT = "Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup !";
 const LOGO = "https://app.armagnac-ravignan.com/images/blason.jpg";
 // signature : prénom du vendeur, puis le domaine et ses coordonnées
 const signature = (vendeur: string) =>
   [String(vendeur || "").trim().split(/\s+/)[0], "Domaine de Ravignan", "40190 Perquie · 05 58 45 33 07", "contact@armagnac-ravignan.com"]
     .filter(Boolean).join("\n");
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
-// mentions de bas d'email : données utilisées en interne (RGPD), désabonnement, modération (loi Évin)
-const MENTION_DONNEES = "Vos coordonnées sont utilisées uniquement en interne par le Domaine de Ravignan (vos achats, vos factures et nos nouvelles). Elles ne sont jamais vendues ni transmises à des tiers. Vous pouvez y accéder, les corriger ou les faire supprimer en écrivant à contact@armagnac-ravignan.com.";
+// pied de mail commun (textes validés par Benoît) : modération (loi Évin), identité de la SCEA, information RGPD, désinscription
 const MODERATION = "L'abus d'alcool est dangereux pour la santé, à consommer avec modération.";
+const IDENTITE = "SCEA du Domaine de Ravignan, société civile d'exploitation agricole au capital de 451 680 €, Château de Ravignan, 40190 Perquie. SIREN 478 355 779 RCS Mont-de-Marsan.";
+const MENTION_DONNEES = "Vos coordonnées, recueillies lors de votre achat, sont utilisées par la SCEA du Domaine de Ravignan pour établir votre facture et, sauf opposition de votre part, pour vous informer de nos ventes et nouveautés. Elles ne sont jamais cédées et sont conservées 3 ans après notre dernier échange (10 ans pour les factures). Vous pouvez y accéder, les rectifier, les supprimer ou vous opposer à leur utilisation en écrivant à contact@armagnac-ravignan.com, et saisir la CNIL (cnil.fr).";
+const BOUTIQUE = "https://www.armagnac-ravignan.com";
 const piedTexte = (desabo: string) =>
-  `${MENTION_DONNEES}\n${desabo ? `Ne plus recevoir nos emails d'information : ${desabo}\n` : ""}${MODERATION}`;
+  `${MODERATION}\n\n${IDENTITE}\n\n${MENTION_DONNEES}${desabo ? ` Ne plus recevoir nos emails : ${desabo}` : ""}`;
 // lien de désabonnement personnel (jeton aléatoire, sans l'adresse dans le lien)
 async function lienDesabo(db: any, email: string) {
   const { data } = await db.rpc("jeton_desabonnement", { adresse: email });
   return data ? `https://app.armagnac-ravignan.com/desabonnement/?j=${data}` : "";
 }
+// paragraphes : texte simple ; les adresses web deviennent des liens
+const lier = (t: string) => esc(t).replace(/(https?:\/\/[^\s<]+|armagnac-ravignan\.com)(?![^<]*>)/g, (u) =>
+  `<a href="${u.startsWith("http") ? u : "https://www." + u}" style="color:#5a2f28">${u.replace(/^https:\/\/(www\.)?/, "").replace(/\/$/, "")}</a>`);
 const html = (paragraphes: string[], vendeur: string, desabo = "") =>
   `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.55;color:#2b1a17;max-width:560px">`
-  + paragraphes.map((p) => `<p>${esc(p)}</p>`).join("")
-  + `<p><a href="${AVIS}" style="display:inline-block;background:#5a2f28;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-family:Arial,sans-serif;font-weight:bold">⭐ Laisser un avis sur Google</a></p>`
+  + paragraphes.map((p) => `<p>${lier(p)}</p>`).join("")
+  + `<p><a href="${AVIS}" style="display:inline-block;background:#5a2f28;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-family:Arial,sans-serif;font-weight:bold">⭐ Donner mon avis sur Google</a></p>`
   + `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:22px;border-top:1px solid #e8dcd6"><tr>`
   + `<td style="padding:14px 14px 0 0;vertical-align:top"><img src="${LOGO}" alt="Domaine de Ravignan" width="64" height="64" style="display:block;border:0"></td>`
   + `<td style="padding-top:14px;vertical-align:top;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;color:#7a625d">`
   + signature(vendeur).split("\n").map((l, i) => i === 0 && vendeur.trim() ? `<b style="color:#5a2f28;font-size:14px">${esc(l)}</b>` : esc(l)).join("<br>")
   + `</td></tr></table>`
-  + `<p style="margin-top:18px;font-family:Arial,sans-serif;font-size:11px;line-height:1.5;color:#9b8580">${esc(MENTION_DONNEES)}`
-  + (desabo ? `<br><a href="${desabo}" style="color:#9b8580">Se désabonner de nos emails d'information</a>` : "")
-  + `<br>${esc(MODERATION)}</p></div>`;
+  + `<p style="margin-top:18px;font-family:Arial,sans-serif;font-size:12px;font-weight:bold;color:#7a625d">${esc(MODERATION)}</p>`
+  + `<p style="font-family:Arial,sans-serif;font-size:11px;line-height:1.5;color:#9b8580">${esc(IDENTITE)}<br><br>${esc(MENTION_DONNEES)}`
+  + (desabo ? ` <a href="${desabo}" style="color:#9b8580">Ne plus recevoir nos emails</a>` : "")
+  + `</p></div>`;
 const reponse = (corps: unknown, status = 200) =>
   new Response(JSON.stringify(corps), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
@@ -141,15 +146,24 @@ Deno.serve(async (req) => {
         host: "smtp.gmail.com", port: 465, secure: true,
         auth: { user, pass: Deno.env.get("GMAIL_APP_PASSWORD")! },
       });
-      const intro = avoir
-        ? `Vous trouverez ci-joint l'avoir ${num} (${total}), qui annule ${t.data.partiel ? "en partie " : ""}la facture ${t.data.factureOrigine || ""}.`
-        : `Vous trouverez ci-joint votre facture ${num} (${total}) pour vos achats au Château de Ravignan.\n\nMerci et à bientôt !`;
+      // mail 1 (texte validé par Benoît) : la vente (événement) et sa date
+      const { data: ve } = await db.from("docs").select("data").eq("collection", "ventes").eq("id", String(t.data.venteId || "")).maybeSingle();
+      const evenement = String(ve?.data?.nom || "notre vente");
+      const jour = new Date(t.data.date || Date.now()).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+      const paragraphes = avoir
+        ? [`Bonjour ${prenom},`,
+          `Vous trouverez ci-joint l'avoir n° ${num} (${total}), qui annule ${t.data.partiel ? "en partie " : ""}la facture ${t.data.factureOrigine || ""} de votre achat lors de ${evenement}.`,
+          `Pour retrouver toutes nos cuvées : armagnac-ravignan.com`]
+        : [`Bonjour ${prenom},`,
+          `Merci pour votre achat lors de ${evenement}, le ${jour}. Vous trouverez ci-joint votre facture n° ${num}.`,
+          `Si notre armagnac vous a plu, votre avis compte beaucoup pour un domaine familial comme le nôtre. Une minute suffit pour le partager sur Google : ${AVIS}`,
+          `Pour retrouver toutes nos cuvées : armagnac-ravignan.com`];
       await transport.sendMail({
-        from: `"Château de Ravignan" <${user}>`,
+        from: `"Domaine de Ravignan" <${user}>`,
         to: email,
-        subject: `Votre ${avoir ? "avoir" : "facture"} ${num} – Château de Ravignan`,
-        text: `Bonjour ${prenom},\n\n${intro}\n\n${AVIS_TXT}\n⭐ ${AVIS}\n\n${signature(vendeur)}\n\n${piedTexte(desabo)}`,
-        html: html([`Bonjour ${prenom},`, ...intro.split("\n\n"), AVIS_TXT], vendeur, desabo),
+        subject: avoir ? `Votre avoir Domaine de Ravignan` : `Votre facture Domaine de Ravignan`,
+        text: `${paragraphes.join("\n\n")}\n\n${signature(vendeur)}\n\n${piedTexte(desabo)}`,
+        html: html(paragraphes, vendeur, desabo),
         ...(desabo ? { list: { unsubscribe: desabo } } : {}),
         attachments: [{ filename: `${avoir ? "Avoir" : "Facture"} ${num} - Château de Ravignan.pdf`, content: contenu, contentType: "application/pdf" }],
       });

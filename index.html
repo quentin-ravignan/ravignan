@@ -873,8 +873,10 @@ function renderNewVente(m){
       <div class="field"><label for="nv-deb">Date début</label><input id="nv-deb" type="date" value="${esc(nv.dateDebut)}"></div>
       <div class="field"><label for="nv-fin">Date fin</label><input id="nv-fin" type="date" value="${esc(nv.dateFin)}"></div>
     </div>
+    <label class="check-papier"><input type="checkbox" id="nv-asso"${nv.association?" checked":""}> <span>Vente encaissée par une association <small class="muted">(les clients cochent alors leur accord pour recevoir nos informations)</small></span></label>
   `);
   m.appendChild(c);
+  {const a=c.querySelector("#nv-asso");if(a)a.onchange=e=>{nv.association=e.target.checked;};}
   const map={"nv-nom":"nom","nv-lieu":"lieu","nv-deb":"dateDebut","nv-fin":"dateFin"};
   Object.keys(map).forEach(id=>{qs("#"+id).oninput=e=>{nv[map[id]]=e.target.value;};});
   // vendeurs de la vente : choisis dans la liste (Administration), ou soi-même quand on est connecté
@@ -1044,7 +1046,7 @@ async function createVente(){
   const refs=[...nv.refs.map(r=>({id:r.id,nom:r.nom,format:r.format,stock:Math.max(0,parseInt(r.stock)||0),prix:parseFloat(r.prix)||0})),
               ...nv.extras.map(x=>({id:x.id,nom:x.nom,format:x.format,stock:Math.max(0,x.stock||0),prix:x.prix}))];
   const id="v"+uid();
-  const v={nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:new Date().toISOString()};
+  const v={nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:new Date().toISOString()};
   busy=true;qs("#btn-create").disabled=true;
   try{
     await db.collection("ventes").doc(id).set(v);
@@ -1087,6 +1089,9 @@ function renderVente(m){
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
   if(!v.cloturee&&canWrite){
+    const as=el("label","check-papier",`<input type="checkbox"${v.association?" checked":""}> <span>Vente encaissée par une association</span>`);
+    as.querySelector("input").onchange=async e=>{const val=e.target.checked;try{await db.collection("ventes").doc(v.id).update({association:val});v.association=val;flash(val?"Vente notée comme encaissée par une association : le client coche son accord à la caisse.":"Vente directe du domaine.","ok");}catch(err){e.target.checked=!val;flash(dbMessage(err));}};
+    m.appendChild(as);
     const l=el("button","link","Clôturer la vente");l.onclick=()=>demanderCloture(v);m.appendChild(l);
   }
   const tabs=el("div","tabs");
@@ -1479,11 +1484,17 @@ function dessinerClientCaisse(cc){
 }
 function casePapier(c){
   // information du client (RGPD), affichée au vendeur pour qu'il la donne
-  const info=txt("p","muted info-rgpd","À dire au client : ses coordonnées servent uniquement au domaine (facture, suivi) et ne sont jamais transmises ; il peut s'y opposer ou les faire supprimer à tout moment.");
+  const vte=getVente(),asso=!!(vte&&vte.association);
+  const info=el("p","muted info-rgpd",`À dire au client : ses coordonnées sont utilisées par la SCEA du Domaine de Ravignan pour sa facture${asso?" et, s'il l'accepte,":" et, sauf opposition,"} pour l'informer de nos ventes et nouveautés. Jamais cédées, gardées 3 ans (10 ans pour les factures). <a href="confidentialite.html" target="_blank" rel="noopener">Politique de confidentialité</a>`);
+  // opposition (vente directe) ou consentement à cocher (vente encaissée par une association)
+  const op=el("label","check-papier",asso
+    ?`<input type="checkbox" id="cl-optin"> <span>Le client accepte de recevoir des informations du Domaine de Ravignan</span>`
+    :`<input type="checkbox" id="cl-opposition"> <span>Le client ne souhaite pas recevoir d'informations du domaine</span>`);
+  const oi=op.querySelector("input");oi.checked=asso?!!c.optin:!!c.opposition;oi.onchange=e=>{if(asso)c.optin=e.target.checked;else c.opposition=e.target.checked;};
 
   const l=el("label","check-papier",`<input type="checkbox" id="cl-papier"> <span>🚫 Pas d'email <small class="muted">(facture par SMS si un portable est indiqué, sinon facture papier)</small></span>`);
   const i=l.querySelector("input");i.checked=!!c.papier;i.onchange=e=>{c.papier=e.target.checked;};
-  const w=el("div");w.appendChild(l);w.appendChild(info);return w;
+  const w=el("div");w.appendChild(l);w.appendChild(op);w.appendChild(info);return w;
 }
 function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
   if(!ref.stock)return Infinity;
@@ -1639,9 +1650,10 @@ function paiementNonAbouti(x,msg){
    donné par la base. Envoi par le partage du téléphone (Mail, Messages, WhatsApp…), le PDF joint. */
 const FACTURE_KEY="ravignan.facture";
 const factureEnAttente=new Map(); // coordonnées complètes saisies à la caisse, que le public ne peut pas relire
-const SOCIETE=["SCEA du DOMAINE de RAVIGNAN","Château de Ravignan  -  40 190  -  PERQUIE France",
+const SOCIETE=["SCEA du DOMAINE de RAVIGNAN",
+  "Société civile d'exploitation agricole au capital de 451 680 €  -  Siège : Château de Ravignan, 40190 PERQUIE France",
   "Tél : 05 58 45 33 07  -  Fax : 05 58 45 80 85  -  e-mail : contact@armagnac-ravignan.com",
-  "SIRET 47 83 55 779 000 24  -  Code APE 0121Z  -  N° TVA Intracommunautaire : FR 80782106108",
+  "SIREN 478 355 779 RCS Mont-de-Marsan  -  SIRET 478 355 779 000 24  -  Code APE 0121Z  -  N° TVA Intracommunautaire : FR 80782106108",
   "N° Accise : FR 009585E0462  -  N° BNIA : 540 221 0077"];
 const IBAN="IBAN : FR76 1330 6009 1066 0113 9756 914 - BIC : AGRIFRPP833";
 const TVA=0.2;
@@ -1760,10 +1772,10 @@ async function facturePdf(x,v,cl,num){
   else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+5,{align:"center"});}
   // mentions légales (article 242 nonies A de l'annexe II du CGI, article L441-9 du code de commerce, RGPD, loi Évin)
   {let ym=Math.max(y+14,214);d.setFont("helvetica","normal");d.setFontSize(7.5);d.setTextColor(110);
-    MENTIONS_FACTURE.forEach(t=>{const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<258){d.text(l,G,ym);ym+=l.length*3.4+0.8;}});d.setTextColor(0);}
+    MENTIONS_FACTURE.forEach(t=>{const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<255){d.text(l,G,ym);ym+=l.length*3.4+0.8;}});d.setTextColor(0);}
   // pied de page
-  let yp=268;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
-  SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i<2?11:i===2?9.5:8.5);d.text(t,105,yp,{align:"center"});yp+=i<2?5.5:4.5;});
+  let yp=266;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
+  SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i===0?11:i<3?8.6:8);d.text(net(t),105,yp,{align:"center"});yp+=i===0?5.5:4.3;});
   return d.output("blob");
 }
 async function ouvrirFacture(id,auto){
@@ -1842,7 +1854,8 @@ async function submitTx(){
     ...(gratuit?{valeur:l.prix}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
   const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim(),cp:String(sv.client.cp||"").trim().toUpperCase(),
-    ...(String(sv.client.adresse||"").trim()?{adresse:String(sv.client.adresse).trim()}:{}),...(String(sv.client.ville||"").trim()?{ville:String(sv.client.ville).trim()}:{})};
+    ...(String(sv.client.adresse||"").trim()?{adresse:String(sv.client.adresse).trim()}:{}),
+    ...(v.association?{consentement:!!sv.client.optin}:{opposition:!!sv.client.opposition}),...(String(sv.client.ville||"").trim()?{ville:String(sv.client.ville).trim()}:{})};
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
   const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
