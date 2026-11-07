@@ -396,6 +396,19 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .ia-micro.ecoute{background:var(--bad);animation:ia-pulse 1s ease-in-out infinite}
 @keyframes ia-pulse{50%{transform:scale(1.08)}}
 @media (prefers-reduced-motion:reduce){.ia-micro.ecoute{animation:none}}
+.podium-card h2{margin-bottom:6px}
+.podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
+.pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+.pod-nom{font-weight:800;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pod-ca{font-size:12px;color:var(--muted)}
+.pod-marche{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0;padding-top:6px;border-radius:10px 10px 0 0;background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--line);border-bottom:none}
+.pod-marche span{font-size:24px;line-height:1.1}.pod-marche b{font-size:15px}
+.p1 .pod-marche{height:92px;background:var(--accent);color:#fff;border-color:var(--accent)}
+.p2 .pod-marche{height:68px}.p3 .pod-marche{height:50px}
+.p1 .pod-nom{font-size:15px;color:var(--accent-ink)}
+.envoi-etat{font-size:12.5px;margin-top:6px}.envoi-etat.ok{color:var(--muted)}.envoi-etat.ko{color:var(--bad);font-weight:600}
+.envoi-alerte{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border-radius:10px;border:1px solid var(--bad);color:var(--bad);font-weight:700;font-size:14px}
+.merci-etat{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0;font-size:13.5px;color:var(--muted)}
 .combo{position:relative;margin-top:10px}
 .combo-btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
 .combo-btn[aria-expanded="true"]{border-color:var(--accent)}
@@ -446,7 +459,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
     <button class="nav-item" data-nav="degustation"><span class="nav-ico" aria-hidden="true">🥃</span>Notes de dégustation</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
-    <button class="nav-item" data-nav="genealogie" hidden><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie<span class="nav-cle" title="Réservé à Benoit et Quentin" aria-label="connexion requise">🔑</span></button>
+    <button class="nav-item" data-nav="genealogie"><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie</button>
     <button class="nav-item" data-nav="chambres" hidden><span class="nav-ico" aria-hidden="true">🏰</span>Plan du Château<span class="nav-cle" title="Réservé à Benoit et Quentin" aria-label="connexion requise">🔑</span></button>
     <button class="nav-item" data-nav="admin"><span class="nav-ico" aria-hidden="true">📊</span>Administration<span class="nav-cle" title="Réservé aux administrateurs" aria-label="connexion requise">🔑</span></button>
     <div class="side-foot"><span id="side-user" class="muted"></span><button class="link" id="btn-logout" hidden>Se déconnecter</button></div>
@@ -534,7 +547,7 @@ let userApi=null, isOwner=false, myId=null, adminIds=[], adminYear="all";
 const isAdmin=()=>isOwner;
 const LIVE_PAGES=["home","vente","admin"];
 // Généalogie et Plan du Château : réservés à Benoit et Quentin (fonction acces_prive() de la base)
-const PAGES_PRIVEES=["genealogie","chambres"];
+const PAGES_PRIVEES=["chambres"];
 let accesPrive=false;
 const TOP_PAGES=["home","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"];
 let chambres=[], chFilter="all", chQuery="";
@@ -602,7 +615,7 @@ function render(){
   m.classList.toggle("wide",["chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
-  if(["home","new-vente","vente","saisie"].includes(page)&&!estMembre){renderAuth(m,"membre");return;}
+  if(["home","new-vente","vente","saisie","genealogie"].includes(page)&&!estMembre){renderAuth(m,"membre");return;}
   if(PAGES_PRIVEES.includes(page)&&!accesPrive){
     if(!myEmail||authState==="loading")renderAuth(m,"prive");
     else m.appendChild(el("div","card",`<h2>Page réservée</h2><p class="muted">Cette page n'est ouverte qu'à Benoit et Quentin.</p>`));
@@ -844,6 +857,13 @@ function renderVente(m){
   const k=el("div","grid3");
   [[fmt(ca),"Chiffre d'affaires"],[t.length,"Transactions"],[btl,"Articles"]].forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
   m.appendChild(k);
+  renderPodium(m,t);
+  // factures pas encore envoyées
+  const nonEnv=t.filter(x=>facturable(x)&&!(x.facture_envois||[]).length);
+  if(nonEnv.length&&canWrite){const n=el("div","envoi-alerte");
+    n.appendChild(txt("span","",`⚠️ ${nonEnv.length} facture${nonEnv.length>1?"s":""} pas encore envoyée${nonEnv.length>1?"s":""}`));
+    const b=el("button","btn ghost sm","📧 Tout envoyer");b.onclick=()=>envoyerToutes(nonEnv,b);n.appendChild(b);m.appendChild(n);}
+  if(isAdmin())renderRemerciements(m,v,t);
   // répartition par paiement
   const parP=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+montant(x),0)]).filter(x=>x[1]>0);
   const att=t.filter(enAttente);
@@ -885,6 +905,40 @@ function renderVente(m){
   }else m.appendChild(txt("p","muted","Vente commencée : seul un administrateur peut la supprimer."));
 }
 
+// podium des 3 meilleur·e·s vendeur·se·s de la vente (chiffre d'affaires encaissé)
+function renderPodium(m,t){
+  const par={};t.forEach(x=>{const n=(x.vendeurPrenom||"").trim();if(n)par[n]=(par[n]||0)+montant(x);});
+  const top=Object.entries(par).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if(!top.length)return;
+  const p=el("div","podium");p.setAttribute("role","list");p.setAttribute("aria-label","Podium des vendeurs");
+  [[1,"🥈","p2"],[0,"🥇","p1"],[2,"🥉","p3"]].forEach(([i,med,cl])=>{const e=top[i];const d=el("div","pod "+cl);
+    if(e){d.setAttribute("role","listitem");d.setAttribute("aria-label",`${i+1}${i?"e":"er"} : ${e[0]}, ${fmt(e[1])}`);
+      d.innerHTML=`<span class="pod-nom" title="${esc(e[0])}">${esc(e[0].split(" ")[0])}</span><span class="pod-ca num">${fmt(e[1])}</span><div class="pod-marche"><span>${med}</span><b>${i+1}</b></div>`;}
+    p.appendChild(d);});
+  const c=el("div","card podium-card");c.appendChild(txt("h2","","🏆 Podium des vendeurs"));c.appendChild(p);m.appendChild(c);
+}
+// email de remerciement envoyé à tous les clients 7 jours après la fin de la vente (fonction « remerciements », tous les matins)
+function renderRemerciements(m,v,t){
+  if(!t.some(x=>x.type!=="avoir"&&!estGratuit(x.paiement)))return;
+  const r=v.remerciements,fin=v.dateFin||v.dateDebut;
+  const prevu=fin?new Date(fin+"T12:00:00"):null;if(prevu)prevu.setDate(prevu.getDate()+7);
+  const trop=prevu&&Date.now()-prevu.getTime()>6*864e5;
+  const p=el("div","merci-etat");
+  if(r)p.appendChild(txt("span","",r.etat==="envoi"?"💌 Remerciements en cours d'envoi…":`💌 Remerciements envoyés le ${new Date(r.date).toLocaleDateString("fr-FR")} à ${r.n} client${r.n>1?"s":""}${r.echecs?` (${r.echecs} échec${r.echecs>1?"s":""})`:""}.`));
+  else{
+    p.appendChild(txt("span","",trop?"💌 Remerciements non envoyés (vente terminée depuis plus de deux semaines).":`💌 Email de remerciement automatique le ${prevu?prevu.toLocaleDateString("fr-FR",{day:"numeric",month:"long"}):"?"} à tous les clients, avec l'invitation à laisser un avis Google.`));
+    const b=el("button","link","Envoyer maintenant");
+    b.onclick=async()=>{if(!confirm(`Envoyer maintenant l'email de remerciement à tous les clients de « ${v.nom} » ? Il ne part qu'une fois.`))return;
+      b.disabled=true;b.textContent="Envoi…";
+      const {data,error}=await sb.functions.invoke("remerciements",{body:{vente:v.id}});
+      let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
+      if(error||!data||!data.ok){b.disabled=false;b.textContent="Envoyer maintenant";return flash(msg||"L'envoi a échoué.");}
+      const res=(data.ventes||[])[0]||{n:0};v.remerciements={date:new Date().toISOString(),n:res.n,echecs:res.echecs||0};
+      flash(`Remerciements envoyés à ${res.n} client${res.n>1?"s":""}.`,"ok");render();};
+    p.appendChild(b);
+  }
+  m.appendChild(p);
+}
 let confirmSuppr=null;
 async function supprimerVente(vid){
   if(busy)return;busy=true;
@@ -978,7 +1032,7 @@ async function annulerTransaction(x,rendus){
     const cl=clients.get(x.id);if(cl){try{await db.collection("clients").doc(id).set({...cl,date:av.date});}catch(e){}}
     if(!txs.find(t=>t.id===id))txs.push({id,...av});x.avoirs=avoirs;if(total)x.annuleePar=id;
     busy=false;render();flash((total?"Transaction annulée":"Annulation partielle enregistrée")+(gratuit?".":" : l'avoir est prêt."),"ok");
-    if(!gratuit)ouvrirFacture(id);
+    if(!gratuit)ouvrirFacture(id,true);
   }catch(e){busy=false;console.error(e);flash(dbMessage(e));}
 }
 async function cloturer(vid){
@@ -1007,7 +1061,13 @@ function renderTxList(m,t){
     if(enAttente(x)){c.classList.add("tx-attente");
       const ok=el("button","link","✅ Paiement reçu");ok.onclick=()=>reglerPaiement(x,"payee");act.appendChild(ok);
       const ko=el("button","link","❌ Pas payé");ko.style.color="var(--bad)";ko.onclick=()=>paiementNonAbouti(x);act.appendChild(ko);}
-    else if(!estGratuit(x.paiement)){const fb=el("button","link",x.facture?"🧾 "+doc+" "+esc(x.facture):"🧾 "+doc);fb.onclick=()=>ouvrirFacture(x.id);act.appendChild(fb);}
+    else if(!estGratuit(x.paiement)){const fb=el("button","link",x.facture?"🧾 "+doc+" "+esc(x.facture):"🧾 "+doc);fb.onclick=()=>ouvrirFacture(x.id);act.appendChild(fb);
+      const env=x.facture_envois||[],der=env[env.length-1];
+      const rl=el("button","link",env.length?"🔁 Relancer":"📧 Envoyer");rl.title=env.length?"Renvoyer la "+doc.toLowerCase()+" par email":"Envoyer la "+doc.toLowerCase()+" par email";
+      rl.onclick=()=>relancerFacture(x,rl);act.appendChild(rl);
+      c.appendChild(txt("p","envoi-etat "+(env.length?"ok":"ko"),env.length
+        ?`📧 ${doc} envoyé${x.type==="avoir"?"":"e"} le ${new Date(der.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${der.a?" à "+der.a:""}${env.length>1?` (${env.length} envois)`:""}`
+        :`⚠️ ${doc} pas encore envoyé${x.type==="avoir"?"":"e"}${echecsEnvoi.has(x.id)?" : "+echecsEnvoi.get(x.id):""}`));}
     if(isAdmin()&&x.type!=="avoir"&&!x.annuleePar&&!enAttente(x)){const an=el("button","link",x.avoirs&&x.avoirs.length?"↩️ Annuler d'autres bouteilles":"↩️ Annuler (avoir)");an.style.color="var(--bad)";an.onclick=()=>confirmerAnnulation(x);act.appendChild(an);}
     if(act.children.length)c.appendChild(act);
     m.appendChild(c);
@@ -1335,7 +1395,7 @@ async function reglerPaiement(x,action,code,mode){
   if(action==="mode"){x.paiement=mode;}
   delete x.statut;if(action==="payee"){x.statut="payee";if(code)x.sumup={code};}
   render();flash(action==="payee"?"Paiement par carte confirmé"+(code?" (SumUp "+code+").":"."):"Paiement enregistré en "+mode.toLowerCase()+".","ok");
-  ouvrirFacture(x.id);
+  ouvrirFacture(x.id,true);
 }
 function paiementNonAbouti(x,msg){
   qs("#echec-modal")?.remove();
@@ -1364,12 +1424,50 @@ const SOCIETE=["SCEA du DOMAINE de RAVIGNAN","Château de Ravignan  -  40 190  -
   "N° Accise : FR 009585E0462  -  N° BNIA : 540 221 0077"];
 const IBAN="IBAN : FR76 1330 6009 1066 0113 9756 914 - BIC : AGRIFRPP833";
 const TVA=0.2;
+const AVIS_GOOGLE="https://maps.google.com/?cid=9627672053882881379"; // fiche Google Maps du Château de Ravignan
+const INVITE_AVIS="Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup ! ⭐ "+AVIS_GOOGLE;
+// échecs d'envoi par email, pour les afficher sur la transaction (ex. « Pas d'email pour ce client »)
+const echecsEnvoi=new Map();
+const facturable=x=>!estGratuit(x.paiement)&&!enAttente(x);
+// numéro + PDF d'une transaction
+async function pdfFacture(x){
+  const v=ventes.find(w=>w.id===x.venteId);
+  const cl={...clientOf(x),...(factureEnAttente.get(x.id)||{})};
+  let num=x.facture;
+  if(!num){const {data,error}=await sb.rpc("numero_facture",{tx:x.id});if(error)throw error;num=data;x.facture=num;}
+  return {num,cl,v,blob:await facturePdf(x,v,cl,num)};
+}
+// envoi depuis contact@armagnac-ravignan.com (fonction Supabase « envoyer-facture ») ; l'adresse est relue dans la base
+async function envoyerFactureEmail(x,blob){
+  const b64=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(String(f.result).split(",")[1]);f.readAsDataURL(blob);});
+  const {data,error}=await sb.functions.invoke("envoyer-facture",{body:{tx:x.id,pdf:b64}});
+  let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
+  if(error||!data||!data.ok){const m=msg||"L'envoi a échoué.";echecsEnvoi.set(x.id,m);throw new Error(m);}
+  echecsEnvoi.delete(x.id);
+  x.facture_envois=[...(x.facture_envois||[]),{date:new Date().toISOString(),a:data.a}];
+  return data.a;
+}
+// bouton « Relancer » d'une transaction : renvoie la facture sans ouvrir la fenêtre
+async function relancerFacture(x,btn){
+  if(btn){btn.disabled=true;btn.textContent="Envoi…";}
+  try{const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);flash((x.type==="avoir"?"Avoir":"Facture")+" envoyé"+(x.type==="avoir"?"":"e")+" à "+a+".","ok");}
+  catch(e){console.error(e);flash("Pas envoyée : "+(e.message||"l'envoi a échoué."));}
+  render();
+}
+// toutes les factures pas encore envoyées d'une vente, l'une après l'autre
+async function envoyerToutes(liste,btn){
+  btn.disabled=true;let ok=0,ko=0;
+  for(const x of liste){btn.textContent=`Envoi… ${ok+ko+1}/${liste.length}`;
+    try{const {blob}=await pdfFacture(x);await envoyerFactureEmail(x,blob);ok++;}catch(e){ko++;}}
+  flash(`${ok} facture${ok>1?"s":""} envoyée${ok>1?"s":""}${ko?`, ${ko} non envoyée${ko>1?"s":""} (voir les transactions)`:""}.`,ko?"":"ok");
+  render();
+}
 function reprendreFacture(){
   let p=null;try{p=JSON.parse(store.get(FACTURE_KEY)||"null");}catch(e){}
   if(!p||!p.id||Date.now()-p.t>3*3600e3){store.set(FACTURE_KEY,"");return;}
   factureEnAttente.set(p.id,p.contact);
   const x=txs.find(t=>t.id===p.id);if(!x||enAttente(x))return;
-  setTimeout(()=>{if(!document.querySelector("#facture-modal")){go("vente",x.venteId);ouvrirFacture(p.id);}},300);
+  setTimeout(()=>{if(!document.querySelector("#facture-modal")){go("vente",x.venteId);ouvrirFacture(p.id,true);}},300);
 }
 let jspdfPromesse=null;
 function chargerJsPdf(){
@@ -1429,7 +1527,7 @@ async function facturePdf(x,v,cl,num){
   SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i<2?11:i===2?9.5:8.5);d.text(t,105,yp,{align:"center"});yp+=i<2?5.5:4.5;});
   return d.output("blob");
 }
-async function ouvrirFacture(id){
+async function ouvrirFacture(id,auto){
   const x=txs.find(t=>t.id===id);if(!x)return flash("Transaction introuvable.");
   if(enAttente(x))return flash("La facture sera disponible une fois le paiement par carte confirmé.");
   const v=ventes.find(w=>w.id===x.venteId);
@@ -1441,14 +1539,12 @@ async function ouvrirFacture(id){
   const doc=x.type==="avoir"?"Avoir":"Facture",docMin=doc.toLowerCase();
   sh.appendChild(txt("h2","sheet-title",doc));const etat=txt("p","muted","Préparation…");sh.appendChild(etat);
   document.body.appendChild(m);
-  let num=x.facture;
   try{
-    if(!num){const {data,error}=await sb.rpc("numero_facture",{tx:id});if(error)throw error;num=data;x.facture=num;}
-    const blob=await facturePdf(x,v,cl,num);
+    const {num,blob}=await pdfFacture(x);
     const nomFichier=`${doc} ${num} - Château de Ravignan.pdf`;
     const fichier=new File([blob],nomFichier,{type:"application/pdf"});
     const prenom=cl.prenom||"";
-    const message=x.type==="avoir"?`Bonjour ${prenom},\n\nVoici l'avoir ${num} (${fmt(x.total)}), qui annule ${x.partiel?"en partie ":""}la facture ${x.factureOrigine||""}.\n\nChâteau de Ravignan`:`Bonjour ${prenom},\n\nVoici votre facture ${num} pour vos achats au Château de Ravignan (${fmt(x.total)}).\n\nMerci et à bientôt !\nChâteau de Ravignan`;
+    const message=x.type==="avoir"?`Bonjour ${prenom},\n\nVoici l'avoir ${num} (${fmt(x.total)}), qui annule ${x.partiel?"en partie ":""}la facture ${x.factureOrigine||""}.\n\nChâteau de Ravignan`:`Bonjour ${prenom},\n\nVoici votre facture ${num} pour vos achats au Château de Ravignan (${fmt(x.total)}).\n\nMerci et à bientôt !\n\n${INVITE_AVIS}\n\nChâteau de Ravignan`;
     const objet=`Votre ${docMin} ${num} – Château de Ravignan`;
     etat.textContent=`N° ${num} · ${fmt(x.total)} · ${[cl.prenom,cl.nom].filter(Boolean).join(" ")||"Client"}`;
     const telecharger=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nomFichier;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);};
@@ -1459,19 +1555,18 @@ async function ouvrirFacture(id){
       sh.appendChild(txt("p","muted","Choisissez Mail, Messages ou WhatsApp, puis le client : le PDF est joint."));
     }else sh.appendChild(txt("p","muted","Sur cet appareil le PDF ne peut pas être joint automatiquement : téléchargez-le, puis joignez-le à l'email."));
     // envoi automatique depuis contact@armagnac-ravignan.com (fonction Supabase « envoyer-facture »)
-    if(cl.email||!cl.nom){
-      const envois=x.facture_envois||[];
-      const be=el("button","btn primary full",envois.length?"📧 Renvoyer par email depuis contact@":"📧 Envoyer par email depuis contact@");
-      const ie=txt("p","muted",envois.length?"Déjà envoyée "+envois.map(e=>"le "+new Date(e.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" à "+e.a).join(", ")+".":"Le client reçoit la facture en pièce jointe, envoyée par la boîte du domaine.");
-      be.onclick=async()=>{be.disabled=true;be.textContent="Envoi…";
-        try{const b64=await new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(String(f.result).split(",")[1]);f.readAsDataURL(blob);});
-          const {data,error}=await sb.functions.invoke("envoyer-facture",{body:{tx:id,pdf:b64}});
-          let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
-          if(error||!data||!data.ok)throw new Error(msg||"L'envoi a échoué.");
-          x.facture_envois=[...envois,{date:new Date().toISOString(),a:data.a}];
-          flash("Facture envoyée à "+data.a+".","ok");fermer();}
-        catch(e){be.disabled=false;be.textContent="📧 Réessayer l'envoi par email";ie.textContent=e.message||"L'envoi a échoué.";}};
-      sh.appendChild(be);sh.appendChild(ie);
+    // envoi par email depuis contact@ : automatique à la validation de la vente (auto), sinon au clic
+    {
+      const quand=e=>"le "+new Date(e.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" à "+e.a;
+      const envois=()=>x.facture_envois||[];
+      const be=el("button","btn primary full"),ie=txt("p","muted");
+      const maj=()=>{const e=envois();be.disabled=false;be.textContent=e.length?"📧 Renvoyer par email depuis contact@":"📧 Envoyer par email depuis contact@";
+        ie.textContent=e.length?"✅ Envoyée "+e.map(quand).join(", ")+".":"Le client reçoit la "+docMin+" en pièce jointe, envoyée par la boîte du domaine.";};
+      be.onclick=async()=>{be.disabled=true;be.textContent="Envoi par email…";
+        try{const a=await envoyerFactureEmail(x,blob);maj();flash(doc+" envoyé"+(x.type==="avoir"?"":"e")+" à "+a+".","ok");render();}
+        catch(e){be.disabled=false;be.textContent="📧 Réessayer l'envoi par email";ie.textContent="⚠️ Pas envoyée : "+(e.message||"l'envoi a échoué.");render();}};
+      maj();sh.appendChild(be);sh.appendChild(ie);
+      if(auto&&!envois().length)be.onclick();
     }
     const g=el("div","grid2");
     if(cl.email){const a=el("a","btn ghost","✉️ Email");a.href=`mailto:${encodeURIComponent(cl.email)}?subject=${encodeURIComponent(objet)}&body=${encodeURIComponent(message+"\n\n(Facture en pièce jointe.)")}`;a.style.cssText="text-align:center;text-decoration:none";
@@ -1519,7 +1614,7 @@ async function submitTx(){
     else{factureEnAttente.set(id,contact);store.set(FACTURE_KEY,JSON.stringify({id,contact,t:Date.now()}));}
     if(gratuit){}
     else if(tx.paiement==="CB")ouvrirSumUp(txs.find(x=>x.id===id));
-    else ouvrirFacture(id);
+    else ouvrirFacture(id,true);
   }catch(e){busy=false;updateTotal();flash(dbMessage(e));}
 }
 
@@ -2544,7 +2639,7 @@ function renderGenealogie(m){
   zin.setAttribute("aria-label","Zoomer");zout.setAttribute("aria-label","Dézoomer");
   zin.onclick=()=>zoomer(1.25);zout.onclick=()=>zoomer(0.8);zr.onclick=()=>{ajusterVue();dessinerArbre();};
   [zin,zout,zr].forEach(b=>bar.appendChild(b));
-  {const a=el("button","btn primary sm","+ Ajouter une personne");a.onclick=()=>{famEdit={};famSel=null;ficheFamille();qs("#fam-fiche")?.scrollIntoView({behavior:"smooth"});};bar.appendChild(a);}
+  if(accesPrive){const a=el("button","btn primary sm","+ Ajouter une personne");a.onclick=()=>{famEdit={};famSel=null;ficheFamille();qs("#fam-fiche")?.scrollIntoView({behavior:"smooth"});};bar.appendChild(a);}
   m.appendChild(bar);m.appendChild(res);
   // raccourcis vers chaque branche : les enfants du couple qui en a le plus
   const nb=new Map();famille.forEach(p=>(p.parents||[]).forEach(id=>nb.set(id,(nb.get(id)||0)+1)));
@@ -2669,10 +2764,10 @@ function ficheFamille(){
     if(d.reseau||d.reseau_lien){const u=lienReseau(d.reseau,d.reseau_lien);const lab=(d.reseau||"Réseau")+(d.reseau_lien&&!/^https?:/.test(d.reseau_lien)?" : "+d.reseau_lien:"");
       if(u){const a=el("a","chip");a.href=u;a.target="_blank";a.rel="noopener";a.textContent=lab+" ↗";l.appendChild(a);}else l.appendChild(txt("span","chip",lab));}
     if(!l.children.length)l.appendChild(txt("span","muted","Pas encore de coordonnées : « Modifier cette fiche » pour les ajouter."));co.appendChild(l);}
-  else{co.appendChild(txt("p","muted","Réservées à la famille connectée."));const b=el("button","link","Se connecter");b.onclick=()=>go("admin");co.appendChild(b);}
+  else co.appendChild(txt("p","muted","Visibles seulement par Benoit et Quentin."));
   c.appendChild(co);
   if(p.source)c.appendChild(lien(p.source,"Source"));
-  {const r=el("div","row");r.style.justifyContent="flex-start";
+  if(accesPrive){const r=el("div","row");r.style.justifyContent="flex-start";
     const e=el("button","btn primary sm","Modifier cette fiche");e.onclick=()=>{famEdit={...p};ficheFamille();};r.appendChild(e);
     const en=el("button","btn ghost sm","+ Ajouter un enfant");en.onclick=()=>{famEdit={parents:[p.id,...(p.conjoints||[]).slice(0,1)]};ficheFamille();};r.appendChild(en);
     c.appendChild(r);}
@@ -3396,7 +3491,8 @@ async function verifierSession(session){
   }
   isOwner=!!data&&data.role==="admin";estMembre=!!data;
   accesPrive=estMembre&&(await sb.rpc("acces_prive")).data===true;
-  if(accesPrive)["famille","chambres","reservations"].forEach(db.recharger);
+  if(estMembre)db.recharger("famille");
+  if(accesPrive)["chambres","reservations"].forEach(db.recharger);
   if(accesPrive&&!coordsAbonne){coordsAbonne=true;db.collection("coordonnees").onSnapshot(s=>{coords=new Map(s.docs.map(x=>[x.id,x.data()]));if(page==="genealogie"&&!famEdit)ficheFamille();},()=>{});}
   authState=isOwner?"ok":"denied";majPied();
   if(estMembre)abonnerCrm();

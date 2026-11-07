@@ -10,6 +10,15 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const MAX_ENVOIS = 5;
+const AVIS = "https://maps.google.com/?cid=9627672053882881379"; // fiche Google Maps du Château de Ravignan
+const AVIS_TXT = "Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup !";
+const SIGNATURE = "Château de Ravignan\n40190 Perquie\n05 58 45 33 07 · contact@armagnac-ravignan.com";
+const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
+const html = (paragraphes: string[]) =>
+  `<div style="font-family:Georgia,serif;font-size:15px;line-height:1.55;color:#2b1a17;max-width:560px">`
+  + paragraphes.map((p) => `<p>${esc(p)}</p>`).join("")
+  + `<p><a href="${AVIS}" style="display:inline-block;background:#5a2f28;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-family:Arial,sans-serif;font-weight:bold">⭐ Laisser un avis sur Google</a></p>`
+  + `<p style="color:#7a625d;font-size:13px">${esc(SIGNATURE).split("\n").join("<br>")}</p></div>`;
 const reponse = (corps: unknown, status = 200) =>
   new Response(JSON.stringify(corps), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 
@@ -49,7 +58,8 @@ Deno.serve(async (req) => {
       from: `"Château de Ravignan" <${user}>`,
       to: email,
       subject: `Votre ${avoir ? "avoir" : "facture"} ${num} – Château de Ravignan`,
-      text: `Bonjour ${prenom},\n\n${intro}\n\nChâteau de Ravignan\n40190 Perquie\n05 58 45 33 07 · contact@armagnac-ravignan.com`,
+      text: `Bonjour ${prenom},\n\n${intro}\n\n${AVIS_TXT}\n⭐ ${AVIS}\n\n${SIGNATURE}`,
+      html: html([`Bonjour ${prenom},`, ...intro.split("\n\n"), AVIS_TXT]),
       attachments: [{ filename: `${avoir ? "Avoir" : "Facture"} ${num} - Château de Ravignan.pdf`, content: contenu, contentType: "application/pdf" }],
     });
 

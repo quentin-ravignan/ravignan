@@ -69,7 +69,9 @@ language sql immutable as $$ select c in ('chambres', 'reservations', 'famille',
 
 -- Ventes et caisse : membres connectés. Le reste : administrateurs.
 create policy docs_lecture on public.docs for select to anon, authenticated
-  using (case when public.collection_privee(collection) then public.acces_prive()
+  -- la généalogie (famille) se lit par tous les membres ; seuls Benoit et Quentin la modifient
+  using (case when collection = 'famille' then public.est_membre() or public.acces_prive()
+              when public.collection_privee(collection) then public.acces_prive()
          else public.est_admin() or (collection in ('ventes', 'transactions', 'reglages', 'crm', 'clients') and public.est_membre()) end);
 create policy docs_ajout on public.docs for insert to anon, authenticated
   with check (case when public.collection_privee(collection) then public.acces_prive()
@@ -99,6 +101,16 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.maj_coordonnees(text, jsonb) from public;
 grant execute on function public.maj_coordonnees(text, jsonb) to authenticated;
+
+-- Remerciements envoyés 7 jours après une vente (fonction Edge « remerciements », planifiée par pg_cron :
+-- voir maj-2026-11-07.sql). La marque est fusionnée dans le JSON de la vente, sans réécrire le reste.
+create or replace function public.marquer_remerciements(vente text, info jsonb) returns void
+language sql security definer set search_path = public as $$
+  update public.docs set data = data || jsonb_build_object('remerciements', info), updated_at = now()
+  where collection = 'ventes' and id = vente
+$$;
+revoke all on function public.marquer_remerciements(text, jsonb) from public, anon, authenticated;
+grant execute on function public.marquer_remerciements(text, jsonb) to service_role;
 
 -- Une seule liste : les personnes qui ont accès au site sont aussi les vendeurs de la caisse
 alter table public.membres add column if not exists nom text;
