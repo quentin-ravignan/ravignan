@@ -413,6 +413,8 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .dash-pile{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px}.dash-pile i{display:block;height:100%}
 .dash-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px}
 .dash-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.dash-boutique{margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
+.dash-boutique .row h3{margin:0}
 .dash-titre{margin:18px 2px 8px;font-size:15px}
 .podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
 .pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
@@ -735,7 +737,54 @@ function renderDashboard(m){
     b.appendChild(barre);
     const leg=el("div","dash-leg");pm.forEach(([lab,v],i)=>leg.appendChild(el("span","",`<i style="background:${couleurs[i%couleurs.length]}"></i>${esc(lab)} <b class="num">${Math.round(v/totPm*100)} %</b>`)));
     b.appendChild(leg);c.appendChild(b);}
+  if(isOwner)c.appendChild(blocBoutique(dans));
   m.appendChild(c);
+}
+// boutique en ligne Squarespace (administrateurs) : commandes synchronisées par la fonction « squarespace-sync »
+let commandesEnLigne=[],sqSync={},sqAbonne=false;
+function abonnerSquarespace(){
+  if(sqAbonne)return;sqAbonne=true;
+  db.collection("squarespace").onSnapshot(s=>{commandesEnLigne=s.docs.map(x=>({id:x.id,...x.data()}));if(page==="home")render();},()=>{});
+}
+async function synchroSquarespace(b){
+  b.disabled=true;b.textContent="Synchronisation…";
+  const {data,error}=await sb.functions.invoke("squarespace-sync",{body:{}});
+  let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
+  if(error||!data||!data.ok)flash(msg||"La synchronisation a échoué.");
+  else flash(data.deja?"Synchronisation déjà en cours.":`Boutique synchronisée : ${data.n} commande${data.n>1?"s":""} mise${data.n>1?"s":""} à jour.`,"ok");
+  render();
+}
+function blocBoutique(dans){
+  const b=el("div","dash-bloc dash-boutique");
+  const tete=el("div","row");tete.appendChild(txt("h3","sub","🛒 Boutique en ligne (Squarespace)"));
+  const sy=el("button","link","🔄 Synchroniser");sy.onclick=()=>synchroSquarespace(sy);tete.appendChild(sy);b.appendChild(tete);
+  if(sqSync.erreur&&!commandesEnLigne.length){b.appendChild(txt("p","msg err",sqSync.erreur));return b;}
+  if(!commandesEnLigne.length){b.appendChild(txt("p","muted","Aucune commande synchronisée pour l'instant. La synchronisation se fait toutes les heures, ou avec le bouton ci-dessus."));return b;}
+  const cmd=commandesEnLigne.filter(o=>o.statut!=="CANCELED"&&dans(o));
+  const net=o=>(o.total||0)-(o.rembourse||0);
+  const ca=cmd.reduce((s,o)=>s+net(o),0),btl=cmd.reduce((s,o)=>s+(o.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
+  const k=el("div","dash-kpis");
+  [[fmt(ca),"CA en ligne"],[String(cmd.length),"Commandes"],[fmt(cmd.length?ca/cmd.length:0),"Panier moyen"]].forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
+  b.appendChild(k);
+  const enCours=cmd.filter(o=>o.statut==="PENDING");
+  if(enCours.length)b.appendChild(txt("p","attente-note",`📦 ${enCours.length} commande${enCours.length>1?"s":""} à expédier`));
+  const g=el("div","dash-grille");
+  const parP={};cmd.forEach(o=>(o.lignes||[]).forEach(l=>{const n=[l.nom,l.variante].filter(Boolean).join(" · ");parP[n]=(parP[n]||0)+(l.qte||0);}));
+  const liste=(titre,lignes,format)=>{const d=el("div","dash-bloc");d.appendChild(txt("h3","sub",titre));const max=Math.max(...lignes.map(l=>l[1]),1);
+    lignes.forEach(([nom,val,det],i)=>{const r=el("div","dash-ligne");r.innerHTML=`<span class="dash-rang">${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="dash-nom" title="${esc(nom)}">${esc(nom)}${det?` <small class="muted">${esc(det)}</small>`:""}</span><b class="num">${format(val)}</b><span class="dash-barre"><i style="width:${Math.max(2,val/max*100).toFixed(1)}%"></i></span>`;d.appendChild(r);});
+    if(!lignes.length)d.appendChild(txt("p","muted","–"));return d;};
+  g.appendChild(liste("Produits les plus vendus en ligne",Object.entries(parP).sort((a,b)=>b[1]-a[1]).slice(0,5),v=>v+" btl"));
+  const parC=new Map();cmd.forEach(o=>{const cl=o.client||{};const k2=cl.email||o.id;const x=parC.get(k2)||{nom:[cl.prenom,cl.nom].filter(Boolean).join(" ")||cl.email||"Client",total:0,n:0};x.total+=net(o);x.n++;parC.set(k2,x);});
+  g.appendChild(liste("Meilleurs clients en ligne",[...parC.values()].sort((a,b)=>b.total-a.total).slice(0,5).map(x=>[x.nom,x.total,x.n>1?x.n+" commandes":""]),fmt));
+  b.appendChild(g);
+  // dernières commandes
+  const der=el("div","dash-bloc");der.appendChild(txt("h3","sub","Dernières commandes"));
+  [...commandesEnLigne].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,6).forEach(o=>{const cl=o.client||{};
+    const st=o.statut==="CANCELED"?"Annulée":o.statut==="FULFILLED"?"Expédiée":"À expédier";
+    der.appendChild(el("div","tx-line num",`<span>n° ${esc(o.numero)} · ${esc([cl.prenom,cl.nom].filter(Boolean).join(" ")||cl.email||"")}<small class="muted"> · ${o.date?new Date(o.date).toLocaleDateString("fr-FR"):""} · ${st}</small></span><span></span><b>${fmt(net(o))}</b>`));});
+  b.appendChild(der);
+  if(sqSync.dernier)b.appendChild(txt("p","muted",`Dernière synchronisation : ${new Date(sqSync.dernier).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${sqSync.erreur?" · ⚠️ "+sqSync.erreur:""}`));
+  return b;
 }
 
 /* ---------- création d'une vente ---------- */
@@ -3610,7 +3659,7 @@ function demarrerDonnees(){
   },()=>{familleChargee=true;});
   chargerContenu("genealogie").then(d=>{famResume=d.resume||"";if(page==="genealogie"&&!famEdit)render();}).catch(()=>{});
   chargerVendeurs();
-  db.collection("reglages").onSnapshot(s=>{const d=s.docs.find(x=>x.id==="caisse");reglages=d?d.data():{};},()=>{});
+  db.collection("reglages").onSnapshot(s=>{const d=s.docs.find(x=>x.id==="caisse");reglages=d?d.data():{};const q=s.docs.find(x=>x.id==="squarespace_sync");sqSync=q?q.data():{};},()=>{});
   db.collection("chambres").onSnapshot(s=>{
     chambres=s.docs.map(x=>({id:x.id,...x.data()}));loaded.chambres=true;
     if(page==="chambres")refreshChambres();
@@ -3651,6 +3700,7 @@ async function verifierSession(session){
   if(accesPrive&&!coordsAbonne){coordsAbonne=true;db.collection("coordonnees").onSnapshot(s=>{coords=new Map(s.docs.map(x=>[x.id,x.data()]));if(page==="genealogie"&&!famEdit)ficheFamille();},()=>{});}
   authState=isOwner?"ok":"denied";majPied();
   if(estMembre)abonnerCrm();
+  if(isOwner)abonnerSquarespace();
   if(estMembre&&!clientsAbonne){
     clientsAbonne=true;
     db.collection("clients").onSnapshot(s=>{
