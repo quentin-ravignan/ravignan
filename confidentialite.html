@@ -5,35 +5,54 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Confidentialité – Domaine de Ravignan</title>
 <style>
-:root{--bg:#f8f5f0;--fg:#22190f;--muted:#76695a;--accent:#a24c0b}
-@media (prefers-color-scheme:dark){:root{--bg:#16120e;--fg:#f2eae0;--muted:#a8998a;--accent:#e08a3c;color-scheme:dark}}
+:root{--bg:#fff;--fg:#2b1a17;--muted:#7a625d;--accent:#5a2f28;--line:#e8dcd6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17110f;--fg:#f2e8e4;--muted:#b49e98;--accent:#d6a196;--line:#3a2b27;color-scheme:dark}}
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-main{max-width:680px;margin:0 auto;padding:32px max(16px,env(safe-area-inset-left,0px))}
-h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 6px}
+main{max-width:720px;margin:0 auto;padding:32px 16px}
+h1{font-size:26px;margin:0 0 4px;color:var(--accent)}h2{font-size:18px;margin:28px 0 6px;color:var(--accent)}
 p,li{color:var(--fg)}.muted{color:var(--muted)}a{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left;vertical-align:top}
+.tab{overflow-x:auto}
 </style>
 </head>
 <body>
 <main>
 <h1>Confidentialité</h1>
-<p class="muted">Application du Domaine de Ravignan, Perquie (Landes). Dernière mise à jour : 27 octobre 2026.</p>
+<p class="muted">Domaine de Ravignan, Perquie (Landes). Dernière mise à jour : 7 novembre 2026.</p>
 
-<h2>À quoi sert cette application</h2>
-<p>Elle sert à la famille et aux proches du domaine pour les ventes privées d'armagnac, l'organisation des chambres et la généalogie familiale.</p>
+<h2>Qui est responsable de vos données</h2>
+<p>SCEA du Domaine de Ravignan, Château de Ravignan, 40190 Perquie. SIRET 478 355 779 000 24. Contact : <a href="mailto:contact@armagnac-ravignan.com">contact@armagnac-ravignan.com</a>, 05 58 45 33 07.</p>
+
+<h2>Notre engagement</h2>
+<p>Vos coordonnées sont utilisées <b>uniquement en interne</b> par le Domaine de Ravignan. Elles ne sont jamais vendues, louées ni transmises à des tiers pour leur propre usage.</p>
+
+<h2>Ce que nous faisons de vos données</h2>
+<div class="tab"><table>
+<tr><th>Pourquoi</th><th>Données</th><th>Base légale</th><th>Durée de conservation</th></tr>
+<tr><td>Vos achats et vos factures</td><td>Nom, prénom, email, téléphone, adresse, code postal, achats</td><td>Contrat de vente et obligation légale</td><td>10 ans (pièces comptables, article L123-22 du code de commerce)</td></tr>
+<tr><td>Envoi de la facture par email ou SMS</td><td>Email ou portable</td><td>Contrat de vente</td><td>Le temps de l'envoi, puis avec la facture</td></tr>
+<tr><td>Remerciements et nouvelles du domaine</td><td>Prénom, email</td><td>Intérêt légitime (clients existants), avec désabonnement à tout moment</td><td>3 ans après votre dernier achat ou contact</td></tr>
+<tr><td>Accès des membres et vendeurs à l'application</td><td>Nom, email, photo du compte Google</td><td>Intérêt légitime (organisation des ventes)</td><td>Tant que l'accès est ouvert</td></tr>
+</table></div>
+
+<h2>Qui y a accès</h2>
+<p>Seuls les membres de la famille et les vendeurs autorisés, chacun selon son rôle. Nos prestataires techniques traitent les données pour notre compte, sans pouvoir les utiliser pour eux-mêmes :</p>
+<ul>
+<li>Supabase : base de données et stockage, hébergés dans l'Union européenne (Irlande).</li>
+<li>Google (Gmail) : envoi des emails depuis contact@armagnac-ravignan.com.</li>
+<li>OVHcloud (France) : envoi des factures par SMS.</li>
+<li>GitHub Pages : hébergement des pages de l'application, sans aucune donnée client.</li>
+</ul>
 
 <h2>Connexion avec Google</h2>
-<p>Quand vous vous connectez avec Google, l'application reçoit uniquement votre nom et votre adresse email. Elle s'en sert pour vérifier que votre adresse fait partie des membres autorisés. Elle n'a accès à rien d'autre dans votre compte Google : ni vos emails, ni vos contacts, ni vos fichiers.</p>
-
-<h2>Données conservées</h2>
-<ul>
-<li>Les ventes, les réservations de chambres et l'arbre généalogique saisis dans l'application.</li>
-<li>Les coordonnées des clients et de la famille, visibles seulement par les membres connectés ou les administrateurs.</li>
-</ul>
-<p>Ces données sont hébergées par Supabase, dans l'Union européenne (Irlande). Elles ne sont ni vendues, ni transmises à des tiers.</p>
+<p>Quand un membre se connecte avec Google, l'application reçoit son nom, son adresse email et sa photo de profil. Elle s'en sert pour vérifier son accès et l'afficher parmi les vendeurs. Elle n'a accès à rien d'autre : ni emails, ni contacts, ni fichiers.</p>
 
 <h2>Vos droits</h2>
-<p>Vous pouvez demander à consulter, corriger ou supprimer vos données en écrivant à <a href="mailto:quentin.ravignan@gmail.com">quentin.ravignan@gmail.com</a>.</p>
+<p>Vous pouvez à tout moment accéder à vos données, les corriger, les faire supprimer, en limiter l'usage, vous opposer à leur utilisation ou en demander une copie. Écrivez à <a href="mailto:contact@armagnac-ravignan.com">contact@armagnac-ravignan.com</a> ; nous répondons sous un mois. Les factures doivent cependant être gardées 10 ans.</p>
+<p>Pour ne plus recevoir nos emails d'information, utilisez le lien « Se désabonner » en bas de chaque email.</p>
+<p>Si vous estimez que vos droits ne sont pas respectés, vous pouvez saisir la CNIL (<a href="https://www.cnil.fr">cnil.fr</a>).</p>
 
+<p class="muted">L'abus d'alcool est dangereux pour la santé, à consommer avec modération.</p>
 <p><a href="/">Retour à l'application</a></p>
 </main>
 </body>

@@ -210,3 +210,4 @@ on conflict (id) do nothing;
 -- Photos des vendeurs : voir maj-2026-11-07e.sql (colonne membres.photo, maj_ma_photo, photos_vendeurs, bucket « vendeurs »)
 -- Accès : voir maj-2026-11-07f.sql (acces_prive inclut les administrateurs ; clients et crm modifiables par les membres)
 -- acces_prive() = est_admin() depuis maj-2026-11-07g.sql (accès selon le rôle seulement)
+-- Désabonnement et archives : voir maj-2026-11-07h.sql

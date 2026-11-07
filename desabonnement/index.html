@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Désabonnement – Domaine de Ravignan</title>
+<style>
+:root{--bg:#fff;--fg:#2b1a17;--muted:#7a625d;--accent:#5a2f28}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17110f;--fg:#f2e8e4;--muted:#b49e98;--accent:#d6a196;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 Georgia,serif;display:grid;place-items:center;min-height:100vh;padding:16px;box-sizing:border-box;text-align:center}
+main{max-width:460px}h1{font-size:22px;color:var(--accent)}p{color:var(--muted)}
+button{background:var(--accent);color:#fff;border:0;border-radius:10px;padding:12px 22px;font:bold 16px Arial,sans-serif;cursor:pointer}
+button:disabled{opacity:.6}
+</style></head>
+<body><main>
+<img src="../images/blason.jpg" alt="" width="88" height="88">
+<h1>Ne plus recevoir nos emails d'information</h1>
+<p id="m">Vous ne recevrez plus nos remerciements ni nos nouvelles. Les factures de vos achats restent envoyées, car elles vous sont dues.</p>
+<button id="b" type="button">Me désabonner</button>
+</main>
+<script>
+// lien reçu par email : /desabonnement/?j=JETON (aléatoire, sans l'adresse email)
+const URL_API="https://zvrzpfyxtqygzsihjccu.supabase.co/rest/v1/rpc/se_desabonner";
+const CLE="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2cnpwZnl4dHF5Z3pzaWhqY2N1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NjYwNzMsImV4cCI6MjEwODM0MjA3M30.XImY1lOpd-CIZ4ZTx_7ADpUlrwqE1xYH8-23NPkDZXo";
+const j=new URLSearchParams(location.search).get("j")||"",m=document.getElementById("m"),b=document.getElementById("b");
+if(!/^[a-f0-9]{20,64}$/.test(j)){m.textContent="Ce lien de désabonnement n'est pas valide. Écrivez-nous à contact@armagnac-ravignan.com, nous vous retirerons de la liste.";b.hidden=true;}
+b.onclick=async()=>{b.disabled=true;b.textContent="Un instant…";
+  try{const r=await fetch(URL_API,{method:"POST",headers:{"Content-Type":"application/json",apikey:CLE,Authorization:"Bearer "+CLE},body:JSON.stringify({code:j})});
+    const ok=r.ok&&(await r.json())===true;
+    m.textContent=ok?"C'est fait : vous ne recevrez plus nos emails d'information. Merci et à bientôt au Domaine de Ravignan.":"Ce lien n'est plus valide. Écrivez-nous à contact@armagnac-ravignan.com, nous vous retirerons de la liste.";
+    b.hidden=true;}
+  catch(e){b.disabled=false;b.textContent="Réessayer";m.textContent="La connexion a échoué. Réessayez dans un instant.";}};
+</script>
+</body></html>

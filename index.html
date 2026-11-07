@@ -420,6 +420,8 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .avatar.pod-av{width:46px;height:46px;font-size:19px;margin:0 0 4px;border:2px solid #fff;box-shadow:0 1px 5px rgba(60,25,20,.2)}
 .membre-photo{cursor:pointer;display:flex}.membre-photo .avatar{width:38px;height:38px;margin:0}
 .combo-opt .avatar,.chip .avatar{margin-right:2px}
+.confirm-texte p{margin:6px 0}
+.info-rgpd{font-size:12px;margin-top:6px}
 .dash-titre{margin:18px 2px 8px;font-size:15px}
 .podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
 .pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
@@ -821,6 +823,47 @@ async function envoyerPhotoVendeur(fichier,email){
   return sb.storage.from("vendeurs").getPublicUrl(chemin).data.publicUrl;
 }
 
+/* ---------- fenêtre de confirmation (clôtures, suppressions) ----------
+   confirmer({titre, texte, bouton, danger, saisie}) → Promise<boolean>.
+   saisie : mot à recopier pour valider (suppressions lourdes). Le bouton reste inactif 1 seconde, pour ne pas valider par réflexe. */
+function confirmer({titre,texte,bouton="Confirmer",danger=true,saisie=""}){
+  return new Promise(ok=>{
+    qs("#confirm-modal")?.remove();
+    const m=el("div","modal");m.id="confirm-modal";m.setAttribute("role","alertdialog");m.setAttribute("aria-modal","true");
+    const sh=el("div","sheet");m.appendChild(sh);
+    sh.appendChild(txt("h2","sheet-title",titre));
+    if(texte)sh.appendChild(el("div","confirm-texte",texte));
+    let champ=null;
+    if(saisie){const f=el("div","field");f.appendChild(Object.assign(txt("label","",`Pour confirmer, tapez « ${saisie} »`),{htmlFor:"confirm-saisie"}));
+      champ=el("input");champ.id="confirm-saisie";champ.autocomplete="off";f.appendChild(champ);sh.appendChild(f);}
+    const oui=el("button","btn "+(danger?"danger":"primary")+" full",bouton);oui.disabled=true;
+    const non=el("button","btn ghost full","Annuler");
+    const fin=v=>{m.remove();document.removeEventListener("keydown",esc2);ok(v);};
+    const esc2=e=>{if(e.key==="Escape")fin(false);};document.addEventListener("keydown",esc2);
+    const pret=()=>{oui.disabled=!(Date.now()-t0>=1000&&(!champ||normTxt(champ.value.trim())===normTxt(saisie)));};
+    const t0=Date.now();setTimeout(pret,1000);if(champ)champ.oninput=pret;
+    oui.onclick=()=>{if(!oui.disabled)fin(true);};non.onclick=()=>fin(false);m.onclick=e=>{if(e.target===m)fin(false);};
+    sh.appendChild(oui);sh.appendChild(non);document.body.appendChild(m);
+    setTimeout(()=>(champ||non).focus(),50);
+  });
+}
+async function demanderCloture(v){
+  const t=txsOf(v.id),att=t.filter(enAttente),nonEnv=t.filter(x=>facturable(x)&&!(x.facture_envois||[]).length);
+  const ca=t.reduce((s,x)=>s+montant(x),0);
+  const ok=await confirmer({titre:`Clôturer « ${v.nom} » ?`,bouton:"Clôturer la vente",
+    texte:`<p>${t.length} transaction${t.length>1?"s":""} · <b class="num">${fmt(ca)}</b></p>`
+      +(att.length?`<p class="msg err">⏳ ${att.length} paiement${att.length>1?"s":""} par carte encore en attente.</p>`:"")
+      +(nonEnv.length?`<p class="msg err">📧 ${nonEnv.length} facture${nonEnv.length>1?"s":""} pas encore envoyée${nonEnv.length>1?"s":""}.</p>`:"")
+      +`<p class="muted">Une fois clôturée, plus aucune transaction ne pourra être saisie dans cette vente.</p>`});
+  if(ok)cloturer(v.id);
+}
+async function demanderSuppressionVente(v){
+  const t=txsOf(v.id);
+  const ok=await confirmer({titre:`Supprimer « ${v.nom} » ?`,bouton:"Supprimer définitivement",saisie:t.length?"SUPPRIMER":"",
+    texte:t.length?`<p class="msg err">Ses ${t.length} transaction${t.length>1?"s":""} et les coordonnées clients associées seront effacées. C'est définitif.</p>`:`<p class="muted">La vente ne contient aucune transaction. C'est définitif.</p>`});
+  if(ok)supprimerVente(v.id);
+}
+
 /* ---------- création d'une vente ---------- */
 function renderNewVente(m){
   const c=el("div","card",`<h2>Informations</h2>
@@ -1044,15 +1087,7 @@ function renderVente(m){
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
   if(!v.cloturee&&canWrite){
-    if(!confirmClose){
-      const l=el("button","link","Clôturer la vente");l.onclick=()=>{confirmClose=true;render();};m.appendChild(l);
-    }else{
-      const cf=el("div","confirm",`<p style="font-size:13px;font-weight:700;color:var(--bad)">Clôturer « ${esc(v.nom)} » ? Plus aucune transaction ne pourra être saisie.</p>`);
-      const r=el("div","grid2");
-      const yes=el("button","btn danger sm","Clôturer");yes.onclick=()=>cloturer(v.id);
-      const no=el("button","btn ghost sm","Annuler");no.onclick=()=>{confirmClose=false;render();};
-      r.appendChild(yes);r.appendChild(no);cf.appendChild(r);m.appendChild(cf);
-    }
+    const l=el("button","link","Clôturer la vente");l.onclick=()=>demanderCloture(v);m.appendChild(l);
   }
   const tabs=el("div","tabs");
   const tv=el("button",tab==="tx"?"active":"","Transactions"),ts=el("button",tab==="stock"?"active":"","Stocks"),tvd=el("button",tab==="vendeurs"?"active":"","Vendeurs");
@@ -1063,10 +1098,7 @@ function renderVente(m){
   if(downloads&&isAdmin()){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);m.appendChild(e);}
   // suppression : libre tant qu'aucune transaction n'est saisie, réservée aux administrateurs ensuite
   if(!t.length||isAdmin()){
-    if(confirmSuppr!==v.id){const l=el("button","link","Supprimer la vente");l.style.color="var(--bad)";l.onclick=()=>{confirmSuppr=v.id;render();};m.appendChild(l);}
-    else{const cf=el("div","confirm",`<p style="font-size:13px;font-weight:700;color:var(--bad)">Supprimer « ${esc(v.nom)} »${t.length?` et ses ${t.length} transaction${t.length>1?"s":""}`:""} ? C'est définitif.</p>`);
-      const r=el("div","grid2");const yes=el("button","btn danger sm","Supprimer");yes.onclick=()=>supprimerVente(v.id);
-      const no=el("button","btn ghost sm","Annuler");no.onclick=()=>{confirmSuppr=null;render();};r.appendChild(yes);r.appendChild(no);cf.appendChild(r);m.appendChild(cf);}
+    const l=el("button","link","Supprimer la vente");l.style.color="var(--bad)";l.onclick=()=>demanderSuppressionVente(v);m.appendChild(l);
   }else m.appendChild(txt("p","muted","Vente commencée : seul un administrateur peut la supprimer."));
 }
 
@@ -1093,7 +1125,7 @@ function renderRemerciements(m,v,t){
   else{
     p.appendChild(txt("span","",trop?"💌 Remerciements non envoyés (vente terminée depuis plus de deux semaines).":`💌 Email de remerciement automatique le ${prevu?prevu.toLocaleDateString("fr-FR",{day:"numeric",month:"long"}):"?"} à tous les clients, avec l'invitation à laisser un avis Google.`));
     const b=el("button","link","Envoyer maintenant");
-    b.onclick=async()=>{if(!confirm(`Envoyer maintenant l'email de remerciement à tous les clients de « ${v.nom} » ? Il ne part qu'une fois.`))return;
+    b.onclick=async()=>{if(!await confirmer({titre:"Envoyer les remerciements ?",texte:`<p>À tous les clients de « ${esc(v.nom)} ». Il ne part qu'une fois.</p>`,bouton:"Envoyer maintenant",danger:false}))return;
       b.disabled=true;b.textContent="Envoi…";
       const {data,error}=await sb.functions.invoke("remerciements",{body:{vente:v.id}});
       let msg=data&&data.erreur;if(error){try{msg=(await error.context.json()).erreur;}catch(e){}}
@@ -1437,15 +1469,21 @@ function dessinerClientCaisse(cc){
     <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>
     <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
     <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>
-    <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div></div>`);
+    <div class="field"><label for="cl-adresse">Adresse</label><input id="cl-adresse" autocomplete="off" placeholder="facultatif, imprimée sur la facture"></div>
+    <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div>
+    <div class="field"><label for="cl-ville">Ville</label><input id="cl-ville" autocomplete="off" placeholder="facultatif"></div></div>`);
   cc.appendChild(f);
-  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-cp":"cp"};
+  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-adresse":"adresse","cl-cp":"cp","cl-ville":"ville"};
   Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
   cc.appendChild(casePapier(c));
 }
 function casePapier(c){
+  // information du client (RGPD), affichée au vendeur pour qu'il la donne
+  const info=txt("p","muted info-rgpd","À dire au client : ses coordonnées servent uniquement au domaine (facture, suivi) et ne sont jamais transmises ; il peut s'y opposer ou les faire supprimer à tout moment.");
+
   const l=el("label","check-papier",`<input type="checkbox" id="cl-papier"> <span>🚫 Pas d'email <small class="muted">(facture par SMS si un portable est indiqué, sinon facture papier)</small></span>`);
-  const i=l.querySelector("input");i.checked=!!c.papier;i.onchange=e=>{c.papier=e.target.checked;};return l;
+  const i=l.querySelector("input");i.checked=!!c.papier;i.onchange=e=>{c.papier=e.target.checked;};
+  const w=el("div");w.appendChild(l);w.appendChild(info);return w;
 }
 function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
   if(!ref.stock)return Infinity;
@@ -1607,6 +1645,12 @@ const SOCIETE=["SCEA du DOMAINE de RAVIGNAN","Château de Ravignan  -  40 190  -
   "N° Accise : FR 009585E0462  -  N° BNIA : 540 221 0077"];
 const IBAN="IBAN : FR76 1330 6009 1066 0113 9756 914 - BIC : AGRIFRPP833";
 const TVA=0.2;
+// mentions portées sur chaque facture et avoir
+const MENTIONS_FACTURE=[
+  "Opération : livraison de biens. Date de la vente : date de la facture.",
+  "Paiement à réception. Pas d'escompte pour paiement anticipé. Pour les clients professionnels, tout retard de paiement entraîne des pénalités au taux de 3 fois le taux d'intérêt légal et une indemnité forfaitaire de 40 € pour frais de recouvrement (articles L441-10 et D441-5 du code de commerce).",
+  "Vos coordonnées sont utilisées uniquement en interne par le Domaine de Ravignan (achats, factures, suivi) et ne sont jamais transmises à des tiers. Accès, rectification, suppression : contact@armagnac-ravignan.com.",
+  "L'abus d'alcool est dangereux pour la santé, à consommer avec modération."];
 const AVIS_GOOGLE="https://maps.google.com/?cid=9627672053882881379"; // fiche Google Maps du Château de Ravignan
 const INVITE_AVIS="Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup ! ⭐ "+AVIS_GOOGLE;
 // échecs d'envoi par email, pour les afficher sur la transaction (ex. « Pas d'email pour ce client »)
@@ -1616,12 +1660,15 @@ const facturable=x=>!estGratuit(x.paiement)&&!enAttente(x)&&!x.facturePapier;
 const smsFacture=(x,lien)=>`Chateau de Ravignan : votre ${x.type==="avoir"?"avoir":"facture"} ${x.facture||""} (${fmt(x.total).replace(/\u202f|\u00a0/g," ")}) : ${lien} - Merci ! Un avis Google nous ferait plaisir : ${location.origin}/avis/`;
 const lienSms=(tel,texte)=>`sms:${String(tel||"").replace(/[^\d+]/g,"")}${/iPhone|iPad/i.test(navigator.userAgent)?"&":"?"}body=${encodeURIComponent(texte)}`;
 // numéro + PDF d'une transaction
+// archive (10 ans) : première version gardée, jamais remplacée ; une erreur « déjà présente » est normale
+function archiverFacture(num,blob){sb.storage.from("archives").upload(num+".pdf",blob,{contentType:"application/pdf",upsert:false}).catch(()=>{});}
 async function pdfFacture(x){
   const v=ventes.find(w=>w.id===x.venteId);
   const cl={...clientOf(x),...(factureEnAttente.get(x.id)||{})};
   let num=x.facture;
   if(!num){const {data,error}=await sb.rpc("numero_facture",{tx:x.id});if(error)throw error;num=data;x.facture=num;}
-  return {num,cl,v,blob:await facturePdf(x,v,cl,num)};
+  const blob=await facturePdf(x,v,cl,num);archiverFacture(num,blob);
+  return {num,cl,v,blob};
 }
 // envoi depuis contact@armagnac-ravignan.com (fonction Supabase « envoyer-facture ») ; l'adresse est relue dans la base
 async function envoyerFactureEmail(x,blob){
@@ -1678,7 +1725,7 @@ async function facturePdf(x,v,cl,num){
   d.setFont("helvetica","normal");d.setFontSize(9);d.setTextColor(120);d.text("Facturé à",117,25);
   d.setTextColor(0);d.setFont("helvetica","bold");d.setFontSize(12);d.text(nomCl,117,32);
   d.setFont("helvetica","normal");d.setFontSize(10);let yc=38;
-  [cl.email,cl.tel,cl.cp].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
+  [cl.adresse,[cl.cp,cl.ville].filter(Boolean).join(" "),cl.email].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
   // numéro et date
   const dt=new Date(x.date||Date.now());const jour=dt.toLocaleDateString("fr-FR");
   const avoir=x.type==="avoir";
@@ -1686,14 +1733,14 @@ async function facturePdf(x,v,cl,num){
   d.setFont("helvetica","normal");d.text("Date :",150,74,{align:"right"});d.text(jour,152,74);
   if(v){d.setFontSize(9);d.setTextColor(120);d.text(net("Vente : "+v.nom+(v.lieu?" ("+v.lieu+")":"")),G,74);d.setTextColor(0);}
   // tableau
-  const cols=[{t:"Désignation",x:G+2},{t:"Format",x:89},{t:"Qté",x:121,r:1},{t:"Px unitaire TTC",x:147,r:1},{t:"Montant TTC",x:172,r:1},{t:"dont TVA",x:D-2,r:1}];
+  const cols=[{t:"Désignation",x:G+2},{t:"Format",x:89},{t:"Qté",x:121,r:1},{t:"Px unit. HT",x:145,r:1},{t:"TVA",x:160,r:1},{t:"Montant TTC",x:D-2,r:1}];
   let y=84;d.setFillColor(238,232,224);d.rect(G,y,D-G,9,"F");d.setFont("helvetica","bold");d.setFontSize(9);
   cols.forEach(c=>d.text(c.t,c.x,y+6,c.r?{align:"right"}:{}));y+=9;
   d.setFont("helvetica","normal");d.setFontSize(10);let tot=0,qt=0;
   (x.lignes||[]).forEach(l=>{const mt=l.qte*l.prix;tot+=mt;qt+=l.qte;
     const des=d.splitTextToSize(net(l.nom),70);const h=Math.max(7,des.length*4.5+2.5);
     d.text(des,G+2,y+5);d.text(net(l.format),89,y+5);d.text(String(l.qte),121,y+5,{align:"right"});
-    d.text(eur(l.prix),147,y+5,{align:"right"});d.text(eur(mt),172,y+5,{align:"right"});d.text(eur(mt-mt/(1+TVA)),D-2,y+5,{align:"right"});
+    d.text(eur(l.prix/(1+TVA)),145,y+5,{align:"right"});d.text(Math.round(TVA*100)+" %",160,y+5,{align:"right"});d.text(eur(mt),D-2,y+5,{align:"right"});
     y+=h;d.setDrawColor(225);d.line(G,y,D,y);});
   if(x.remise){
     const pub=(x.lignes||[]).reduce((s,l)=>s+Math.abs(l.qte)*(l.prixPublic??l.prix),0),net2=(x.lignes||[]).reduce((s,l)=>s+Math.abs(l.qte)*l.prix,0);
@@ -1711,6 +1758,9 @@ async function facturePdf(x,v,cl,num){
     d.text(net(MODES[x.paiement]?`Remboursement par ${MODES[x.paiement]}.`:"Montant à déduire de votre règlement."),105,y+5,{align:"center"});}
   else if(MODES[x.paiement])d.text(net(`Facture acquittée, réglée par ${MODES[x.paiement]} le ${jour}.`),105,y,{align:"center"});
   else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+5,{align:"center"});}
+  // mentions légales (article 242 nonies A de l'annexe II du CGI, article L441-9 du code de commerce, RGPD, loi Évin)
+  {let ym=Math.max(y+14,214);d.setFont("helvetica","normal");d.setFontSize(7.5);d.setTextColor(110);
+    MENTIONS_FACTURE.forEach(t=>{const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<258){d.text(l,G,ym);ym+=l.length*3.4+0.8;}});d.setTextColor(0);}
   // pied de page
   let yp=268;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
   SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i<2?11:i===2?9.5:8.5);d.text(t,105,yp,{align:"center"});yp+=i<2?5.5:4.5;});
@@ -1791,7 +1841,8 @@ async function submitTx(){
   const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:famille?prixLigne(l):l.prix,
     ...(gratuit?{valeur:l.prix}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
-  const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim(),cp:String(sv.client.cp||"").trim().toUpperCase()};
+  const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim(),cp:String(sv.client.cp||"").trim().toUpperCase(),
+    ...(String(sv.client.adresse||"").trim()?{adresse:String(sv.client.adresse).trim()}:{}),...(String(sv.client.ville||"").trim()?{ville:String(sv.client.ville).trim()}:{})};
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
   const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
@@ -2418,12 +2469,7 @@ function renderRoomModal(){
     if(r.note){const no=el("p","muted");no.textContent=r.note;t.appendChild(no);}
     row.appendChild(t);
     if(canWrite){
-      if(confirmResa===r.id){
-        const g=el("div","row");
-        const y=el("button","btn danger sm","Annuler la réservation");y.onclick=()=>supprimerResa(r.id);
-        const n2=el("button","btn ghost sm","Garder");n2.onclick=()=>{confirmResa=null;renderRoomModal();};
-        g.appendChild(y);g.appendChild(n2);row.appendChild(g);
-      }else{const d=el("button","link","Annuler");d.onclick=()=>{confirmResa=r.id;renderRoomModal();};row.appendChild(d);}
+      {const d=el("button","link","Annuler");d.onclick=async()=>{if(await confirmer({titre:"Annuler cette réservation ?",texte:`<p>${esc(r.nom||"Réservation")+" · "+frCourt(r.arrivee)+" → "+frCourt(r.depart)}</p><p class="muted">Elle sera supprimée du planning. C'est définitif.</p>`,bouton:"Annuler la réservation"}))supprimerResa(r.id);};row.appendChild(d);}
     }
     box.appendChild(row);
   });
@@ -3075,7 +3121,7 @@ function formFamille(p){
   const ok=el("button","btn primary sm",nouveau?"Ajouter":"Enregistrer");ok.type="submit";r.appendChild(ok);
   const an=el("button","btn ghost sm","Annuler");an.type="button";an.onclick=()=>{famEdit=null;ficheFamille();};r.appendChild(an);
   if(!nouveau&&isAdmin()){const del=el("button","btn danger sm","Supprimer");del.type="button";
-    del.onclick=()=>{if(del.dataset.ok){supprimerPersonne(p.id);}else{del.dataset.ok="1";del.textContent="Confirmer la suppression";}};r.appendChild(del);}
+    del.onclick=async()=>{if(await confirmer({titre:`Supprimer ${nomComplet(p)} ?`,texte:`<p class="muted">La personne et ses liens dans l'arbre seront supprimés. C'est définitif.</p>`,bouton:"Supprimer",saisie:"SUPPRIMER"}))supprimerPersonne(p.id);};r.appendChild(del);}
   form.appendChild(r);
   form.onsubmit=async e=>{e.preventDefault();
     const v=id=>form.querySelector("#fm-"+id).value.trim();const sel=id=>[...form.querySelector("#fm-"+id).selectedOptions].map(o=>o.value);
@@ -3413,7 +3459,7 @@ function renderAdminAcces(m){
       sel.disabled=moi;
       sel.onchange=()=>majMembre(mb.email,{role:sel.value});
       r.appendChild(sel);
-      if(!moi){const x=el("button","x","×");x.setAttribute("aria-label","Retirer "+mb.email);x.onclick=()=>retirerMembre(mb.email);r.appendChild(x);}
+      if(!moi){const x=el("button","x","×");x.setAttribute("aria-label","Retirer "+mb.email);x.onclick=async()=>{if(await confirmer({titre:`Retirer ${mb.nom||mb.email} ?`,texte:`<p>${esc(mb.email)}</p><p class="muted">Cette personne ne pourra plus se connecter ni vendre.</p>`,bouton:"Retirer l'accès"}))retirerMembre(mb.email);};r.appendChild(x);}
       else r.appendChild(el("span","badge closed","vous"));
       liste.appendChild(r);
     });
