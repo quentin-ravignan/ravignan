@@ -69,8 +69,8 @@ language sql immutable as $$ select c in ('chambres', 'reservations', 'famille',
 
 -- Ventes et caisse : membres connectés. Le reste : administrateurs.
 create policy docs_lecture on public.docs for select to anon, authenticated
-  -- la généalogie (famille) se lit par tous les membres ; seuls Benoit et Quentin la modifient
-  using (case when collection = 'famille' then public.est_membre() or public.acces_prive()
+  -- la généalogie (famille) se lit par les administrateurs ; seuls Benoit et Quentin la modifient
+  using (case when collection = 'famille' then public.est_admin() or public.acces_prive()
               when public.collection_privee(collection) then public.acces_prive()
          else public.est_admin() or (collection in ('ventes', 'transactions', 'reglages', 'crm', 'clients') and public.est_membre()) end);
 create policy docs_ajout on public.docs for insert to anon, authenticated

@@ -475,13 +475,13 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <div class="shell">
   <nav class="side" id="side" aria-label="Menu principal">
     <div class="brand"><img class="brand-logo" src="images/blason.jpg" alt="Blason de Ravignan" width="64" height="64"><span class="brand-mark">Armagnac</span><span class="brand-name">Domaine de Ravignan</span></div>
-    <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes<span class="nav-cle" title="Réservé aux personnes connectées" aria-label="connexion requise">🔑</span></button>
+    <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes</button>
     <button class="nav-item" data-nav="clients"><span class="nav-ico" aria-hidden="true">👥</span>Clients<span class="nav-cle" title="Réservé aux administrateurs" aria-label="connexion requise">🔑</span></button>
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
     <button class="nav-item" data-nav="degustation"><span class="nav-ico" aria-hidden="true">🥃</span>Notes de dégustation</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
-    <button class="nav-item" data-nav="genealogie"><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie</button>
-    <button class="nav-item" data-nav="chambres" hidden><span class="nav-ico" aria-hidden="true">🏰</span>Plan du Château<span class="nav-cle" title="Réservé à Benoit et Quentin" aria-label="connexion requise">🔑</span></button>
+    <button class="nav-item" data-nav="genealogie" hidden><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie<span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></button>
+    <button class="nav-item" data-nav="chambres" hidden><span class="nav-ico" aria-hidden="true">🏰</span>Plan du Château<span class="nav-cle" title="Réservé à Benoit et Quentin" aria-label="réservé à Benoit et Quentin">🔑</span></button>
     <button class="nav-item" data-nav="admin"><span class="nav-ico" aria-hidden="true">📊</span>Administration<span class="nav-cle" title="Réservé aux administrateurs" aria-label="connexion requise">🔑</span></button>
     <div class="side-foot"><span id="side-user" class="muted"></span><button class="link" id="btn-logout" hidden>Se déconnecter</button></div>
   </nav>
@@ -586,6 +586,7 @@ function updateNav(){
   document.querySelectorAll(".nav-item").forEach(b=>{
     b.classList.toggle("active",b.dataset.nav===section);
     if(PAGES_PRIVEES.includes(b.dataset.nav))b.hidden=!accesPrive;
+    if(b.dataset.nav==="genealogie")b.hidden=!(isOwner||accesPrive);
   });
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{setMenu(false);go(b.dataset.nav);});
@@ -639,7 +640,9 @@ function render(){
   m.classList.toggle("wide",["chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
-  if(["home","new-vente","vente","saisie","genealogie"].includes(page)&&!estMembre){renderAuth(m,"membre");return;}
+  if(["home","new-vente","vente","saisie"].includes(page)&&!estMembre){renderAuth(m,"membre");return;}
+  // généalogie : administrateurs seulement, cachée aux autres
+  if(page==="genealogie"&&!(isOwner||accesPrive)){if(!myEmail||authState==="loading")renderAuth(m);else{page="home";render();}return;}
   if(PAGES_PRIVEES.includes(page)&&!accesPrive){
     if(!myEmail||authState==="loading")renderAuth(m,"prive");
     else m.appendChild(el("div","card",`<h2>Page réservée</h2><p class="muted">Cette page n'est ouverte qu'à Benoit et Quentin.</p>`));
@@ -3710,7 +3713,7 @@ async function verifierSession(session){
   }
   isOwner=!!data&&data.role==="admin";estMembre=!!data;
   accesPrive=estMembre&&(await sb.rpc("acces_prive")).data===true;
-  if(estMembre)db.recharger("famille");
+  if(isOwner||accesPrive)db.recharger("famille");
   if(accesPrive)["chambres","reservations"].forEach(db.recharger);
   if(accesPrive&&!coordsAbonne){coordsAbonne=true;db.collection("coordonnees").onSnapshot(s=>{coords=new Map(s.docs.map(x=>[x.id,x.data()]));if(page==="genealogie"&&!famEdit)ficheFamille();},()=>{});}
   authState=isOwner?"ok":"denied";majPied();
