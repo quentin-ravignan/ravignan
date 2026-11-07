@@ -1371,10 +1371,10 @@ function dessinerClientCaisse(cc){
     t.appendChild(txt("p","muted",[c.email,c.tel].filter(Boolean).join(" · ")||"Pas de coordonnées"));r.appendChild(t);
     const ch=el("button","link","Changer");ch.onclick=()=>{sv.client={nom:"",prenom:"",tel:"",email:"",cp:"",papier:false};dessinerClientCaisse(cc);};r.appendChild(ch);
     cc.appendChild(r);
-    // client connu sans email ni portable : on peut les compléter ici
-    if(c.sansCoord===undefined)c.sansCoord=!emailOk(c.email)&&!estPortable(c.tel);
-    if(c.sansCoord){const g=el("div","grid2",`<div class="field"><label for="cl-email">Email</label><input id="cl-email" type="email" autocomplete="off" placeholder="pour envoyer la facture"></div>
-      <div class="field"><label for="cl-tel">Portable</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="ou facture par SMS"></div>`);
+    // client connu sans email : on peut le compléter ici
+    if(c.sansCoord===undefined)c.sansCoord=!emailOk(c.email);
+    if(c.sansCoord){const g=el("div","grid2",`<div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="pour envoyer la facture"></div>
+      <div class="field"><label for="cl-tel">Portable</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div>`);
       [["cl-email","email"],["cl-tel","tel"]].forEach(([id,k])=>{const i=g.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
       cc.appendChild(g);}
     const fc=el("div","field",`<label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190">`);
@@ -1401,9 +1401,8 @@ function dessinerClientCaisse(cc){
   }
   const f=el("div","stack",`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
     <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>
-    <div class="grid2"><div class="field"><label for="cl-email">Email</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
-    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="06…"></div></div>
-    <p class="muted" style="font-size:12.5px">Email ou portable obligatoire : la facture part par email, sinon par SMS. Ou cochez « Facture papier ».</p>
+    <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
+    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>
     <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div></div>`);
   cc.appendChild(f);
   const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-cp":"cp"};
@@ -1411,7 +1410,7 @@ function dessinerClientCaisse(cc){
   cc.appendChild(casePapier(c));
 }
 function casePapier(c){
-  const l=el("label","check-papier",`<input type="checkbox" id="cl-papier"> <span>📄 Facture papier <small class="muted">(remise en main propre, rien n'est envoyé)</small></span>`);
+  const l=el("label","check-papier",`<input type="checkbox" id="cl-papier"> <span>🚫 Pas d'email <small class="muted">(facture par SMS si un portable est indiqué, sinon facture papier)</small></span>`);
   const i=l.querySelector("input");i.checked=!!c.papier;i.onchange=e=>{c.papier=e.target.checked;};return l;
 }
 function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
@@ -1748,9 +1747,9 @@ async function submitTx(){
   const gratuit=estGratuit(sv.pmt);
   if(!gratuit&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
   if(!gratuit&&sv.client.email.trim()&&!emailOk(sv.client.email)){qs("#cl-email")?.classList.add("invalide");return flash("L'email du client n'est pas valide.");}
-  if(!gratuit&&!sv.client.papier&&!emailOk(sv.client.email)&&!estPortable(sv.client.tel)){
+  if(!gratuit&&!sv.client.papier&&!emailOk(sv.client.email)){
     (qs("#cl-email")||qs("#cl-papier"))?.classList.add("invalide");qs("#cl-email")?.focus();
-    return flash(sv.client.tel.trim()?"Ce numéro ne reçoit pas de SMS : indiquez un email ou un portable, ou cochez « Facture papier ».":"Indiquez l'email ou le portable du client, ou cochez « Facture papier ».");}
+    return flash("Indiquez l'email du client, ou cochez « Pas d'email ».");}
   if(!gratuit&&!/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(String(sv.client.cp||"").trim())){qs("#cl-cp")?.classList.add("invalide");qs("#cl-cp")?.focus();return flash("Indiquez le code postal du client.");}
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   const id="t"+uid();
@@ -1762,7 +1761,7 @@ async function submitTx(){
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
   const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
-    ...(sv.pmt==="CB"?{statut:"attente"}:{}),...(sv.client.papier&&!gratuit?{facturePapier:true}:{}),...(famille?{remise:{type:"Famille",taux:REMISE_FAMILLE}}:{})};
+    ...(sv.pmt==="CB"?{statut:"attente"}:{}),...(sv.client.papier&&!gratuit&&!emailOk(sv.client.email)&&!estPortable(sv.client.tel)?{facturePapier:true}:{}),...(famille?{remise:{type:"Famille",taux:REMISE_FAMILLE}}:{})};
   busy=true;updateTotal();
   try{
     await db.collection("transactions").doc(id).set(tx);
