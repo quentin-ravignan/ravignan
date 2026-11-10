@@ -189,6 +189,10 @@ Deno.serve(async (req) => {
     return reponse({ ok: true, a: tel, canal: "sms", lien, envois: envois.length + 1 });
   } catch (e) {
     console.error(e);
-    return reponse({ erreur: "L'envoi a échoué" }, 500);
+    // Gmail refuse la connexion (erreur 535) : le mot de passe d'application de contact@ est à renouveler
+    const m = String((e as Error)?.message || "");
+    if (/535|Invalid login|Username and Password not accepted/i.test(m))
+      return reponse({ erreur: "Gmail refuse la connexion de contact@ : le mot de passe d'application est à renouveler (Supabase, secret GMAIL_APP_PASSWORD)." }, 502);
+    return reponse({ erreur: "L'envoi a échoué" + (m ? " : " + m.slice(0, 120) : "") }, 500);
   }
 });
