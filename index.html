@@ -425,6 +425,15 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .offert{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
 .offert.sel{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
 .type-client{margin-bottom:10px}
+.b2b-tabs{flex-wrap:wrap}.b2b-pastille{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px;text-align:center}
+.b2b-prop{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}.b2b-prop:first-of-type{border-top:none}.b2b-prop-ico{font-size:20px;flex:none}.b2b-prop-txt{flex:1;min-width:0;font-size:14px}
+.b2b-res{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.b2b-filtres{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:10px 0}.b2b-filtres select,.b2b-filtres input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
+.b2b-ligne{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--fg);font:inherit;cursor:pointer}
+.b2b-ligne:hover{border-color:var(--accent)}.b2b-statut{flex:none;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.b2b-retard{color:var(--bad);font-weight:700}.b2b-ajout{display:flex;gap:6px;flex-wrap:wrap}.b2b-ajout select,.b2b-ajout input{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)}.b2b-ajout input{flex:1;min-width:150px}
+.b2b-fiche textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
+.b2b-strat li{margin:4px 0}.b2b-strat h3{margin-top:16px}
 .dash-titre{margin:18px 2px 8px;font-size:15px}
 .podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
 .pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
@@ -492,6 +501,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
     <button class="nav-item" data-nav="genealogie" hidden><span class="nav-ico" aria-hidden="true">🌳</span>Généalogie<span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></button>
     <button class="nav-item" data-nav="chambres" hidden><span class="nav-ico" aria-hidden="true">🏰</span>Plan du Château<span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></button>
+    <button class="nav-item" data-nav="b2b" hidden><span class="nav-ico" aria-hidden="true">🤝</span>Commercial B2B<span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></button>
     <button class="nav-item" data-nav="admin" hidden><span class="nav-ico" aria-hidden="true">📊</span>Administration<span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></button>
     <div class="side-foot"><span id="side-user" class="muted"></span><button class="link" id="btn-logout" hidden>Se déconnecter</button></div>
   </nav>
@@ -585,9 +595,9 @@ const isAdmin=()=>isOwner;
 const LIVE_PAGES=["home","vente","admin"];
 // Généalogie, Plan du Château, Administration : réservés aux administrateurs (fonction acces_prive() = est_admin() dans la base)
 // pages des administrateurs (cachées aux autres) ; tout le reste est ouvert aux membres connectés par email
-const PAGES_PRIVEES=["chambres","genealogie","admin"];
+const PAGES_PRIVEES=["chambres","genealogie","admin","b2b"];
 let accesPrive=false;
-const TOP_PAGES=["home","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"];
+const TOP_PAGES=["b2b","home","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"];
 let chambres=[], chFilter="all", chQuery="";
 
 /* ---------- menu ---------- */
@@ -599,7 +609,7 @@ function updateNav(){
   const section=TOP_PAGES.includes(page)?page:"home";
   document.querySelectorAll(".nav-item").forEach(b=>{
     b.classList.toggle("active",b.dataset.nav===section);
-    if(PAGES_PRIVEES.includes(b.dataset.nav))b.hidden=!(b.dataset.nav==="admin"?isOwner:accesPrive);
+    if(PAGES_PRIVEES.includes(b.dataset.nav))b.hidden=!(["admin","b2b"].includes(b.dataset.nav)?isOwner:accesPrive);
   });
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.onclick=()=>{setMenu(false);go(b.dataset.nav);});
@@ -650,7 +660,7 @@ function render(){
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
-  m.classList.toggle("wide",["chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
+  m.classList.toggle("wide",["b2b","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
   // tout le site demande une connexion par email (membres)
@@ -663,6 +673,7 @@ function render(){
   else if(page==="degustation")renderDegustation(m);
   else if(page==="benchmark")renderBenchmark(m);
   else if(page==="chambres")renderChambres(m);
+  else if(page==="b2b"){if(!isAdmin()){page="home";render();}else if(typeof renderB2B==="function")renderB2B(m);else m.appendChild(el("div","empty","Chargement…"));}
   else if(page==="admin"){if(isAdmin())renderAdmin(m);else{page="home";render();}}
   else if(page==="home")renderHome(m);
   else if(page==="new-vente")renderNewVente(m);
@@ -3936,5 +3947,6 @@ sb.auth.onAuthStateChange((ev,session)=>{
   if(ev==="INITIAL_SESSION"||ev==="SIGNED_IN"||ev==="SIGNED_OUT")setTimeout(()=>verifierSession(session),0);
 });
 </script>
+<script src="b2b.js"></script>
 </body>
 </html>
