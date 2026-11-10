@@ -422,6 +422,9 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .combo-opt .avatar,.chip .avatar{margin-right:2px}
 .confirm-texte p{margin:6px 0}
 .info-rgpd{font-size:12px;margin-top:6px}
+.offert{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 10px;font:inherit;font-size:13px;cursor:pointer;color:var(--muted)}
+.offert.sel{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.type-client{margin-bottom:10px}
 .dash-titre{margin:18px 2px 8px;font-size:15px}
 .podium{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px;width:100%;max-width:420px;margin:0 auto;box-sizing:border-box}
 .pod{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
@@ -543,7 +546,9 @@ const AUTRES=[
 ];
 // les « autres produits » se vendent toujours avec un stock emporté
 const estAutre=r=>AUTRES.some(p=>p.id===r.id);
-const PMTS=[["CB","💳 CB"],["Espèces","💵 Espèces"],["Chèque","✍️ Chèque"],["Caisse centrale","🏛️ Caisse centrale"],["Cadeau","🎁 Cadeau"],["Dégustation","🥃 Dégustation"]];
+// moyens de paiement : la Caisse centrale est un réglage de la vente (v.association) ; « Cadeau » et « Dégustation » ne servent plus qu'aux anciennes transactions
+const PMTS=[["CB","💳 CB"],["Espèces","💵 Espèces"],["Chèque","✍️ Chèque"],["Caisse centrale","🏛️ Caisse centrale"]];
+const pmtsVente=v=>v&&v.association?PMTS.filter(([p])=>p==="Caisse centrale"):PMTS.filter(([p])=>p!=="Caisse centrale");
 const GRATUITS=["Cadeau","Dégustation"]; // sortent du stock, à 0 €
 const estGratuit=p=>GRATUITS.includes(p);
 const VENDEUR_KEY="ravignan.vendeur";
@@ -570,7 +575,8 @@ const REMISE_FAMILLE=10; // en %
 const prixFamille=px=>Math.round(px*(100-REMISE_FAMILLE))/100;
 // produits exclus de la remise famille : les framboises à l'armagnac (catalogue ou hors catalogue)
 const sansRemise=l=>l.refId==="fr"||/framboise/i.test(l.nom||"");
-const prixLigne=l=>sansRemise(l)?l.prix:prixFamille(l.prix);
+const prixEff=l=>l.offert?0:l.prix; // une bouteille offerte reste dans la facture, à 0 €
+const prixLigne=l=>l.offert?0:sansRemise(l)?l.prix:prixFamille(l.prix);
 const remiseActive=()=>sv.famille&&!estGratuit(sv.pmt);
 let nv=blankNv(), sv=blankSv();
 let saisieProdCard=null, horsOpen=false;
@@ -605,7 +611,7 @@ qs("#modal").onclick=e=>{if(e.target.id==="modal")closeRoom();};
 const getVente=()=>ventes.find(v=>v.id===venteId);
 let clients=new Map();
 const clientOf=x=>clients.get(x.id)||x.client||{};
-const nomClient=x=>{const c=clientOf(x);return (c.nom?`${c.prenom||""} ${c.nom}`:`${c.prenom||""}${c.initiale?" "+c.initiale+".":""}`).trim()||"Client";};
+const nomClient=x=>{const c=clientOf(x);if(c.pro)return c.raisonSociale||c.prenom||"Client";return (c.nom?`${c.prenom||""} ${c.nom}`:`${c.prenom||""}${c.initiale?" "+c.initiale+".":""}`).trim()||"Client";};
 // paiement par carte : la transaction attend la confirmation de SumUp (statut « attente »)
 const enAttente=x=>x.statut==="attente";
 const montant=x=>enAttente(x)?0:(x.total||0);
@@ -873,7 +879,7 @@ function renderNewVente(m){
       <div class="field"><label for="nv-deb">Date début</label><input id="nv-deb" type="date" value="${esc(nv.dateDebut)}"></div>
       <div class="field"><label for="nv-fin">Date fin</label><input id="nv-fin" type="date" value="${esc(nv.dateFin)}"></div>
     </div>
-    <label class="check-papier"><input type="checkbox" id="nv-asso"${nv.association?" checked":""}> <span>Vente encaissée par une association <small class="muted">(les clients cochent alors leur accord pour recevoir nos informations)</small></span></label>
+    <label class="check-papier"><input type="checkbox" id="nv-asso"${nv.association?" checked":""}> <span>🏛️ Caisse centrale <small class="muted">(l'organisateur encaisse, ex. une association : seul ce moyen de paiement est proposé, pas de facture du domaine, et le client coche son accord pour recevoir nos informations)</small></span></label>
   `);
   m.appendChild(c);
   {const a=c.querySelector("#nv-asso");if(a)a.onchange=e=>{nv.association=e.target.checked;};}
@@ -1089,8 +1095,8 @@ function renderVente(m){
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
   if(!v.cloturee&&canWrite){
-    const as=el("label","check-papier",`<input type="checkbox"${v.association?" checked":""}> <span>Vente encaissée par une association</span>`);
-    as.querySelector("input").onchange=async e=>{const val=e.target.checked;try{await db.collection("ventes").doc(v.id).update({association:val});v.association=val;flash(val?"Vente notée comme encaissée par une association : le client coche son accord à la caisse.":"Vente directe du domaine.","ok");}catch(err){e.target.checked=!val;flash(dbMessage(err));}};
+    const as=el("label","check-papier",`<input type="checkbox"${v.association?" checked":""}> <span>🏛️ Caisse centrale (l'organisateur encaisse)</span>`);
+    as.querySelector("input").onchange=async e=>{const val=e.target.checked;try{await db.collection("ventes").doc(v.id).update({association:val});v.association=val;flash(val?"Vente en Caisse centrale : seul ce moyen de paiement est proposé, sans facture du domaine.":"Vente encaissée par le domaine (CB, espèces, chèque).","ok");}catch(err){e.target.checked=!val;flash(dbMessage(err));}};
     m.appendChild(as);
     const l=el("button","link","Clôturer la vente");l.onclick=()=>demanderCloture(v);m.appendChild(l);
   }
@@ -1100,7 +1106,7 @@ function renderVente(m){
   tabs.appendChild(tv);tabs.appendChild(ts);tabs.appendChild(tvd);m.appendChild(tabs);
   if(tab==="tx")renderTxList(m,t);else if(tab==="vendeurs")renderParVendeur(m,t);else renderStock(m,v);
   renderJournalStock(m,v);
-  if(downloads&&isAdmin()){const e=el("button","btn ghost full","Exporter CSV");e.onclick=()=>exportCSV(v);m.appendChild(e);}
+  if(downloads&&isAdmin()){const e=el("button","btn ghost full","📊 Exporter en Excel (récap + détail)");e.onclick=()=>exportCSV(v);m.appendChild(e);}
   // suppression : libre tant qu'aucune transaction n'est saisie, réservée aux administrateurs ensuite
   if(!t.length||isAdmin()){
     const l=el("button","link","Supprimer la vente");l.style.color="var(--bad)";l.onclick=()=>demanderSuppressionVente(v);m.appendChild(l);
@@ -1265,8 +1271,8 @@ function renderTxList(m,t){
       const ko=el("button","link","❌ Pas payé");ko.style.color="var(--bad)";ko.onclick=()=>paiementNonAbouti(x);act.appendChild(ko);}
     else if(!estGratuit(x.paiement)){const fb=el("button","link",x.facture?"🧾 "+doc+" "+esc(x.facture):"🧾 "+doc);fb.onclick=()=>ouvrirFacture(x.id);act.appendChild(fb);
       const env=x.facture_envois||[],der=env[env.length-1];
-      const rl=el("button","link",env.length?"🔁 Relancer":"📧 Envoyer");rl.title=env.length?"Renvoyer la "+doc.toLowerCase()+" par email":"Envoyer la "+doc.toLowerCase()+" par email";
-      rl.onclick=()=>relancerFacture(x,rl);act.appendChild(rl);
+      const rl=el("button","link",env.length?"🔁 Renvoyer":"📧 Envoyer");rl.title=env.length?"Renvoyer la "+doc.toLowerCase()+" par email":"Envoyer la "+doc.toLowerCase()+" par email";
+      rl.onclick=()=>renvoyerFacture(x);act.appendChild(rl);
       c.appendChild(txt("p","envoi-etat "+(env.length||x.facturePapier?"ok":"ko"),x.facturePapier&&!env.length?"📄 Facture papier à remettre au client":env.length
         ?`${der.canal==="sms"?"💬":"📧"} ${doc} envoyé${x.type==="avoir"?"":"e"} le ${new Date(der.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}${der.a?" à "+der.a:""}${env.length>1?` (${env.length} envois)`:""}`
         :`⚠️ ${doc} pas encore envoyé${x.type==="avoir"?"":"e"}${echecsEnvoi.has(x.id)?" : "+echecsEnvoi.get(x.id):""}`));}
@@ -1291,7 +1297,8 @@ function renderJournalStock(m,v){
   v.refs.forEach(r=>{const p=r.nom+" "+(r.format||"");
     if(r.ajout)ev.push({date:r.ajout.date,par:r.ajout.par,ico:"🆕",txt:`${p} ajouté à la vente`,val:r.stock_initial!=null?"+"+r.stock_initial:""});
     (r.reassorts||[]).forEach(x=>ev.push({date:x.date,par:x.par,ico:"📦",txt:`Réassort ${p}`,val:"+"+x.qte}));
-    (r.corrections||[]).forEach(x=>ev.push({date:x.date,par:x.par,ico:"✏️",txt:`Stock modifié ${p}`,val:`${x.avant||"sans limite"} → ${x.apres}`}));});
+    (r.corrections||[]).forEach(x=>ev.push({date:x.date,par:x.par,ico:"✏️",txt:`Stock modifié ${p}`,val:`${x.avant||"sans limite"} → ${x.apres}`}));
+    (r.degustations||[]).forEach(x=>ev.push({date:x.date,par:x.par,ico:"🥃",txt:`Dégustation ${p}`,val:"-"+x.qte}));});
   if(!ev.length)return;
   ev.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const c=el("div","card journal-stock","<h2>Journal du stock</h2>");
@@ -1299,10 +1306,20 @@ function renderJournalStock(m,v){
     c.appendChild(el("div","journal-ligne",`<span aria-hidden="true">${e.ico}</span><span class="journal-txt"><b>${esc(e.txt)}</b><small class="muted">${esc(quand)}${e.par?" · par "+esc(e.par):""}</small></span><span class="num journal-val">${esc(e.val)}</span>`));});
   m.appendChild(c);
 }
+// bouteilles ouvertes pour la dégustation : sorties du stock, sans facture
+const degusteDe=r=>(r.degustations||[]).reduce((s,d)=>s+(d.qte||0),0);
+async function sortieDegustation(v,refId,qte){
+  if(!(qte>0)||busy)return flash("Indiquez le nombre de bouteilles ouvertes.");
+  busy=true;
+  try{const refs=v.refs.map(r=>r.id!==refId?r:{...r,degustations:[...(r.degustations||[]),{qte,date:new Date().toISOString(),par:monPrenom||store.get(VENDEUR_KEY)||""}]});
+    await db.collection("ventes").doc(v.id).update({refs});v.refs=refs;flash(`${qte} bouteille${qte>1?"s":""} sortie${qte>1?"s":""} pour la dégustation.`,"ok");}
+  catch(e){flash(dbMessage(e));}
+  finally{busy=false;render();}
+}
 async function corrigerStock(v,refId,restant){
   if(!(restant>=0)||busy)return flash("Indiquez le nombre restant.");
   const r0=v.refs.find(r=>r.id===refId);if(!r0)return;
-  const stock=venduDe(v.id,refId)+restant;
+  const stock=venduDe(v.id,refId)+degusteDe(r0)+restant;
   // un stock à 0 voudrait dire « sans limite »
   if(stock<=0)return flash("Rien n'a été vendu : un stock à 0 rendrait ce produit sans limite. Retirez plutôt le produit, ou indiquez au moins 1.");
   busy=true;
@@ -1315,20 +1332,28 @@ async function corrigerStock(v,refId,restant){
 function renderStock(m,v){
   const c=el("div","card");
   v.refs.forEach(r=>{
-    const vendu=venduDe(v.id,r.id);const illimite=!r.stock;
-    const reste=(r.stock||0)-vendu;const pct=illimite?1:Math.max(0,reste/r.stock);
+    const vendu=venduDe(v.id,r.id),deg=degusteDe(r);const illimite=!r.stock;
+    const reste=(r.stock||0)-vendu-deg;const pct=illimite?1:Math.max(0,reste/r.stock);
     const col=illimite?"var(--muted)":reste<=0?"var(--bad)":reste<=2?"var(--warn)":"var(--ok)";
     const etat=illimite?`${vendu} vendu${vendu>1?"s":""} · sans limite`:reste<0?`${reste} (à découvert)`:reste===0?"Rupture":`${reste} / ${r.stock}`;
     const ligneStock=el("div","stack",`<div class="row" style="font-size:14px"><span style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.nom)} ${esc(r.format)}</span>
       <span class="num" style="font-weight:700;white-space:nowrap;color:${col}">${esc(etat)}</span></div>
       ${illimite?"":`<div class="bar"><i style="width:${pct*100}%;background:${col}"></i></div>`}
-      <p class="muted num">${fmt(r.prix)} / unité${illimite?"":" · "+vendu+" vendu"+(vendu>1?"s":"")}${(r.reassorts||[]).length?" · réassort +"+r.reassorts.reduce((s,x)=>s+x.qte,0):""}${(r.corrections||[]).length?" · corrigé le "+new Date(r.corrections.at(-1).date).toLocaleDateString("fr-FR"):""}</p>`);
+      <p class="muted num">${fmt(r.prix)} / unité${illimite?"":" · "+vendu+" vendu"+(vendu>1?"s":"")}${(r.reassorts||[]).length?" · réassort +"+r.reassorts.reduce((s,x)=>s+x.qte,0):""}${deg?" · "+deg+" en dégustation":""}${(r.corrections||[]).length?" · corrigé le "+new Date(r.corrections.at(-1).date).toLocaleDateString("fr-FR"):""}</p>`);
     c.appendChild(ligneStock);
     if(!v.cloturee&&canWrite){const f=el("form","row");f.style.cssText="justify-content:flex-start;gap:6px";
       const q=el("input");q.type="number";q.min="1";q.inputMode="numeric";q.placeholder="Qté";q.setAttribute("aria-label","Quantité à réassortir");q.style.cssText="width:80px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)";
       const b=el("button","btn ghost sm","+ Réassort");b.type="submit";f.appendChild(q);f.appendChild(b);
       f.onsubmit=e=>{e.preventDefault();reassortir(v,r.id,parseInt(q.value)||0);};
       const mod=el("button","btn ghost sm","✏️ Modifier");mod.type="button";f.appendChild(mod);
+      const dg=el("button","btn ghost sm","🥃 Dégustation");dg.type="button";f.appendChild(dg);
+      const fd=el("form","row stock-corr");fd.hidden=true;
+      const qd=el("input");qd.type="number";qd.min="1";qd.inputMode="numeric";qd.placeholder="Bouteilles";qd.setAttribute("aria-label","Bouteilles ouvertes pour la dégustation : "+r.nom+" "+r.format);
+      fd.appendChild(txt("label","","Ouvertes pour la dégustation"));fd.appendChild(qd);
+      const okd=el("button","btn go sm","Sortir du stock");okd.type="submit";fd.appendChild(okd);
+      const and=el("button","btn ghost sm","Annuler");and.type="button";and.onclick=()=>{fd.hidden=true;};fd.appendChild(and);
+      fd.onsubmit=e=>{e.preventDefault();sortieDegustation(v,r.id,parseInt(qd.value)||0);};
+      dg.onclick=()=>{fd.hidden=!fd.hidden;if(!fd.hidden)qd.focus();};
       const fc=el("form","row stock-corr");fc.hidden=true;
       const qc=el("input");qc.type="number";qc.min="0";qc.inputMode="numeric";qc.value=illimite?"":String(Math.max(0,reste));qc.placeholder="Restant";
       qc.setAttribute("aria-label","Nombre restant réellement : "+r.nom+" "+r.format);
@@ -1341,7 +1366,7 @@ function renderStock(m,v){
       fc.appendChild(apercu);
       fc.onsubmit=e=>{e.preventDefault();if(qc.value==="")return flash("Indiquez le nombre restant.");corrigerStock(v,r.id,parseInt(qc.value));};
       mod.onclick=()=>{fc.hidden=!fc.hidden;if(!fc.hidden)qc.focus();};
-      ligneStock.appendChild(f);ligneStock.appendChild(fc);}
+      ligneStock.appendChild(f);ligneStock.appendChild(fc);ligneStock.appendChild(fd);}
   });
   // ventes hors catalogue saisies en direct
   const libres={};txsOf(v.id).forEach(t=>(t.lignes||[]).filter(l=>l.libre).forEach(l=>{const k=l.nom+" "+l.format;libres[k]=(libres[k]||0)+l.qte;}));
@@ -1414,14 +1439,15 @@ function renderSaisie(m){
   const cc=el("div","card");m.appendChild(cc);dessinerClientCaisse(cc);
   saisieProdCard=el("div","card");m.appendChild(saisieProdCard);renderLignes();
   const cp=el("div","card",`<h2>Paiement</h2>`);const pm=el("div","pmts");
-  PMTS.forEach(([p,lab])=>{
+  const choix=pmtsVente(v);if(!choix.some(([p])=>p===sv.pmt))sv.pmt=choix[0][0];
+  if(v.association)cp.appendChild(txt("p","muted","Vente en Caisse centrale : l'organisateur encaisse, le domaine n'envoie pas de facture."));
+  choix.forEach(([p,lab])=>{
     const b=el("button","pmt"+(sv.pmt===p?" sel":""),lab);
     b.onclick=()=>{sv.pmt=p;pm.querySelectorAll(".pmt").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");updateTotal();
       const n=qs("#note-gratuit");if(n)n.hidden=!estGratuit(p);const f=qs("#case-famille");if(f)f.hidden=estGratuit(p);};
     pm.appendChild(b);
   });
   cp.appendChild(pm);
-  const ng=txt("p","muted","Sortie de stock à 0 € : le client est facultatif et aucune facture n'est faite.");ng.id="note-gratuit";ng.hidden=!estGratuit(sv.pmt);cp.appendChild(ng);
   const fam=el("label","case-famille",`<input type="checkbox" id="sv-famille"${sv.famille?" checked":""}><span><b>👪 Famille</b><small class="muted">Remise de ${REMISE_FAMILLE} % sur la transaction, sauf les framboises</small></span>`);
   fam.id="case-famille";fam.hidden=estGratuit(sv.pmt);
   fam.querySelector("input").onchange=e=>{sv.famille=e.target.checked;updateTotal();};
@@ -1470,16 +1496,26 @@ function dessinerClientCaisse(cc){
         b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",papier:false,existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
     q.oninput=chercher;setTimeout(()=>q.focus(),50);return;
   }
-  const f=el("div","stack",`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
-    <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>
+  // particulier (par défaut) ou professionnel
+  const typ=el("div","tabs type-client");
+  [["perso","👤 Particulier"],["pro","🏢 Professionnel"]].forEach(([k,lab])=>{const b=el("button",(c.pro?k==="pro":k==="perso")?"active":"",lab);b.type="button";
+    b.onclick=()=>{c.pro=k==="pro";dessinerClientCaisse(cc);};typ.appendChild(b);});
+  cc.appendChild(typ);
+  const f=el("div","stack",(c.pro?`<div class="field"><label for="cl-rs">Raison sociale *</label><input id="cl-rs" autocomplete="off" placeholder="ex : Comité d'entreprise Airbus"></div>
+    <div class="grid2"><div class="field"><label for="cl-siren">SIREN</label><input id="cl-siren" autocomplete="off" inputmode="numeric" placeholder="facultatif"></div>
+    <div class="field"><label for="cl-tvac">N° de TVA</label><input id="cl-tvac" autocomplete="off" placeholder="facultatif"></div></div>
+    <div class="grid2"><div class="field"><label for="cl-pre">Prénom du contact</label><input id="cl-pre" autocomplete="off" placeholder="facultatif"></div>
+    <div class="field"><label for="cl-nom">Nom du contact</label><input id="cl-nom" autocomplete="off" placeholder="facultatif"></div></div>`
+    :`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
+    <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>`)+`
     <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
     <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>
     <div class="field"><label for="cl-adresse">Adresse</label><input id="cl-adresse" autocomplete="off" placeholder="facultatif, imprimée sur la facture"></div>
     <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div>
     <div class="field"><label for="cl-ville">Ville</label><input id="cl-ville" autocomplete="off" placeholder="facultatif"></div></div>`);
   cc.appendChild(f);
-  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-adresse":"adresse","cl-cp":"cp","cl-ville":"ville"};
-  Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
+  const cmap={"cl-pre":"prenom","cl-nom":"nom","cl-tel":"tel","cl-email":"email","cl-adresse":"adresse","cl-cp":"cp","cl-ville":"ville","cl-rs":"raisonSociale","cl-siren":"siren","cl-tvac":"tvaClient"};
+  Object.entries(cmap).forEach(([id,k])=>{const i=f.querySelector("#"+id);if(!i)return;i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
   cc.appendChild(casePapier(c));
 }
 function casePapier(c){
@@ -1496,9 +1532,9 @@ function casePapier(c){
   const i=l.querySelector("input");i.checked=!!c.papier;i.onchange=e=>{c.papier=e.target.checked;};
   const w=el("div");w.appendChild(l);w.appendChild(op);w.appendChild(info);return w;
 }
-function resteDispo(v,ref){ // stock restant hors panier en cours ; Infinity si sans limite
+function resteDispo(v,ref){ // stock restant hors panier en cours (ventes et dégustation) ; Infinity si sans limite
   if(!ref.stock)return Infinity;
-  return ref.stock-venduDe(v.id,ref.id);
+  return ref.stock-venduDe(v.id,ref.id)-degusteDe(ref);
 }
 
 function renderLignes(){
@@ -1547,14 +1583,16 @@ function ligneCtrl(ligne,dispo){
   plus.onclick=()=>{ligne.qte++;renderLignes();updateTotal();};
   st.appendChild(minus);st.appendChild(cnt);st.appendChild(plus);
   const px=el("input","prix num");px.type="number";px.min="0";px.step="0.5";px.inputMode="decimal";px.value=ligne.prix;px.setAttribute("aria-label","Prix unitaire");
-  const tot=el("span","num",fmt(ligne.qte*ligne.prix));tot.style.cssText="font-weight:700;color:var(--accent-ink);margin-left:auto";
-  px.oninput=e=>{ligne.prix=parseFloat(e.target.value)||0;tot.textContent=fmt(ligne.qte*ligne.prix);updateTotal();};
-  ctrl.appendChild(st);ctrl.appendChild(px);ctrl.appendChild(el("span","muted","€"));ctrl.appendChild(tot);
+  const tot=el("span","num",fmt(ligne.qte*prixEff(ligne)));tot.style.cssText="font-weight:700;color:var(--accent-ink);margin-left:auto";
+  px.oninput=e=>{ligne.prix=parseFloat(e.target.value)||0;tot.textContent=fmt(ligne.qte*prixEff(ligne));updateTotal();};
+  const of=el("button","offert"+(ligne.offert?" sel":""),"🎁 Offert");of.type="button";of.setAttribute("aria-pressed",String(!!ligne.offert));of.title="Bouteille offerte : dans la facture, à 0 €";
+  of.onclick=()=>{ligne.offert=!ligne.offert;renderLignes();updateTotal();};px.disabled=!!ligne.offert;
+  ctrl.appendChild(st);ctrl.appendChild(px);ctrl.appendChild(el("span","muted","€"));ctrl.appendChild(of);ctrl.appendChild(tot);
   return ctrl;
 }
 
 function updateTotal(){
-  const brut=sv.lignes.reduce((s,l)=>s+l.qte*l.prix,0);
+  const brut=sv.lignes.reduce((s,l)=>s+l.qte*prixEff(l),0);
   const total=estGratuit(sv.pmt)?0:remiseActive()?sv.lignes.reduce((s,l)=>s+l.qte*prixLigne(l),0):brut;
   const box=qs("#total-box"),val=qs("#total-val"),btn=qs("#btn-valider"),rem=qs("#total-remise");
   if(box)box.hidden=!sv.lignes.length;
@@ -1650,24 +1688,22 @@ function paiementNonAbouti(x,msg){
    donné par la base. Envoi par le partage du téléphone (Mail, Messages, WhatsApp…), le PDF joint. */
 const FACTURE_KEY="ravignan.facture";
 const factureEnAttente=new Map(); // coordonnées complètes saisies à la caisse, que le public ne peut pas relire
-const SOCIETE=["SCEA du DOMAINE de RAVIGNAN",
-  "Société civile d'exploitation agricole au capital de 451 680 €  -  Siège : Château de Ravignan, 40190 PERQUIE France",
-  "Tél : 05 58 45 33 07  -  Fax : 05 58 45 80 85  -  e-mail : contact@armagnac-ravignan.com",
-  "SIREN 478 355 779 RCS Mont-de-Marsan  -  SIRET 478 355 779 000 24  -  Code APE 0121Z  -  N° TVA Intracommunautaire : FR 80782106108",
-  "N° Accise : FR 009585E0462  -  N° BNIA : 540 221 0077"];
+const SOCIETE=["SCEA du Domaine de Ravignan · Société civile d'exploitation agricole au capital de 451 680 € · Château de Ravignan, 40190 Perquie",
+  "SIREN 478 355 779 RCS Mont-de-Marsan · APE 0121Z · TVA FR73 478 355 779 · N° d'accise FR009585E0462",
+  "05 58 45 33 07 · contact@armagnac-ravignan.com"];
 const IBAN="IBAN : FR76 1330 6009 1066 0113 9756 914 - BIC : AGRIFRPP833";
 const TVA=0.2;
-// mentions portées sur chaque facture et avoir
+// mentions portées sur chaque facture et avoir (texte validé le 10 novembre 2026)
 const MENTIONS_FACTURE=[
-  "Opération : livraison de biens. Date de la vente : date de la facture.",
-  "Paiement à réception. Pas d'escompte pour paiement anticipé. Pour les clients professionnels, tout retard de paiement entraîne des pénalités au taux de 3 fois le taux d'intérêt légal et une indemnité forfaitaire de 40 € pour frais de recouvrement (articles L441-10 et D441-5 du code de commerce).",
-  "Vos coordonnées sont utilisées uniquement en interne par le Domaine de Ravignan (achats, factures, suivi) et ne sont jamais transmises à des tiers. Accès, rectification, suppression : contact@armagnac-ravignan.com.",
-  "L'abus d'alcool est dangereux pour la santé, à consommer avec modération."];
+  "Vos coordonnées servent au Domaine de Ravignan pour établir vos factures, suivre vos achats et vous adresser ses actualités et invitations. Elles ne sont ni vendues ni cédées. Elles sont conservées 3 ans après votre dernier achat (10 ans pour les factures). Vous pouvez à tout moment vous désinscrire, accéder à vos données, les rectifier ou les supprimer en écrivant à contact@armagnac-ravignan.com. Vous pouvez aussi saisir la CNIL (cnil.fr).",
+  "L'abus d'alcool est dangereux pour la santé. À consommer avec modération."];
+// clients professionnels : mentions obligatoires en plus (articles L441-9 à L441-10 et D441-5 du code de commerce)
+const MENTIONS_PRO=["Opération : livraison de biens. Paiement à réception, pas d'escompte pour paiement anticipé. Tout retard de paiement entraîne des pénalités au taux de 3 fois le taux d'intérêt légal et une indemnité forfaitaire de 40 € pour frais de recouvrement."];
 const AVIS_GOOGLE="https://maps.google.com/?cid=9627672053882881379"; // fiche Google Maps du Château de Ravignan
 const INVITE_AVIS="Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup ! ⭐ "+AVIS_GOOGLE;
 // échecs d'envoi par email, pour les afficher sur la transaction (ex. « Pas d'email pour ce client »)
 const echecsEnvoi=new Map();
-const facturable=x=>!estGratuit(x.paiement)&&!enAttente(x)&&!x.facturePapier;
+const facturable=x=>!estGratuit(x.paiement)&&x.paiement!=="Caisse centrale"&&!enAttente(x)&&!x.facturePapier;
 // message du SMS envoyé depuis le téléphone quand l'envoi automatique n'est pas possible
 const smsFacture=(x,lien)=>`Chateau de Ravignan : votre ${x.type==="avoir"?"avoir":"facture"} ${x.facture||""} (${fmt(x.total).replace(/\u202f|\u00a0/g," ")}) : ${lien} - Merci ! Un avis Google nous ferait plaisir : ${location.origin}/avis/`;
 const lienSms=(tel,texte)=>`sms:${String(tel||"").replace(/[^\d+]/g,"")}${/iPhone|iPad/i.test(navigator.userAgent)?"&":"?"}body=${encodeURIComponent(texte)}`;
@@ -1694,6 +1730,37 @@ async function envoyerFactureEmail(x,blob){
   return data.a;
 }
 // bouton « Relancer » d'une transaction : renvoie la facture sans ouvrir la fenêtre
+// renvoyer une facture à postériori : on peut corriger l'adresse email (ou le portable) avant l'envoi
+async function renvoyerFacture(x){
+  const cl=clientOf(x);
+  qs("#renvoi-modal")?.remove();
+  const m=el("div","modal");m.id="renvoi-modal";const sh=el("div","sheet");m.appendChild(sh);
+  const doc=x.type==="avoir"?"l'avoir":"la facture";
+  sh.appendChild(txt("h2","sheet-title",`Renvoyer ${doc}${x.facture?" "+x.facture:""}`));
+  const env=x.facture_envois||[];
+  sh.appendChild(txt("p","muted",env.length?"Déjà envoyée : "+env.map(e=>new Date(e.date).toLocaleDateString("fr-FR")+" à "+e.a).join(", ")+".":"Pas encore envoyée."));
+  const f=el("div","stack",`<div class="field"><label for="rv-email">Email</label><input id="rv-email" type="email" autocomplete="off"></div>
+    <div class="field"><label for="rv-tel">Ou portable (SMS)</label><input id="rv-tel" type="tel" autocomplete="off" placeholder="si pas d'email"></div>`);
+  sh.appendChild(f);
+  const ie=f.querySelector("#rv-email"),it=f.querySelector("#rv-tel");ie.value=cl.email||"";it.value=cl.tel||"";
+  const info=txt("p","muted","");sh.appendChild(info);
+  const go=el("button","btn primary full","📧 Renvoyer");const no=el("button","btn ghost full","Annuler");
+  no.onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove();};
+  go.onclick=async()=>{
+    const email=ie.value.trim(),tel=it.value.trim();
+    if(email&&!emailOk(email))return info.textContent="⚠️ Cet email n'est pas valide.";
+    if(!email&&!estPortable(tel))return info.textContent="⚠️ Indiquez un email ou un portable.";
+    go.disabled=true;go.textContent="Envoi…";
+    try{
+      // coordonnées corrigées : enregistrées sur la fiche de la transaction
+      if(email!==(cl.email||"")||tel!==(cl.tel||"")){const nv={...(clients.get(x.id)||cl),email,tel};delete nv.id;await db.collection("clients").doc(x.id).set(nv);clients.set(x.id,nv);}
+      const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);m.remove();flash(`${doc.charAt(0).toUpperCase()+doc.slice(1)} renvoyée à ${a}.`,"ok");render();
+    }catch(e){go.disabled=false;go.textContent="📧 Réessayer";
+      if(e.lien&&e.tel){location.href=lienSms(e.tel,smsFacture(x,e.lien));info.textContent="SMS prêt dans Messages : appuyez sur Envoyer.";}
+      else info.textContent="⚠️ "+(e.message||"L'envoi a échoué.");}
+  };
+  sh.appendChild(go);sh.appendChild(no);document.body.appendChild(m);
+}
 async function relancerFacture(x,btn){
   if(btn){btn.disabled=true;btn.textContent="Envoi…";}
   try{const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);flash((x.type==="avoir"?"Avoir":"Facture")+" envoyé"+(x.type==="avoir"?"":"e")+" à "+a+".","ok");}
@@ -1731,13 +1798,14 @@ async function facturePdf(x,v,cl,num){
   const eur=n=>(Number(n)||0).toFixed(2).replace(".",",")+" €";
   const d=new jspdf.jsPDF({unit:"mm",format:"a4"});const G=15,D=195;
   d.addImage(logo,"JPEG",G,10,52,47);
-  // client
-  const nomCl=net([cl.prenom,cl.nom||(cl.initiale?cl.initiale+".":"")].filter(Boolean).join(" "))||"Client";
-  d.setDrawColor(200);d.roundedRect(112,18,D-112,34,2,2);
+  // client : particulier, ou professionnel (raison sociale, SIREN, TVA)
+  const nomCl=net(cl.pro?(cl.raisonSociale||cl.nom):[cl.prenom,cl.nom||(cl.initiale?cl.initiale+".":"")].filter(Boolean).join(" "))||"Client";
   d.setFont("helvetica","normal");d.setFontSize(9);d.setTextColor(120);d.text("Facturé à",117,25);
-  d.setTextColor(0);d.setFont("helvetica","bold");d.setFontSize(12);d.text(nomCl,117,32);
+  d.setTextColor(0);d.setFont("helvetica","bold");d.setFontSize(12);d.text(d.splitTextToSize(nomCl,D-120)[0],117,32);
   d.setFont("helvetica","normal");d.setFontSize(10);let yc=38;
-  [cl.adresse,[cl.cp,cl.ville].filter(Boolean).join(" "),cl.email].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
+  [cl.pro?[cl.siren?"SIREN "+cl.siren:"",cl.tvaClient?"TVA "+cl.tvaClient:""].filter(Boolean).join(" · "):"",cl.pro&&(cl.prenom||cl.nom)?"À l'attention de "+(cl.prenom||"")+(cl.nom?" "+cl.nom:""):"",
+   cl.adresse,[cl.cp,cl.ville].filter(Boolean).join(" "),cl.email].filter(Boolean).forEach(t=>{d.text(net(t),117,yc);yc+=5;});
+  d.setDrawColor(200);d.roundedRect(112,18,D-112,Math.max(34,yc-18),2,2); // cadre à la hauteur des lignes
   // numéro et date
   const dt=new Date(x.date||Date.now());const jour=dt.toLocaleDateString("fr-FR");
   const avoir=x.type==="avoir";
@@ -1750,7 +1818,7 @@ async function facturePdf(x,v,cl,num){
   cols.forEach(c=>d.text(c.t,c.x,y+6,c.r?{align:"right"}:{}));y+=9;
   d.setFont("helvetica","normal");d.setFontSize(10);let tot=0,qt=0;
   (x.lignes||[]).forEach(l=>{const mt=l.qte*l.prix;tot+=mt;qt+=l.qte;
-    const des=d.splitTextToSize(net(l.nom),70);const h=Math.max(7,des.length*4.5+2.5);
+    const des=d.splitTextToSize(net(l.nom+(l.offert?" (offert)":"")),70);const h=Math.max(7,des.length*4.5+2.5);
     d.text(des,G+2,y+5);d.text(net(l.format),89,y+5);d.text(String(l.qte),121,y+5,{align:"right"});
     d.text(eur(l.prix/(1+TVA)),145,y+5,{align:"right"});d.text(Math.round(TVA*100)+" %",160,y+5,{align:"right"});d.text(eur(mt),D-2,y+5,{align:"right"});
     y+=h;d.setDrawColor(225);d.line(G,y,D,y);});
@@ -1768,14 +1836,15 @@ async function facturePdf(x,v,cl,num){
   y+=6;d.setFontSize(10);d.setFont("helvetica","normal");
   if(avoir){d.text(net(`${x.partiel?"Avoir partiel sur":"Avoir annulant"} la facture ${x.factureOrigine||""}.`),105,y,{align:"center"});
     d.text(net(MODES[x.paiement]?`Remboursement par ${MODES[x.paiement]}.`:"Montant à déduire de votre règlement."),105,y+5,{align:"center"});}
-  else if(MODES[x.paiement])d.text(net(`Facture acquittée, réglée par ${MODES[x.paiement]} le ${jour}.`),105,y,{align:"center"});
-  else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+5,{align:"center"});}
-  // mentions légales (article 242 nonies A de l'annexe II du CGI, article L441-9 du code de commerce, RGPD, loi Évin)
-  {let ym=Math.max(y+14,214);d.setFont("helvetica","normal");d.setFontSize(7.5);d.setTextColor(110);
-    MENTIONS_FACTURE.forEach(t=>{const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<255){d.text(l,G,ym);ym+=l.length*3.4+0.8;}});d.setTextColor(0);}
+  else{
+    if(MODES[x.paiement])d.text(net(`Facture acquittée le ${jour} par ${MODES[x.paiement]}.`),105,y,{align:"center"});
+    else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+10,{align:"center"});}
+    d.text(net(`Remis en main propre le ${jour}.`),105,y+5,{align:"center"});}
+  {let ym=Math.max(y+16,222);d.setFont("helvetica","normal");d.setFontSize(7.5);d.setTextColor(110);
+    [...(cl.pro?MENTIONS_PRO:[]),...MENTIONS_FACTURE].forEach((t,i,a)=>{if(i===a.length-1)d.setFont("helvetica","bold");const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<262){d.text(l,G,ym);ym+=l.length*3.4+1.2;}});d.setFont("helvetica","normal");d.setTextColor(0);}
   // pied de page
-  let yp=266;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
-  SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i===0?11:i<3?8.6:8);d.text(net(t),105,yp,{align:"center"});yp+=i===0?5.5:4.3;});
+  let yp=270;d.setDrawColor(200);d.line(G,yp-6,D,yp-6);
+  SOCIETE.forEach((t,i)=>{d.setFont("helvetica",i===0?"bold":"normal");d.setFontSize(i===0?7.8:8.3);const l=d.splitTextToSize(net(t),D-G);d.text(l,105,yp,{align:"center"});yp+=l.length*4;});
   return d.output("blob");
 }
 async function ouvrirFacture(id,auto){
@@ -1840,24 +1909,27 @@ async function submitTx(){
   const v=getVente();
   if(!v||v.cloturee)return flash("Cette vente est clôturée.");
   if(!sv.vendeur.trim())return flash("Indiquez votre prénom de vendeur.");
-  const gratuit=estGratuit(sv.pmt);
-  if(!gratuit&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
+  const gratuit=estGratuit(sv.pmt),centrale=sv.pmt==="Caisse centrale";
+  if(!gratuit&&sv.client.pro&&!String(sv.client.raisonSociale||"").trim()){qs("#cl-rs")?.classList.add("invalide");return flash("Indiquez la raison sociale du client.");}
+  if(!gratuit&&!sv.client.pro&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
   if(!gratuit&&sv.client.email.trim()&&!emailOk(sv.client.email)){qs("#cl-email")?.classList.add("invalide");return flash("L'email du client n'est pas valide.");}
-  if(!gratuit&&!sv.client.papier&&!emailOk(sv.client.email)){
+  if(!gratuit&&!centrale&&!sv.client.papier&&!emailOk(sv.client.email)){
     (qs("#cl-email")||qs("#cl-papier"))?.classList.add("invalide");qs("#cl-email")?.focus();
     return flash("Indiquez l'email du client, ou cochez « Pas d'email ».");}
-  if(!gratuit&&!/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(String(sv.client.cp||"").trim())){qs("#cl-cp")?.classList.add("invalide");qs("#cl-cp")?.focus();return flash("Indiquez le code postal du client.");}
+  if(centrale&&v.association&&sv.client.optin&&!emailOk(sv.client.email)){qs("#cl-email")?.classList.add("invalide");return flash("Le client accepte nos informations : indiquez son email.");}
+  if(!gratuit&&!centrale&&!/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(String(sv.client.cp||"").trim())){qs("#cl-cp")?.classList.add("invalide");qs("#cl-cp")?.focus();return flash("Indiquez le code postal du client.");}
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   const id="t"+uid();
   const famille=remiseActive();
-  const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit?0:famille?prixLigne(l):l.prix,
-    ...(gratuit?{valeur:l.prix}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
+  const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit||l.offert?0:famille?prixLigne(l):l.prix,
+    ...(gratuit||l.offert?{valeur:l.prix}:{}),...(l.offert?{offert:true}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
   const contact={prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim(),cp:String(sv.client.cp||"").trim().toUpperCase(),
     ...(String(sv.client.adresse||"").trim()?{adresse:String(sv.client.adresse).trim()}:{}),
+    ...(sv.client.pro?{pro:true,raisonSociale:String(sv.client.raisonSociale||"").trim(),siren:String(sv.client.siren||"").replace(/\s/g,""),tvaClient:String(sv.client.tvaClient||"").trim().toUpperCase()}:{}),
     ...(v.association?{consentement:!!sv.client.optin}:{opposition:!!sv.client.opposition}),...(String(sv.client.ville||"").trim()?{ville:String(sv.client.ville).trim()}:{})};
   // en public, seulement le prénom et l'initiale ; les coordonnées vont dans « clients », lisible par les admins
-  const tx={venteId:v.id,client:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
+  const tx={venteId:v.id,client:contact.pro?{prenom:contact.raisonSociale,pro:true}:{prenom:contact.prenom,initiale:contact.nom.charAt(0).toUpperCase()},
     lignes,paiement:sv.pmt,total:lignes.reduce((s,l)=>s+l.qte*l.prix,0),vendeurPrenom:sv.vendeur.trim(),date:new Date().toISOString(),
     ...(sv.pmt==="CB"?{statut:"attente"}:{}),...(sv.client.papier&&!gratuit&&!emailOk(sv.client.email)&&!estPortable(sv.client.tel)?{facturePapier:true}:{}),...(famille?{remise:{type:"Famille",taux:REMISE_FAMILLE}}:{})};
   busy=true;updateTotal();
@@ -1870,35 +1942,51 @@ async function submitTx(){
     sv=blankSv();horsOpen=false;
     busy=false;go("vente",v.id);sonCaisse();flash(enAttente(tx)?`Transaction enregistrée : ${fmt(tx.total)}, en attente du paiement SumUp.`:`Transaction enregistrée : ${fmt(tx.total)}.`,"ok");
     // la facture reste proposée au retour de l'app SumUp (la page est alors rechargée)
-    if(gratuit){}
+    if(gratuit||centrale){}
     else{factureEnAttente.set(id,contact);store.set(FACTURE_KEY,JSON.stringify({id,contact,t:Date.now()}));}
-    if(gratuit){}
+    if(gratuit||centrale){}
     else if(tx.paiement==="CB")ouvrirSumUp(txs.find(x=>x.id===id));
     else ouvrirFacture(id,true);
   }catch(e){busy=false;updateTotal();flash(dbMessage(e));}
 }
 
-/* ---------- export ---------- */
+/* ---------- export Excel : un onglet « Détail » (une ligne par produit vendu) et un onglet « Récap » ---------- */
+const XLSX_SRC="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
 async function exportCSV(v){
-  const t=txsOf(v.id);
-  const rows=[["VENTE RAVIGNAN"],["Nom",v.nom],["Lieu",v.lieu],["Période",periode(v)],["Vendeur principal",v.vendeurPrincipal||""],[""],
-    ["DATE","CLIENT","PRENOM","TEL","EMAIL","PRODUIT","FORMAT","QTE","PRIX UNIT.","TOTAL LIGNE","PAIEMENT","VENDEUR"]];
-  t.forEach(x=>(x.lignes||[]).forEach((l,i)=>rows.push([
-    i===0&&x.date?new Date(x.date).toLocaleString("fr-FR"):"",i===0?clientOf(x).nom:"",i===0?clientOf(x).prenom:"",i===0?clientOf(x).tel||"":"",i===0?clientOf(x).email||"":"",
-    l.nom,l.format,l.qte,Number(l.prix).toFixed(2).replace(".",","),(l.qte*l.prix).toFixed(2).replace(".",","),i===0?x.paiement:"",i===0?x.vendeurPrenom||"":""])));
-  rows.push([""]);
-  PMTS.forEach(([p])=>{const s=t.filter(x=>x.paiement===p).reduce((a,x)=>a+montant(x),0);if(s)rows.push(["Total "+p,s.toFixed(2).replace(".",",")]);});
-  rows.push(["TOTAL CA",t.reduce((s,x)=>s+montant(x),0).toFixed(2).replace(".",",")]);
-  rows.push([""]);rows.push(["STOCK","FORMAT","INITIAL","VENDU","RESTANT"]);
-  v.refs.forEach(r=>{const vd=venduDe(v.id,r.id);rows.push([r.nom,r.format,r.stock||"sans limite",vd,r.stock?r.stock-vd:""]);});
-  const csv="﻿"+rows.map(r=>r.map(c=>'"'+String(c??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
-  try{
-    await downloads.save({filename:"ravignan-"+v.nom.replace(/[^\p{L}\p{N}]+/gu,"-")+".csv",data:csv});
-    flash("Fichier exporté.","ok");
-  }catch(e){
-    if(e&&e.code==="declined")return;
-    flash("L'export n'est pas disponible ici.");
-  }
+  try{if(!window.XLSX)await chargerScript(XLSX_SRC);}catch(e){return flash("L'export Excel n'a pas pu se charger. Vérifiez la connexion.");}
+  const t=txsOf(v.id),ht=n=>Math.round(n/(1+TVA)*100)/100,r2=n=>Math.round((Number(n)||0)*100)/100;
+  const statut=x=>x.type==="avoir"?"Avoir":enAttente(x)?"En attente de paiement":x.annuleePar?"Annulée":(x.avoirs||[]).length?"Annulée en partie":"Payée";
+  const detail=[];
+  t.forEach(x=>{const c=clientOf(x),d=x.date?new Date(x.date):null,env=(x.facture_envois||[]).slice(-1)[0];
+    (x.lignes||[]).forEach(l=>{const tot=r2(l.qte*l.prix);detail.push({
+      "Date":d?d.toLocaleDateString("fr-FR"):"","Heure":d?d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):"",
+      "N° facture":x.facture||"","Statut":statut(x),"Type de client":c.pro?"Professionnel":"Particulier",
+      "Client":c.pro?(c.raisonSociale||c.nom||""):[c.prenom,c.nom].filter(Boolean).join(" ")||nomClient(x),
+      "SIREN":c.siren||"","Email":c.email||"","Téléphone":c.tel||"","Adresse":c.adresse||"","Code postal":c.cp||"","Ville":c.ville||"",
+      "Produit":l.nom,"Format":l.format||"","Quantité":l.qte,"Offert":l.offert?"Oui":"",
+      "Prix unitaire TTC":r2(l.prix),"Prix public TTC":l.prixPublic!=null?r2(l.prixPublic):(l.offert?r2(l.valeur):""),
+      "Total TTC":tot,"Total HT":ht(tot),"TVA":r2(tot-ht(tot)),"Remise":x.remise?`${x.remise.type} -${x.remise.taux} %`:"",
+      "Paiement":x.paiement,"Vendeur":x.vendeurPrenom||"","Facture envoyée":env?`${new Date(env.date).toLocaleDateString("fr-FR")} (${env.canal==="sms"?"SMS":"email"})`:x.facturePapier?"Papier":""});});});
+  const ca=t.reduce((s,x)=>s+montant(x),0),btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
+  const recap=[["Vente",v.nom],["Lieu",v.lieu||""],["Période",periode(v)],["Encaissement",v.association?"Caisse centrale":"Domaine"],["Vendeur principal",v.vendeurPrincipal||""],[],
+    ["Chiffre d'affaires TTC",r2(ca)],["Chiffre d'affaires HT",ht(ca)],["TVA",r2(ca-ht(ca))],["Transactions",t.filter(x=>x.type!=="avoir").length],["Bouteilles",btl],[],
+    ["Par moyen de paiement","Transactions","Montant TTC"]];
+  PMTS.concat(GRATUITS.map(g=>[g,g])).forEach(([p])=>{const lp=t.filter(x=>x.paiement===p);if(lp.length)recap.push([p,lp.length,r2(lp.reduce((a,x)=>a+montant(x),0))]);});
+  recap.push([],["Par vendeur","Transactions","Montant TTC"]);
+  const parV={};t.forEach(x=>{const k=x.vendeurPrenom||"Non renseigné";parV[k]=parV[k]||[0,0];parV[k][0]++;parV[k][1]+=montant(x);});
+  Object.entries(parV).sort((a,b)=>b[1][1]-a[1][1]).forEach(([k,[n,s]])=>recap.push([k,n,r2(s)]));
+  recap.push([],["Par produit","Bouteilles","Montant TTC","Offertes"]);
+  const parP={};t.forEach(x=>(x.lignes||[]).forEach(l=>{const k=[l.nom,l.format].filter(Boolean).join(" ");parP[k]=parP[k]||[0,0,0];parP[k][0]+=l.qte;parP[k][1]+=enAttente(x)?0:l.qte*l.prix;if(l.offert)parP[k][2]+=l.qte;}));
+  Object.entries(parP).sort((a,b)=>b[1][1]-a[1][1]).forEach(([k,[q,s,o]])=>recap.push([k,q,r2(s),o||""]));
+  recap.push([],["Stock","Format","Emporté","Vendu","Dégustation","Restant"]);
+  v.refs.forEach(r=>{const vd=venduDe(v.id,r.id),dg=degusteDe(r);recap.push([r.nom,r.format,r.stock||"sans limite",vd,dg||"",r.stock?r.stock-vd-dg:""]);});
+  const wb=XLSX.utils.book_new();
+  const wsD=XLSX.utils.json_to_sheet(detail.length?detail:[{"Date":"Aucune transaction"}]);
+  wsD["!cols"]=Object.keys(detail[0]||{Date:1}).map(k=>({wch:Math.max(10,Math.min(32,k.length+4))}));wsD["!autofilter"]={ref:wsD["!ref"]};
+  const wsR=XLSX.utils.aoa_to_sheet(recap);wsR["!cols"]=[{wch:30},{wch:14},{wch:14},{wch:12},{wch:12},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,wsR,"Récap");XLSX.utils.book_append_sheet(wb,wsD,"Détail");
+  XLSX.writeFile(wb,"ravignan-"+v.nom.replace(/[^\p{L}\p{N}]+/gu,"-")+".xlsx");
+  flash("Fichier Excel exporté : onglets Récap et Détail.","ok");
 }
 
 /* ---------- administration ---------- */
