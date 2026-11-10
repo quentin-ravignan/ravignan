@@ -90,7 +90,16 @@ async function smsOvh(numero: string, message: string) {
     service = Array.isArray(l) ? l[0] : undefined;
     if (!service) throw new Error("Aucun service SMS sur le compte OVH");
   }
-  const sender = Deno.env.get("OVH_SMS_SENDER");
+  // expéditeur : secret OVH_SMS_SENDER, sinon le premier expéditeur validé du compte (ex. RAVIGNAN).
+  // Sans expéditeur, OVH envoie par numéro court, qui refuse les SMS contenant un lien.
+  let sender = Deno.env.get("OVH_SMS_SENDER");
+  if (!sender) {
+    const noms = await appelOvh("GET", `https://eu.api.ovh.com/1.0/sms/${service}/senders`).then((r) => r.json()).catch(() => []);
+    for (const n of Array.isArray(noms) ? noms : []) {
+      const d = await appelOvh("GET", `https://eu.api.ovh.com/1.0/sms/${service}/senders/${encodeURIComponent(n)}`).then((r) => r.json()).catch(() => ({}));
+      if (d.status === "enable") { sender = n; break; }
+    }
+  }
   const url = `https://eu.api.ovh.com/1.0/sms/${service}/jobs`;
   const corps = JSON.stringify({
     message, receivers: [numero], charset: "UTF-8", coding: "7bit", priority: "high", noStopClause: true,
@@ -100,6 +109,8 @@ async function smsOvh(numero: string, message: string) {
   const res = await r.json().catch(() => ({}));
   if (!r.ok || (Array.isArray(res.invalidReceivers) && res.invalidReceivers.length)) {
     console.error("OVH", r.status, res);
+    if (!sender && /shortcode|contact information/i.test(String(res.message || "")))
+      throw new Error("OVH : aucun expéditeur validé (ex. RAVIGNAN) sur le compte SMS ; sans lui, OVH refuse les SMS avec un lien");
     throw new Error(res.message ? "OVH : " + res.message : "Le SMS n'est pas parti");
   }
 }
