@@ -1240,7 +1240,7 @@ async function annulerTransaction(x,rendus){
     const cl=clients.get(x.id);if(cl){try{await db.collection("clients").doc(id).set({...cl,date:av.date});}catch(e){}}
     if(!txs.find(t=>t.id===id))txs.push({id,...av});x.avoirs=avoirs;if(total)x.annuleePar=id;
     busy=false;render();flash((total?"Transaction annulée":"Annulation partielle enregistrée")+(gratuit?".":" : l'avoir est prêt."),"ok");
-    if(!gratuit)ouvrirFacture(id,true);
+    if(!gratuit)envoyerFactureAuto(id);
   }catch(e){busy=false;console.error(e);flash(dbMessage(e));}
 }
 async function cloturer(vid){
@@ -1474,9 +1474,11 @@ function dessinerClientCaisse(cc){
       <div class="field"><label for="cl-tel">Portable</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div>`);
       [["cl-email","email"],["cl-tel","tel"]].forEach(([id,k])=>{const i=g.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
       cc.appendChild(g);}
-    const fc=el("div","field",`<label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190">`);
+    // code postal : demandé seulement s'il manque sur la fiche ; il y est ensuite gardé
+    if(c.cpConnu)cc.appendChild(txt("p","muted",`📍 ${c.cp}${c.ville?" "+c.ville:""}`));
+    else{const fc=el("div","field",`<label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190">`);
     const ic=fc.querySelector("input");ic.value=c.cp||"";ic.oninput=e=>{c.cp=e.target.value;e.target.classList.remove("invalide");};
-    cc.appendChild(fc);cc.appendChild(casePapier(c));return;
+    cc.appendChild(fc);}cc.appendChild(casePapier(c));return;
   }
   const modes=el("div","tabs");
   const bR=el("button",!c.nouveau?"active":"","Client existant"),bN=el("button",c.nouveau?"active":"","Nouveau client");
@@ -1493,7 +1495,8 @@ function dessinerClientCaisse(cc){
       if(!liste.length){res.appendChild(txt("p","muted","Aucun client trouvé."));const n=el("button","link","Créer ce client");n.onclick=()=>{c.nouveau=true;const [p,...rest]=q.value.trim().split(" ");c.prenom=p||"";c.nom=rest.join(" ");dessinerClientCaisse(cc);};res.appendChild(n);return;}
       liste.forEach(x=>{const b=el("button","client-res");const t2=el("span");t2.appendChild(txt("b","",[x.prenom,x.nom].filter(Boolean).join(" ")||x.email));
         t2.appendChild(txt("span","muted",[x.email,x.ville,x.nbAchats?x.nbAchats+" achat"+(x.nbAchats>1?"s":""):""].filter(Boolean).join(" · ")));b.appendChild(t2);b.appendChild(badgesOrigine(x));
-        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",papier:false,existant:true};dessinerClientCaisse(cc);};res.appendChild(b);});};
+        b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",ville:x.ville||"",adresse:x.adresse||"",papier:false,existant:true,cpConnu:!!String(x.cp||"").trim(),crmId:x.id||null,
+          ...(x.pro?{pro:true,raisonSociale:x.raisonSociale||"",siren:x.siren||"",tvaClient:x.tvaClient||""}:{})};dessinerClientCaisse(cc);};res.appendChild(b);});};
     q.oninput=chercher;setTimeout(()=>q.focus(),50);return;
   }
   // particulier (par défaut) ou professionnel
@@ -1665,7 +1668,7 @@ async function reglerPaiement(x,action,code,mode){
   if(action==="mode"){x.paiement=mode;}
   delete x.statut;if(action==="payee"){x.statut="payee";if(code)x.sumup={code};}
   render();flash(action==="payee"?"Paiement par carte confirmé"+(code?" (SumUp "+code+").":"."):"Paiement enregistré en "+mode.toLowerCase()+".","ok");
-  ouvrirFacture(x.id,true);
+  envoyerFactureAuto(x.id);
 }
 function paiementNonAbouti(x,msg){
   qs("#echec-modal")?.remove();
@@ -1731,6 +1734,17 @@ async function envoyerFactureEmail(x,blob){
 }
 // bouton « Relancer » d'une transaction : renvoie la facture sans ouvrir la fenêtre
 // renvoyer une facture à postériori : on peut corriger l'adresse email (ou le portable) avant l'envoi
+// envoi automatique de la facture à la fin d'une transaction : email, sinon SMS (OVH) ; sans fenêtre et sans ouvrir l'app SMS du téléphone
+async function envoyerFactureAuto(id){
+  const x=txs.find(t=>t.id===id);if(!x)return;
+  if(x.facturePapier){ouvrirFacture(id);return;} // facture papier : on l'affiche pour l'imprimer
+  if(!facturable(x)||(x.facture_envois||[]).length)return;
+  const doc=x.type==="avoir"?"Avoir":"Facture",acc=x.type==="avoir"?"":"e";
+  try{const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);
+    const canal=(x.facture_envois||[]).slice(-1)[0]?.canal;flash(`${doc}${x.facture?" "+x.facture:""} envoyé${acc} ${canal==="sms"?"par SMS au":"à"} ${a}.`,"ok");}
+  catch(e){console.error(e);flash(`⚠️ ${doc} non envoyé${acc} : ${e.message||"l'envoi a échoué"}. Bouton « Envoyer » sur la transaction.`);}
+  render();
+}
 async function renvoyerFacture(x){
   const cl=clientOf(x);
   qs("#renvoi-modal")?.remove();
@@ -1756,8 +1770,7 @@ async function renvoyerFacture(x){
       if(email!==(cl.email||"")||tel!==(cl.tel||"")){const nv={...(clients.get(x.id)||cl),email,tel};delete nv.id;await db.collection("clients").doc(x.id).set(nv);clients.set(x.id,nv);}
       const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);m.remove();flash(`${doc.charAt(0).toUpperCase()+doc.slice(1)} renvoyée à ${a}.`,"ok");render();
     }catch(e){go.disabled=false;go.textContent="📧 Réessayer";
-      if(e.lien&&e.tel){location.href=lienSms(e.tel,smsFacture(x,e.lien));info.textContent="SMS prêt dans Messages : appuyez sur Envoyer.";}
-      else info.textContent="⚠️ "+(e.message||"L'envoi a échoué.");}
+      info.textContent="⚠️ "+(e.message||"L'envoi a échoué.");}
   };
   sh.appendChild(go);sh.appendChild(no);document.body.appendChild(m);
 }
@@ -1765,8 +1778,7 @@ async function relancerFacture(x,btn){
   if(btn){btn.disabled=true;btn.textContent="Envoi…";}
   try{const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);flash((x.type==="avoir"?"Avoir":"Facture")+" envoyé"+(x.type==="avoir"?"":"e")+" à "+a+".","ok");}
   catch(e){console.error(e);
-    if(e.lien&&e.tel){location.href=lienSms(e.tel,smsFacture(x,e.lien));flash("SMS prêt dans Messages : appuyez sur Envoyer.","ok");}
-    else flash("Pas envoyée : "+(e.message||"l'envoi a échoué."));}
+    flash("Pas envoyée : "+(e.message||"l'envoi a échoué."));}
   render();
 }
 // toutes les factures pas encore envoyées d'une vente, l'une après l'autre
@@ -1782,7 +1794,7 @@ function reprendreFacture(){
   if(!p||!p.id||Date.now()-p.t>3*3600e3){store.set(FACTURE_KEY,"");return;}
   factureEnAttente.set(p.id,p.contact);
   const x=txs.find(t=>t.id===p.id);if(!x||enAttente(x))return;
-  setTimeout(()=>{if(!document.querySelector("#facture-modal")){go("vente",x.venteId);ouvrirFacture(p.id,true);}},300);
+  setTimeout(()=>{go("vente",x.venteId);envoyerFactureAuto(p.id);},300);
 }
 let jspdfPromesse=null;
 function chargerJsPdf(){
@@ -1937,6 +1949,7 @@ async function submitTx(){
     await db.collection("transactions").doc(id).set(tx);
     try{await db.collection("clients").doc(id).set({...contact,venteId:v.id,date:tx.date});}
     catch(e){flash("Vente enregistrée, mais les coordonnées du client n'ont pas pu l'être.");}
+    if(sv.client.crmId&&!sv.client.cpConnu&&contact.cp){const f=crm.find(c=>c.id===sv.client.crmId);if(f&&!f.cp){try{await db.collection("crm").doc(f.id).update({cp:contact.cp});f.cp=contact.cp;}catch(e){}}}
     store.set(VENDEUR_KEY,sv.vendeur.trim());
     if(!txs.find(x=>x.id===id))txs.push({id,...tx});
     sv=blankSv();horsOpen=false;
@@ -1946,7 +1959,7 @@ async function submitTx(){
     else{factureEnAttente.set(id,contact);store.set(FACTURE_KEY,JSON.stringify({id,contact,t:Date.now()}));}
     if(gratuit||centrale){}
     else if(tx.paiement==="CB")ouvrirSumUp(txs.find(x=>x.id===id));
-    else ouvrirFacture(id,true);
+    else envoyerFactureAuto(id);
   }catch(e){busy=false;updateTotal();flash(dbMessage(e));}
 }
 
@@ -3293,6 +3306,7 @@ function clientsFusion(){
     if(!f&&!normEmail(c.email)){for(const v of map.values()){if(normTxt(v.prenom+" "+v.nom)===normTxt(c.prenom+" "+c.nom)){f=v;break;}}}
     if(!f){f={id:null,prenom:c.prenom,nom:c.nom,email:c.email,tel:c.tel,sources:[],achats:[],tags:[]};map.set(k,f);}
     if(!f.email&&c.email)f.email=c.email;if(!f.tel&&c.tel)f.tel=c.tel;
+    for(const k of ["cp","ville","adresse","raisonSociale","siren","tvaClient"])if(!f[k]&&c[k])f[k]=c[k];if(c.pro)f.pro=true;
     if(!f.sources.includes("Ventes privées"))f.sources.push("Ventes privées");
     const v=ventes.find(x=>x.id===t.venteId);
     f.achats.push({date:t.date,source:"Ventes privées",ref:v?v.nom:"",produits:(t.lignes||[]).map(l=>({nom:(l.nom+" "+(l.format||"")).trim(),qte:l.qte,prix:l.prix})),total:montant(t),paiement:t.paiement});
