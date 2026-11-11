@@ -142,7 +142,6 @@ Deno.serve(async (req) => {
     const { data: c } = await db.from("docs").select("data").eq("collection", "clients").eq("id", tx).maybeSingle();
     const email = String(c?.data?.email || "").trim();
     const tel = portable(String(c?.data?.tel || ""));
-    const prenom = String(c?.data?.prenom || "").trim();
     const total = Number(t.data.total || 0).toFixed(2).replace(".", ",") + " €";
     const avoir = t.data.type === "avoir";
     const vendeur = String(t.data.vendeurPrenom || "");
@@ -159,13 +158,15 @@ Deno.serve(async (req) => {
       });
       // mail 1 (texte validé par Benoît) : la vente (événement) et sa date
       const { data: ve } = await db.from("docs").select("data").eq("collection", "ventes").eq("id", String(t.data.venteId || "")).maybeSingle();
-      const evenement = String(ve?.data?.nom || "notre vente");
+      // jamais le nom interne de la vente : « notre vente à Toulouse »
+      const lieu = String(ve?.data?.lieu || "").trim();
+      const evenement = lieu ? `notre vente à ${lieu}` : "notre vente";
       const jour = new Date(t.data.date || Date.now()).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
       const paragraphes = avoir
-        ? [`Bonjour ${prenom},`,
+        ? [`Madame, Monsieur,`,
           `Vous trouverez ci-joint l'avoir n° ${num} (${total}), qui annule ${t.data.partiel ? "en partie " : ""}la facture ${t.data.factureOrigine || ""} de votre achat lors de ${evenement}.`,
           `Pour retrouver toutes nos cuvées : armagnac-ravignan.com`]
-        : [`Bonjour ${prenom},`,
+        : [`Madame, Monsieur,`,
           `Merci pour votre achat lors de ${evenement}, le ${jour}. Vous trouverez ci-joint votre facture n° ${num}.`,
           `Si notre armagnac vous a plu, votre avis compte beaucoup pour un domaine familial comme le nôtre. Une minute suffit pour le partager sur Google : ${AVIS}`,
           `Pour retrouver toutes nos cuvées : armagnac-ravignan.com`];

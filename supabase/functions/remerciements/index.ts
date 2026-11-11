@@ -125,7 +125,9 @@ Deno.serve(async (req) => {
         for (const d of des || []) destinataires.delete(d.email);
       }
 
-      const nom = String(v.data.nom || "notre vente");
+      // jamais le nom interne de la vente : « notre vente à Toulouse »
+      const lieu = String(v.data.lieu || "").trim();
+      const nom = lieu ? `notre vente à ${lieu}` : "notre vente";
       const vendeur = String(v.data.vendeurPrincipal || (v.data.vendeurs || [])[0] || "");
       let n = 0, echecs = 0;
       for (const [email, { prenom, achats }] of destinataires) {
@@ -133,8 +135,8 @@ Deno.serve(async (req) => {
         // mail 2 (texte validé par Benoît) : le produit le plus acheté et un conseil de dégustation
         const produit = [...achats].filter(([p]) => p).sort((a, b) => b[1] - a[1])[0]?.[0] || "armagnac";
         const paragraphes = [
-          `Bonjour${prenom ? " " + prenom : ""},`,
-          `Merci encore pour votre passage sur notre stand à ${nom}. Ces ventes sont pour notre famille l'occasion de partager l'histoire du domaine et le travail de nos chais.`,
+          `Madame, Monsieur,`,
+          `Merci encore pour votre passage sur notre stand lors de ${nom}. Ces ventes sont pour notre famille l'occasion de partager l'histoire du domaine et le travail de nos chais.`,
           `Nous espérons que votre ${produit} tient ses promesses. Notre conseil : ${conseil(produit)}`,
           `Si ce n'est pas déjà fait, un avis sur Google nous aiderait beaucoup à faire connaître le domaine : ${AVIS}`,
           `Nos prochaines ventes et la boutique en ligne : armagnac-ravignan.com`,
@@ -143,7 +145,7 @@ Deno.serve(async (req) => {
           await transport.sendMail({
             from: `"Domaine de Ravignan" <${user}>`,
             to: email,
-            subject: `Merci pour votre visite à ${nom}`,
+            subject: `Merci pour votre visite lors de ${nom}`,
             text: `${paragraphes.join("\n\n")}\n\n${signature(vendeur)}\n\n${piedTexte(desabo)}`,
             html: html(paragraphes, vendeur, desabo),
             list: { unsubscribe: desabo },

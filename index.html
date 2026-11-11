@@ -647,7 +647,16 @@ function go(p,id){
   window.scrollTo(0,0);
   render();
 }
+let pageDessinee=null;
 function render(){
+  const meme=page===pageDessinee,y=window.scrollY,a=document.activeElement;
+  const champ=a&&a.id&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)?{id:a.id,d:a.selectionStart,f:a.selectionEnd}:null;
+  dessinerPage();pageDessinee=page;
+  if(!meme)return;
+  window.scrollTo(0,y);
+  if(champ){const e=document.getElementById(champ.id);if(e&&document.activeElement!==e){e.focus({preventScroll:true});try{if(champ.d!=null)e.setSelectionRange(champ.d,champ.f);}catch(_){}}}
+}
+function dessinerPage(){
   // l'ancienne page « Région et domaines » est désormais un onglet du Benchmark
   if(page==="region"){page="benchmark";benchOnglet="region";}
   const back=qs("#btn-back");
@@ -1508,7 +1517,7 @@ function dessinerClientCaisse(cc){
         t2.appendChild(txt("span","muted",[x.email,x.ville,x.nbAchats?x.nbAchats+" achat"+(x.nbAchats>1?"s":""):""].filter(Boolean).join(" · ")));b.appendChild(t2);b.appendChild(badgesOrigine(x));
         b.onclick=()=>{sv.client={prenom:x.prenom||"",nom:x.nom||"",email:x.email||"",tel:x.tel||"",cp:x.cp||"",ville:x.ville||"",adresse:x.adresse||"",papier:false,existant:true,cpConnu:!!String(x.cp||"").trim(),crmId:x.id||null,
           ...(x.pro?{pro:true,raisonSociale:x.raisonSociale||"",siren:x.siren||"",tvaClient:x.tvaClient||""}:{})};dessinerClientCaisse(cc);};res.appendChild(b);});};
-    q.oninput=chercher;setTimeout(()=>q.focus(),50);return;
+    q.oninput=chercher;setTimeout(()=>{const a=document.activeElement;if(!a||a===document.body)q.focus({preventScroll:true});},50);return;
   }
   // particulier (par défaut) ou professionnel
   const typ=el("div","tabs type-client");
@@ -1834,7 +1843,7 @@ async function facturePdf(x,v,cl,num){
   const avoir=x.type==="avoir";
   d.setFontSize(11);d.text(avoir?"Avoir n° :":"Facture n° :",150,68,{align:"right"});d.setFont("helvetica","bold");d.text(num,152,68);
   d.setFont("helvetica","normal");d.text("Date :",150,74,{align:"right"});d.text(jour,152,74);
-  if(v){d.setFontSize(9);d.setTextColor(120);d.text(net("Vente : "+v.nom+(v.lieu?" ("+v.lieu+")":"")),G,74);d.setTextColor(0);}
+  if(v){d.setFontSize(9);d.setTextColor(120);d.text(net(v.lieu?"Vente à "+v.lieu:"Vente privée"),G,74);d.setTextColor(0);}
   // tableau
   const cols=[{t:"Désignation",x:G+2},{t:"Format",x:89},{t:"Qté",x:121,r:1},{t:"Px unit. HT",x:145,r:1},{t:"TVA",x:160,r:1},{t:"Montant TTC",x:D-2,r:1}];
   let y=84;d.setFillColor(238,232,224);d.rect(G,y,D-G,9,"F");d.setFont("helvetica","bold");d.setFontSize(9);
@@ -3911,7 +3920,9 @@ async function verifierSession(session){
   if(!session){myEmail="";monPrenom="";isOwner=false;estMembre=false;accesPrive=false;authState="login";majPied();render();return;}
   myEmail=(session.user.email||"").toLowerCase();
   monPrenom=String(session.user.user_metadata?.full_name||session.user.user_metadata?.name||"").trim().split(/\s+/)[0]||"";
-  const {data}=await sb.from("membres").select("role,nom").eq("email",myEmail).maybeSingle();
+  const {data,error}=await sb.from("membres").select("role,nom").eq("email",myEmail).maybeSingle();
+  // réseau pas encore revenu (téléphone qui sort de veille) : on garde l'état et on réessaie, sans afficher l'écran de connexion
+  if(error){console.warn("membres",error);setTimeout(()=>sb.auth.getSession().then(r=>verifierSession(r.data.session)),3000);return;}
   if(data&&data.nom)monPrenom=data.nom;
   {const pic=session.user.user_metadata?.avatar_url||session.user.user_metadata?.picture;
     if(data&&pic&&/^https:\/\//.test(pic))sb.rpc("maj_ma_photo",{url:pic}).then(()=>chargerPhotos());}
@@ -3944,6 +3955,8 @@ async function verifierSession(session){
 }
 demarrerDonnees();
 sb.auth.onAuthStateChange((ev,session)=>{
+  // Supabase renvoie SIGNED_IN à chaque retour sur l'onglet : même personne déjà vérifiée, rien à refaire
+  if(ev==="SIGNED_IN"&&session&&estMembre&&String(session.user.email||"").toLowerCase()===myEmail)return;
   if(ev==="INITIAL_SESSION"||ev==="SIGNED_IN"||ev==="SIGNED_OUT")setTimeout(()=>verifierSession(session),0);
 });
 </script>
