@@ -285,6 +285,16 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .badge.open{background:var(--ok-soft);color:var(--ok)}
+.badge.prevue{background:var(--accent-soft);color:var(--accent-ink)}
+.badge.stock{background:var(--warn-soft);color:var(--warn)}
+.roadmap h2{font-size:17px}.roadmap-mois{margin:14px 0 4px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.roadmap-ligne{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 2px;cursor:pointer}
+.roadmap-ligne.encours{background:var(--ok-soft);border-radius:10px}
+.roadmap-date{flex:0 0 56px;display:flex;flex-direction:column;align-items:center;background:var(--accent-soft);border-radius:10px;padding:6px 2px;color:var(--accent-ink)}
+.roadmap-date b{font-size:16px}.roadmap-date small{font-size:11px}
+.roadmap-info{display:flex;flex-direction:column;gap:2px;min-width:0}.roadmap-tags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:3px}
+.planning summary{cursor:pointer;font-size:15px}.planning-ligne{display:grid;grid-template-columns:110px 1fr;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:14px;white-space:pre-line}
+.planning-creneau{padding:6px 0;border-top:1px solid var(--line);font-size:14px}.planning-creneau p{margin:2px 0 0}
 .badge.closed{background:var(--sunk);color:var(--muted)}
 .muted{color:var(--muted);font-size:12px}
 .num{font-variant-numeric:tabular-nums}
@@ -665,7 +675,7 @@ function dessinerPage(){
     if(page==="saisie")go("vente",venteId);
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Plan du Château",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
+  const titles={home:"Ventes privées","new-vente":nv.editId?"Préparer la vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Plan du Château",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
@@ -699,6 +709,7 @@ function renderHome(m){
   else m.appendChild(el("div","msg info","Lecture seule : demandez au propriétaire de vous inviter comme Éditeur pour saisir des ventes."));
   if(!loaded.ventes){m.appendChild(el("div","empty","Chargement…"));return;}
   if(ventes.length===0){m.appendChild(el("div","empty","Aucune vente pour l'instant.<br>Créez la première avec le bouton ci-dessus."));return;}
+  renderRoadmap(m);
   renderDashboard(m);
   m.appendChild(txt("h2","dash-titre","Toutes les ventes"));
   const list=[...ventes].sort((a,b)=>(a.cloturee-b.cloturee)||(b.dateDebut||"").localeCompare(a.dateDebut||""));
@@ -707,7 +718,7 @@ function renderHome(m){
     const c=el("button","card vente",`<div class="row" style="align-items:flex-start">
       <div style="min-width:0"><p style="font-weight:700">${esc(v.nom)}</p>
       <p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p></div>
-      <span class="badge ${v.cloturee?"closed":"open"}">${v.cloturee?"Clôturée":"En cours"}</span></div>
+      <span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span></div>
       <div class="row muted num" style="justify-content:flex-start;gap:16px"><span>${t.length} transaction${t.length>1?"s":""}</span><span><b style="color:var(--accent-ink)">${fmt(ca)}</b></span></div>`);
     c.onclick=()=>go("vente",v.id);
     m.appendChild(c);
@@ -941,7 +952,7 @@ function renderNewVente(m){
     if(comboOuvert)setTimeout(()=>{const nq=cv.querySelector(".combo-q");if(nq&&document.activeElement!==nq)nq.focus();},0);};
   dessinerVendeurs();
   const cp=el("div","card");m.appendChild(cp);renderProdPicker(cp);
-  const b=el("button","btn primary full","Créer la vente →");b.id="btn-create";b.onclick=createVente;m.appendChild(b);
+  const b=el("button","btn primary full",nv.editId?"Enregistrer la vente →":"Créer la vente →");b.id="btn-create";b.onclick=createVente;m.appendChild(b);
 }
 
 function renderProdPicker(c){
@@ -1071,17 +1082,72 @@ async function createVente(){
   }
   const refs=[...nv.refs.map(r=>({id:r.id,nom:r.nom,format:r.format,stock:Math.max(0,parseInt(r.stock)||0),prix:parseFloat(r.prix)||0})),
               ...nv.extras.map(x=>({id:x.id,nom:x.nom,format:x.format,stock:Math.max(0,x.stock||0),prix:x.prix}))];
-  const id="v"+uid();
-  const v={nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:new Date().toISOString()};
+  const ancienne=nv.editId?ventes.find(x=>x.id===nv.editId):null;
+  const id=ancienne?ancienne.id:"v"+uid();
+  const v={...(ancienne&&ancienne.planning?{planning:ancienne.planning}:{}),nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:ancienne?.createdAt||new Date().toISOString()};
   busy=true;qs("#btn-create").disabled=true;
   try{
     await db.collection("ventes").doc(id).set(v);
     store.set(VENDEUR_KEY,nv.vendeurs[0]);
     nv=blankNv();
-    if(!ventes.find(x=>x.id===id))ventes.push({id,...v});
-    go("vente",id);flash("Vente créée.","ok");jouerSonVente();
+    const i=ventes.findIndex(x=>x.id===id);if(i<0)ventes.push({id,...v});else ventes[i]={id,...v};
+    go("vente",id);flash(ancienne?"Vente prête.":"Vente créée.","ok");jouerSonVente();
   }catch(e){flash(dbMessage(e));const b=qs("#btn-create");if(b)b.disabled=false;}
   finally{busy=false;}
+}
+
+/* ---------- roadmap des ventes prévues (pré-créées depuis le planning) ---------- */
+// statut d'une vente : prévue (pas encore commencée), en cours, clôturée
+const statutVente=v=>v.cloturee?["closed","Clôturée"]:(v.dateDebut&&v.dateDebut>today()?["prevue","Prévue"]:["open","En cours"]);
+const MOIS_COURTS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+const JOURS_COURTS=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
+const jourDe=s=>{const [a,m,j]=String(s||"").split("-").map(Number);return new Date(a,(m||1)-1,j||1);};
+function dansCombien(v){
+  const j=Math.round((jourDe(v.dateDebut)-jourDe(today()))/864e5);
+  if(v.dateFin&&v.dateFin>=today()&&v.dateDebut<=today())return "en ce moment";
+  return j===0?"aujourd'hui":j===1?"demain":"dans "+j+" jours";
+}
+function renderRoadmap(m){
+  const a_venir=ventes.filter(v=>!v.cloturee&&(v.dateFin||v.dateDebut||"")>=today()).sort((a,b)=>(a.dateDebut||"").localeCompare(b.dateDebut||"")||(a.nom||"").localeCompare(b.nom||""));
+  if(!a_venir.length)return;
+  const c=el("div","card roadmap");
+  const aPreparer=a_venir.filter(v=>!(v.refs||[]).length).length;
+  c.appendChild(el("div","row",`<h2 style="margin:0">📅 Roadmap des ventes</h2><span class="muted">${a_venir.length} vente${a_venir.length>1?"s":""} jusqu'au ${esc(frDate(a_venir.reduce((x,v)=>(v.dateFin||v.dateDebut)>x?(v.dateFin||v.dateDebut):x,"")))}</span>`));
+  if(aPreparer)c.appendChild(txt("p","muted",`${aPreparer} vente${aPreparer>1?"s":""} sans stock (« À préparer ») : ouvrez-${aPreparer>1?"en une":"la"} et touchez « Préparer la vente » pour choisir les vendeurs et les bouteilles.`));
+  let moisCourant="";
+  a_venir.forEach(v=>{
+    const d=jourDe(v.dateDebut),f=jourDe(v.dateFin||v.dateDebut);
+    const mois=MOIS_COURTS[d.getMonth()]+" "+d.getFullYear();
+    if(mois!==moisCourant){moisCourant=mois;c.appendChild(txt("p","roadmap-mois",mois));}
+    const [cls,lab]=statutVente(v);
+    const jours=v.dateFin&&v.dateFin!==v.dateDebut?`${d.getDate()}–${f.getDate()}${f.getMonth()!==d.getMonth()?" "+MOIS_COURTS[f.getMonth()]:""}`:String(d.getDate());
+    const horaires=(v.planning?.creneaux||[]).filter(x=>x.horaire).map(x=>x.horaire);
+    const b=el("button","roadmap-ligne"+(cls==="open"?" encours":""),`<span class="roadmap-date"><b>${esc(jours)}</b><small>${esc(JOURS_COURTS[d.getDay()])}</small></span>
+      <span class="roadmap-info"><b>${esc(v.nom)}</b><small class="muted">${esc([v.lieu,horaires.length?horaires[0]+(horaires.length>1?"…":""):""].filter(Boolean).join(" · "))}</small>
+      <span class="roadmap-tags"><span class="badge ${cls}">${lab}</span>${!(v.refs||[]).length?`<span class="badge stock">À préparer</span>`:""}${v.association?`<span class="badge closed">Caisse centrale</span>`:""}<small class="muted">${esc(dansCombien(v))}</small></span></span>`);
+    b.onclick=()=>go("vente",v.id);c.appendChild(b);
+  });
+  m.appendChild(c);
+}
+// fiche « planning » d'une vente pré-créée : adresse, créneaux, équipe, logistique, contact, facturation
+function renderPlanningVente(m,v){
+  const p=v.planning;if(!p)return;
+  const c=el("details","card planning");c.open=!(v.refs||[]).length;
+  c.appendChild(el("summary","",`<b>🗓️ Planning de la vente</b>`));
+  const ligne=(t,val)=>{if(!val)return;const r=el("div","planning-ligne");r.appendChild(txt("span","muted",t));const x=el("span");x.textContent=val;r.appendChild(x);c.appendChild(r);};
+  ligne("Adresse",p.adresse);ligne("Installation",p.installation);
+  (p.creneaux||[]).forEach(x=>{const d=jourDe(x.date);const r=el("div","planning-creneau");
+    r.appendChild(txt("b","",`${JOURS_COURTS[d.getDay()]} ${d.getDate()} ${MOIS_COURTS[d.getMonth()]}${x.horaire?" · "+x.horaire:""}`));
+    if(x.equipe)r.appendChild(txt("p","muted",x.equipe));c.appendChild(r);});
+  ligne("Stock et matériel",p.logistique);ligne("Retour du stock",p.retour);ligne("Contact",p.contact);ligne("Facturation",p.facturation);ligne("Note",p.note);
+  m.appendChild(c);
+}
+// ouvre le formulaire de vente sur une vente pré-créée, pour y ajouter vendeurs et stock
+function preparerVente(v){
+  nv={nom:v.nom||"",lieu:v.lieu||"",dateDebut:v.dateDebut||today(),dateFin:v.dateFin||v.dateDebut||today(),vendeur:monPrenom,
+    vendeurs:(v.vendeurs||[]).length?[...v.vendeurs]:[monPrenom].filter(Boolean),refs:(v.refs||[]).map(r=>({...r,stock:String(r.stock??"")})),extras:[],
+    ...(v.association?{association:true}:{}),editId:v.id};
+  go("new-vente");
 }
 
 /* ---------- détail d'une vente ---------- */
@@ -1089,7 +1155,11 @@ function renderVente(m){
   const v=getVente();const t=txsOf(v.id);
   const ca=t.reduce((s,x)=>s+montant(x),0);
   const btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
-  m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${v.cloturee?"closed":"open"}">${v.cloturee?"Clôturée":"En cours"}</span>`));
+  m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span>`));
+  // vente pré-créée depuis le planning : il reste les vendeurs et le stock
+  if(!(v.refs||[]).length&&!v.cloturee){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
+    if(canWrite){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
+  renderPlanningVente(m,v);
   const k=el("div","grid3");
   [[fmt(ca),"Chiffre d'affaires"],[t.length,"Transactions"],[btl,"Articles"]].forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
   m.appendChild(k);
