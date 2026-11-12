@@ -1200,7 +1200,14 @@ async function importerCommandesSite(fichier,progres){
   const dv={...(v?stripId(v):{nom:"Site web armagnac-ravignan.com",lieu:"En ligne",permanente:true,dateFin:"",vendeurPrincipal:"Domaine de Ravignan",vendeurs:["Domaine de Ravignan"],refs:[],cloturee:false,createdAt:maj})};
   if(!dv.dateDebut||premiere.slice(0,10)<dv.dateDebut)dv.dateDebut=premiere.slice(0,10);
   lot.unshift({collection:"ventes",id:"site-web",data:dv,updated_at:maj});
-  for(let i=0;i<lot.length;i+=200){const {error}=await sb.from("docs").upsert(lot.slice(i,i+200),{onConflict:"collection,id"});if(error)throw error;progres&&progres(Math.min(i+200,lot.length)+" / "+lot.length);}
+  // envoi par lots de 100 ; un lot refusé est renvoyé (2 essais), puis ligne par ligne pour isoler la commande en cause.
+  // Relancer l'import ne crée pas de doublon (même identifiant web-<n° de commande>).
+  const refus=[];
+  const envoyer=async rows=>{for(let essai=0;essai<2;essai++){const {error}=await sb.from("docs").upsert(rows,{onConflict:"collection,id"});if(!error)return null;if(essai)return error;await new Promise(r=>setTimeout(r,1500));}};
+  for(let i=0;i<lot.length;i+=100){const part=lot.slice(i,i+100);const err=await envoyer(part);
+    if(err){for(const row of part){const e=await envoyer([row]);if(e)refus.push(row.id+" ("+(e.message||e.code)+")");}}
+    progres&&progres(Math.min(i+100,lot.length)+" / "+lot.length);}
+  if(refus.length)throw new Error(refus.length+" ligne(s) refusée(s) : "+refus.slice(0,5).join(", ")+(refus.length>5?"…":""));
   return n;
 }
 
