@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       const { data } = await db.from("docs").select("id,data").eq("collection", "ventes");
       const maintenant = Date.now();
       ventes = ((data || []) as Doc[]).filter((v) => {
-        if (v.data.remerciements) return false;
+        if (v.data.remerciements || v.data.permanente) return false; // la vente permanente du site web n'est jamais remerciée
         const fin = Date.parse(String(v.data.dateFin || v.data.dateDebut || "") + "T00:00:00Z");
         const jours = (maintenant - fin) / JOUR;
         return jours >= 7 && jours < 14;

@@ -581,7 +581,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const el=(tag,cls,html)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
 const qs=s=>document.querySelector(s);
 const store={get(k){try{return localStorage.getItem(k)||"";}catch(e){return "";}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
-const periode=v=>frDate(v.dateDebut)+(v.dateFin&&v.dateFin!==v.dateDebut?" → "+frDate(v.dateFin):"");
+const periode=v=>v.permanente?(v.dateDebut?"Depuis le "+frDate(v.dateDebut):"Vente permanente"):frDate(v.dateDebut)+(v.dateFin&&v.dateFin!==v.dateDebut?" → "+frDate(v.dateFin):"");
 
 let db=null, downloads=null, canWrite=true;
 let ventes=[], txs=[], loaded={ventes:false,txs:false}, dbError=null;
@@ -761,7 +761,7 @@ function renderDashboard(m){
       r.innerHTML=`<span class="dash-rang">${i<3?["🥇","🥈","🥉"][i]:i+1}</span><span class="dash-nom" title="${esc(nom)}">${avec?avatar(nom,"mini"):""}${esc(nom)}${detail?` <small class="muted">${esc(detail)}</small>`:""}</span><b class="num">${format(val)}</b><span class="dash-barre"><i style="width:${Math.max(2,val/max*100).toFixed(1)}%"></i></span>`;
       b.appendChild(r);});
     return b;};
-  const parV={};t.forEach(x=>{const n=(x.vendeurPrenom||"").trim();if(n&&!estGratuit(x.paiement))parV[n]=(parV[n]||0)+montant(x);});
+  const parV={};t.forEach(x=>{const n=(x.vendeurPrenom||"").trim();if(n&&x.source!=="site"&&!estGratuit(x.paiement))parV[n]=(parV[n]||0)+montant(x);});
   const parP={};t.filter(x=>!estGratuit(x.paiement)).forEach(x=>(x.lignes||[]).forEach(l=>{const n=[l.nom,l.format].filter(Boolean).join(" ");parP[n]=(parP[n]||0)+(l.qte||0);}));
   const parVente={};t.forEach(x=>{parVente[x.venteId]=(parVente[x.venteId]||0)+montant(x);});
   const top=(o,n=5)=>Object.entries(o).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n);
@@ -780,7 +780,7 @@ function renderDashboard(m){
     b.appendChild(barre);
     const leg=el("div","dash-leg");pm.forEach(([lab,v],i)=>leg.appendChild(el("span","",`<i style="background:${couleurs[i%couleurs.length]}"></i>${esc(lab)} <b class="num">${Math.round(v/totPm*100)} %</b>`)));
     b.appendChild(leg);c.appendChild(b);}
-  if(isOwner)c.appendChild(blocBoutique(dans));
+  // les commandes du site sont désormais la vente permanente « Site web » (synchro Stripe + import de l'export)
   m.appendChild(c);
 }
 // boutique en ligne Squarespace (administrateurs) : commandes synchronisées par la fonction « squarespace-sync »
@@ -1098,7 +1098,7 @@ async function createVente(){
 
 /* ---------- roadmap des ventes prévues (pré-créées depuis le planning) ---------- */
 // statut d'une vente : prévue (pas encore commencée), en cours, clôturée
-const statutVente=v=>v.cloturee?["closed","Clôturée"]:(v.dateDebut&&v.dateDebut>today()?["prevue","Prévue"]:["open","En cours"]);
+const statutVente=v=>v.permanente?["open","En ligne"]:v.cloturee?["closed","Clôturée"]:(v.dateDebut&&v.dateDebut>today()?["prevue","Prévue"]:["open","En cours"]);
 const MOIS_COURTS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 const JOURS_COURTS=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
 const jourDe=s=>{const [a,m,j]=String(s||"").split("-").map(Number);return new Date(a,(m||1)-1,j||1);};
@@ -1150,6 +1150,60 @@ function preparerVente(v){
   go("new-vente");
 }
 
+/* ---------- vente permanente du site web (commandes Squarespace payées par Stripe) ---------- */
+async function synchroniser(fonction,bouton,nom){
+  const lib=bouton.textContent;bouton.disabled=true;bouton.textContent="Synchronisation…";
+  try{const {data,error}=await sb.functions.invoke(fonction,{body:{}});
+    let msg=data&&data.erreur;if(error&&!msg){try{msg=(await error.context.json()).erreur;}catch(_){msg=error.message;}}
+    if(msg)flash(nom+" : "+msg);else flash(nom+" : "+(data.n||0)+" élément"+((data.n||0)>1?"s":"")+" synchronisé"+((data.n||0)>1?"s":"")+(data.nouveaux?", dont "+data.nouveaux+" nouveau"+(data.nouveaux>1?"x":""):"")+".","ok");
+    ["transactions","clients","crm","ventes"].forEach(c=>db.recharger&&db.recharger(c));}
+  catch(e){flash(nom+" : "+(e.message||e));}
+  finally{bouton.disabled=false;bouton.textContent=lib;}
+}
+function renderVenteSite(m,v){
+  const c=el("div","msg info","🌐 Vente permanente : chaque commande payée sur armagnac-ravignan.com s'ajoute ici automatiquement, toutes les heures. Vendeur : Domaine de Ravignan (contact@armagnac-ravignan.com). La facture est envoyée par Squarespace, pas par l'app.");
+  m.appendChild(c);
+  if(isAdmin()){const r=el("div","row");r.style.cssText="justify-content:flex-start;gap:8px;flex-wrap:wrap;margin:8px 0";
+    const b=el("button","btn ghost sm","🔄 Synchroniser maintenant");b.onclick=()=>synchroniser("stripe-sync",b,"Site web");r.appendChild(b);
+    const fi=el("input");fi.type="file";fi.accept=".csv,text/csv";fi.hidden=true;
+    const imp=el("button","btn ghost sm","📥 Importer l'export des commandes (orders.csv)");imp.onclick=()=>fi.click();
+    fi.onchange=async()=>{const f=fi.files[0];fi.value="";if(!f)return;imp.disabled=true;const lib=imp.textContent;imp.textContent="Import en cours…";
+      try{const n=await importerCommandesSite(f,x=>imp.textContent="Import… "+x);flash(n+" commandes du site importées.","ok");["transactions","clients","ventes"].forEach(c=>db.recharger(c));}
+      catch(e){flash("Import interrompu : "+(e.message||e));}finally{imp.disabled=false;imp.textContent=lib;}};
+    r.appendChild(imp);r.appendChild(fi);m.appendChild(r);}
+}
+// export « Commandes » de Squarespace (Commerce → Commandes → Télécharger CSV) → transactions de la vente « site-web »
+async function importerCommandesSite(fichier,progres){
+  const buf=await fichier.arrayBuffer();let texte=new TextDecoder("utf-8").decode(buf);
+  if(texte.includes("�"))texte=new TextDecoder("windows-1252").decode(buf); // export Squarespace en Windows-1252
+  const lignes=lireCsv(texte);
+  if(!lignes.length||!("Order ID" in lignes[0])||!("Lineitem name" in lignes[0]))throw new Error("ce n'est pas l'export des commandes Squarespace (colonnes Order ID, Lineitem name…)");
+  const parCmd=new Map();lignes.forEach(r=>{const k=r["Order ID"];if(!k)return;if(!parCmd.has(k))parCmd.set(k,[]);parCmd.get(k).push(r);});
+  const dateIso=s=>{const d=new Date(String(s||"").replace(" ","T").replace(/ ([+-]\d\d)(\d\d)$/,"$1:$2"));return isNaN(d)?new Date().toISOString():d.toISOString();};
+  const lot=[];let premiere="",n=0;const maj=new Date().toISOString();
+  for(const [k,rs] of parCmd){
+    const h=rs.find(r=>r["Financial Status"])||rs[0];const num=String(parseInt(k,10)||k);const id="web-"+num;
+    const brut=nombre(h["Total"]),rembourse=nombre(h["Amount Refunded"]),date=dateIso(h["Created at"]||h["Paid at"]);
+    if(!premiere||date<premiere)premiere=date;
+    const lignesCmd=rs.filter(r=>r["Lineitem name"]).map(r=>({refId:"web",nom:r["Lineitem name"],format:r["Lineitem variant"]||"",prix:nombre(r["Lineitem price"]),qte:parseInt(r["Lineitem quantity"])||1}));
+    const tx={venteId:"site-web",source:"site",date,total:Math.round((brut-rembourse)*100)/100,paiement:/paypal/i.test(h["Payment Method"])?"PayPal":"CB",
+      vendeurPrenom:"Domaine de Ravignan",statut:rembourse>=brut&&brut>0?"annulee":"payee",lignes:lignesCmd,commande:num,
+      port:nombre(h["Shipping"]),remiseCode:h["Discount Code"]||"",remiseMontant:nombre(h["Discount Amount"]),rembourse};
+    const nomC=(h["Billing Name"]||h["Shipping Name"]||"").trim().split(/\s+/);
+    const cl={prenom:nomC[0]||"",nom:nomC.slice(1).join(" "),email:normEmail(h["Email"]),tel:h["Billing Phone"]||h["Shipping Phone"]||"",
+      adresse:[h["Billing Address1"]||h["Shipping Address1"],h["Billing Address2"]||h["Shipping Address2"]].filter(Boolean).join(", "),
+      cp:h["Billing Zip"]||h["Shipping Zip"]||"",ville:h["Billing City"]||h["Shipping City"]||"",pays:h["Billing Country"]||h["Shipping Country"]||"",source:"Site web"};
+    lot.push({collection:"transactions",id,data:tx,updated_at:maj},{collection:"clients",id,data:cl,updated_at:maj});n++;
+  }
+  // la vente permanente (créée si besoin), datée de la première commande
+  const v=ventes.find(x=>x.id==="site-web");
+  const dv={...(v?stripId(v):{nom:"Site web armagnac-ravignan.com",lieu:"En ligne",permanente:true,dateFin:"",vendeurPrincipal:"Domaine de Ravignan",vendeurs:["Domaine de Ravignan"],refs:[],cloturee:false,createdAt:maj})};
+  if(!dv.dateDebut||premiere.slice(0,10)<dv.dateDebut)dv.dateDebut=premiere.slice(0,10);
+  lot.unshift({collection:"ventes",id:"site-web",data:dv,updated_at:maj});
+  for(let i=0;i<lot.length;i+=200){const {error}=await sb.from("docs").upsert(lot.slice(i,i+200),{onConflict:"collection,id"});if(error)throw error;progres&&progres(Math.min(i+200,lot.length)+" / "+lot.length);}
+  return n;
+}
+
 /* ---------- détail d'une vente ---------- */
 function renderVente(m){
   const v=getVente();const t=txsOf(v.id);
@@ -1157,7 +1211,7 @@ function renderVente(m){
   const btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
   m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span>`));
   // vente pré-créée depuis le planning : il reste les vendeurs et le stock
-  if(!(v.refs||[]).length&&!v.cloturee){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
+  if(!(v.refs||[]).length&&!v.cloturee&&!v.permanente){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
     if(canWrite){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
   renderPlanningVente(m,v);
   const k=el("div","grid3");
@@ -1169,7 +1223,7 @@ function renderVente(m){
   if(nonEnv.length&&canWrite){const n=el("div","envoi-alerte");
     n.appendChild(txt("span","",`⚠️ ${nonEnv.length} facture${nonEnv.length>1?"s":""} pas encore envoyée${nonEnv.length>1?"s":""}`));
     const b=el("button","btn ghost sm","📧 Tout envoyer");b.onclick=()=>envoyerToutes(nonEnv,b);n.appendChild(b);m.appendChild(n);}
-  if(isAdmin())renderRemerciements(m,v,t);
+  if(isAdmin()&&!v.permanente)renderRemerciements(m,v,t);
   // répartition par paiement
   const parP=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+montant(x),0)]).filter(x=>x[1]>0);
   const att=t.filter(enAttente);
@@ -1177,14 +1231,15 @@ function renderVente(m){
   if(parP.length)m.appendChild(el("p","muted num",parP.map(([l,s])=>`${l} ${fmt(s)}`).join(" · ")));
   const offerts=t.filter(x=>estGratuit(x.paiement));
   if(offerts.length)m.appendChild(el("p","muted num",GRATUITS.map(g=>{const q=offerts.filter(x=>x.paiement===g).reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+l.qte,0),0);return q?`${g} : ${q} bouteille${q>1?"s":""}`:"";}).filter(Boolean).join(" · ")));
+  if(v.permanente){renderVenteSite(m,v);}
   const actions=el("div","grid2");
-  if(!v.cloturee&&canWrite){
+  if(!v.cloturee&&canWrite&&!v.permanente){
     const b=el("button","btn go full","+ Transaction");
     b.onclick=()=>{sv=blankSv();horsOpen=false;go("saisie",v.id);};actions.appendChild(b);
   }
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
-  if(!v.cloturee&&canWrite){
+  if(!v.cloturee&&canWrite&&!v.permanente){
     const as=el("label","check-papier",`<input type="checkbox"${v.association?" checked":""}> <span>🏛️ Caisse centrale (l'organisateur encaisse)</span>`);
     as.querySelector("input").onchange=async e=>{const val=e.target.checked;try{await db.collection("ventes").doc(v.id).update({association:val});v.association=val;flash(val?"Vente en Caisse centrale : seul ce moyen de paiement est proposé, sans facture du domaine.":"Vente encaissée par le domaine (CB, espèces, chèque).","ok");}catch(err){e.target.checked=!val;flash(dbMessage(err));}};
     m.appendChild(as);
@@ -1198,7 +1253,8 @@ function renderVente(m){
   renderJournalStock(m,v);
   if(downloads&&isAdmin()){const e=el("button","btn ghost full","📊 Exporter en Excel (récap + détail)");e.onclick=()=>exportCSV(v);m.appendChild(e);}
   // suppression : libre tant qu'aucune transaction n'est saisie, réservée aux administrateurs ensuite
-  if(!t.length||isAdmin()){
+  if(v.permanente){}
+  else if(!t.length||isAdmin()){
     const l=el("button","link","Supprimer la vente");l.style.color="var(--bad)";l.onclick=()=>demanderSuppressionVente(v);m.appendChild(l);
   }else m.appendChild(txt("p","muted","Vente commencée : seul un administrateur peut la supprimer."));
 }
@@ -1796,7 +1852,7 @@ const AVIS_GOOGLE="https://maps.google.com/?cid=9627672053882881379"; // fiche G
 const INVITE_AVIS="Si vous avez passé un bon moment, laissez-nous une note et un petit commentaire sur Google : cela nous aide beaucoup ! ⭐ "+AVIS_GOOGLE;
 // échecs d'envoi par email, pour les afficher sur la transaction (ex. « Pas d'email pour ce client »)
 const echecsEnvoi=new Map();
-const facturable=x=>!estGratuit(x.paiement)&&x.paiement!=="Caisse centrale"&&!enAttente(x)&&!x.facturePapier;
+const facturable=x=>x.source!=="site"&&!estGratuit(x.paiement)&&x.paiement!=="Caisse centrale"&&!enAttente(x)&&!x.facturePapier;
 // message du SMS envoyé depuis le téléphone quand l'envoi automatique n'est pas possible
 const smsFacture=(x,lien)=>`Chateau de Ravignan : votre ${x.type==="avoir"?"avoir":"facture"} ${x.facture||""} (${fmt(x.total).replace(/\u202f|\u00a0/g," ")}) : ${lien} - Merci ! Un avis Google nous ferait plaisir : ${location.origin}/avis/`;
 const lienSms=(tel,texte)=>`sms:${String(tel||"").replace(/[^\d+]/g,"")}${/iPhone|iPad/i.test(navigator.userAgent)?"&":"?"}body=${encodeURIComponent(texte)}`;
@@ -3397,11 +3453,14 @@ function clientsFusion(){
     if(!f){f={id:null,prenom:c.prenom,nom:c.nom,email:c.email,tel:c.tel,sources:[],achats:[],tags:[]};map.set(k,f);}
     if(!f.email&&c.email)f.email=c.email;if(!f.tel&&c.tel)f.tel=c.tel;
     for(const k of ["cp","ville","adresse","raisonSociale","siren","tvaClient"])if(!f[k]&&c[k])f[k]=c[k];if(c.pro)f.pro=true;
-    if(!f.sources.includes("Ventes privées"))f.sources.push("Ventes privées");
+    const src=t.source==="site"?"Site web":"Ventes privées";
+    if(!f.sources.includes(src))f.sources.push(src);
     const v=ventes.find(x=>x.id===t.venteId);
-    f.achats.push({date:t.date,source:"Ventes privées",ref:v?v.nom:"",produits:(t.lignes||[]).map(l=>({nom:(l.nom+" "+(l.format||"")).trim(),qte:l.qte,prix:l.prix})),total:montant(t),paiement:t.paiement});
+    if(src==="Site web")f._site=true;
+    f.achats.push({date:t.date,source:src,ref:v?v.nom:"",produits:(t.lignes||[]).map(l=>({nom:(l.nom+" "+(l.format||"")).trim(),qte:l.qte,prix:l.prix})),total:montant(t),paiement:t.paiement});
   });
   return [...map.values()].map(c=>{
+    if(c._site){c.achats=c.achats.filter(a=>a.source!=="Squarespace");delete c._site;}
     const achats=c.achats.filter(a=>a.total||a.produits?.length).sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")));
     const total=achats.reduce((s,a)=>s+(+a.total||0),0);
     return {...c,achats,total,nbAchats:achats.reduce((s,a)=>s+(a.nb||1),0),dernier:achats[0]?.date||null};
@@ -3433,10 +3492,11 @@ function renderClients(m){
   const s=el("input","search");s.type="search";s.id="crm-q";s.placeholder="Rechercher un nom, un email, une ville, un produit…";s.value=crmQuery;s.style.flex="1";s.style.minWidth="220px";
   bar.appendChild(s);
   const imp=el("button","btn ghost sm","Importer Mailchimp / Squarespace");imp.onclick=()=>{crmImport={};render();};bar.appendChild(imp);
+  if(isAdmin()){const sy=el("button","btn ghost sm","🔄 Synchroniser Mailchimp");sy.onclick=()=>synchroniser("mailchimp-sync",sy,"Mailchimp");bar.appendChild(sy);}
   const nv=el("button","btn primary sm","+ Nouveau client");nv.onclick=()=>{crmSel={nouveau:true};render();};bar.appendChild(nv);
   m.appendChild(bar);
   const chips=el("div","chips");
-  [["tous","Tous"],["acheteurs","Acheteurs"],["newsletter","Newsletter"],["Ventes privées","Ventes privées"],["Squarespace","Squarespace"],["Mailchimp","Mailchimp"],["sans","Jamais acheté"]].forEach(([kk,l])=>{
+  [["tous","Tous"],["acheteurs","Acheteurs"],["newsletter","Newsletter"],["Ventes privées","Ventes privées"],["Site web","Site web"],["Squarespace","Squarespace"],["Mailchimp","Mailchimp"],["sans","Jamais acheté"]].forEach(([kk,l])=>{
     const b=txt("button","chip"+(crmFiltre===kk?" sel":""),l);b.onclick=()=>{crmFiltre=kk;render();};chips.appendChild(b);});
   const tri=el("select");tri.setAttribute("aria-label","Trier");tri.style.cssText="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface);margin-left:auto";
   [["total","Plus gros clients"],["recent","Achat le plus récent"],["nom","Nom (A→Z)"]].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;o.selected=crmTri===v;tri.appendChild(o);});
@@ -3448,7 +3508,7 @@ function renderClients(m){
     return tous.filter(c=>{
       if(crmFiltre==="acheteurs"&&!c.nbAchats)return false;if(crmFiltre==="sans"&&c.nbAchats)return false;
       if(crmFiltre==="newsletter"&&!c.newsletter)return false;
-      if(["Ventes privées","Squarespace","Mailchimp"].includes(crmFiltre)&&!(c.sources||[]).includes(crmFiltre))return false;
+      if(["Ventes privées","Site web","Squarespace","Mailchimp"].includes(crmFiltre)&&!(c.sources||[]).includes(crmFiltre))return false;
       if(!q)return true;
       return normTxt([c.prenom,c.nom,c.email,c.tel,c.ville,c.cp,(c.tags||[]).join(" "),c.notes,...c.achats.flatMap(a=>(a.produits||[]).map(p=>p.nom))].join(" ")).includes(q);
     }).sort((a,b)=>crmTri==="nom"?normTxt(a.nom+a.prenom).localeCompare(normTxt(b.nom+b.prenom)):crmTri==="recent"?String(b.dernier||"").localeCompare(String(a.dernier||"")):b.total-a.total);};
@@ -4010,7 +4070,7 @@ async function verifierSession(session){
   if(accesPrive&&!coordsAbonne){coordsAbonne=true;db.collection("coordonnees").onSnapshot(s=>{coords=new Map(s.docs.map(x=>[x.id,x.data()]));if(page==="genealogie"&&!famEdit)ficheFamille();},()=>{});}
   authState=isOwner?"ok":"denied";majPied();
   if(estMembre)abonnerCrm();
-  if(isOwner)abonnerSquarespace();
+
   if(estMembre&&!clientsAbonne){
     clientsAbonne=true;
     db.collection("clients").onSnapshot(s=>{
