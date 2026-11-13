@@ -285,6 +285,8 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .badge.open{background:var(--ok-soft);color:var(--ok)}
+.renommer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}.renommer .link{font-size:13px}
+.renommer input{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
 .permanentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:12px}
 .perm-carte{display:flex;gap:12px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px;cursor:pointer;box-shadow:var(--shadow)}
 .perm-carte:hover{background:var(--accent-soft)}.perm-ico{font-size:34px;line-height:1;flex:0 0 auto}
@@ -1292,6 +1294,16 @@ function renderVente(m){
   const ca=t.reduce((s,x)=>s+montant(x),0);
   const btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
   m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span>`));
+  // renommer la vente (le nom interne ; les emails aux clients utilisent le lieu)
+  if(canWrite){const zr=el("div","renommer");const lien=el("button","link","✏️ Renommer la vente");zr.appendChild(lien);m.appendChild(zr);
+    lien.onclick=()=>{zr.innerHTML="";const i=el("input");i.id="vente-nom";i.value=v.nom||"";i.maxLength=80;i.setAttribute("aria-label","Nom de la vente");
+      const ok=el("button","btn primary sm","Enregistrer"),an=el("button","btn ghost sm","Annuler");
+      const enregistrer=async()=>{const nom=i.value.trim();if(!nom){i.classList.add("invalide");return flash("Indiquez un nom.");}
+        if(nom===v.nom){render();return;}ok.disabled=true;
+        try{await db.collection("ventes").doc(v.id).update({nom});v.nom=nom;flash("Vente renommée.","ok");render();}
+        catch(e){ok.disabled=false;flash(dbMessage(e));}};
+      ok.onclick=enregistrer;an.onclick=()=>render();i.onkeydown=e=>{if(e.key==="Enter")enregistrer();if(e.key==="Escape")render();};
+      zr.appendChild(i);zr.appendChild(ok);zr.appendChild(an);i.focus();i.select();};}
   // vente pré-créée depuis le planning : il reste les vendeurs et le stock
   if(!(v.refs||[]).length&&!v.cloturee&&v.id!=="site-web"){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
     if(canWrite){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
