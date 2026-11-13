@@ -285,6 +285,24 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .badge.open{background:var(--ok-soft);color:var(--ok)}
+.permanentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:12px}
+.perm-carte{display:flex;gap:12px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px;cursor:pointer;box-shadow:var(--shadow)}
+.perm-carte:hover{background:var(--accent-soft)}.perm-ico{font-size:34px;line-height:1;flex:0 0 auto}
+.perm-info{display:flex;flex-direction:column;gap:2px;min-width:0}.perm-info b{font-size:15px}.perm-chiffres b{color:var(--accent-ink);font-size:17px}
+.frise-carte h2{font-size:17px}.frise-defile{overflow-x:auto;margin-top:10px;border:1px solid var(--line);border-radius:12px;-webkit-overflow-scrolling:touch}
+.frise{position:relative;background:var(--surface)}
+.frise-mois{position:absolute;top:4px;font-size:12px;font-weight:800;color:var(--accent-ink);padding-left:4px;border-left:2px solid var(--accent);white-space:nowrap}
+.frise-jour{position:absolute;top:24px;font-size:10px;color:var(--muted);padding-left:2px;border-left:1px solid var(--line)}
+.frise-we{position:absolute;top:22px;bottom:0;background:var(--sunk)}
+.frise-auj{position:absolute;top:20px;bottom:0;width:2px;background:var(--bad);z-index:2}
+.frise-vente{position:absolute;height:28px;border-radius:8px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;text-align:left;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;z-index:1}
+.frise-vente.open{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.frise-vente.apreparer{border-style:dashed;background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.frise-vente.passee{background:var(--sunk);border-color:var(--line);color:var(--muted)}
+.frise-vente.courte{border-right-style:dotted}
+.frise-vente:hover{filter:brightness(.95);z-index:3}
+.frise-legende{font-size:12px;margin:8px 0 0}.pastille{display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 4px 0 8px;vertical-align:middle;border:1px solid var(--accent);background:var(--accent-soft)}
+.pastille.open{background:var(--ok-soft);border-color:var(--ok)}.pastille.apreparer{background:var(--warn-soft);border:1px dashed var(--warn)}.pastille.passee{background:var(--sunk);border-color:var(--line)}
 .badge.prevue{background:var(--accent-soft);color:var(--accent-ink)}
 .badge.stock{background:var(--warn-soft);color:var(--warn)}
 .roadmap h2{font-size:17px}.roadmap-mois{margin:14px 0 4px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
@@ -702,17 +720,20 @@ function dessinerPage(){
 
 /* ---------- accueil ---------- */
 function renderHome(m){
-  const intro=el("div","card soft",`<p style="font-weight:800;color:var(--accent-ink)">Ventes privées</p>
-    <p class="muted">Créez une vente, saisissez les transactions sur place et suivez le stock en direct. Tous les vendeurs voient les mêmes chiffres.</p>`);
-  m.appendChild(intro);
+  if(!loaded.ventes){m.appendChild(el("div","empty","Chargement…"));return;}
+  // 1. ventes permanentes : le site web et le domaine
+  renderPermanentes(m);
+  // 2. frise des ventes : le mois passé et les 3 prochains mois
+  renderFrise(m);
+  // 3. nouvelle vente, puis le reste
   if(canWrite){const b=el("button","btn primary full","+ Nouvelle vente");b.onclick=()=>go("new-vente");m.appendChild(b);}
   else m.appendChild(el("div","msg info","Lecture seule : demandez au propriétaire de vous inviter comme Éditeur pour saisir des ventes."));
-  if(!loaded.ventes){m.appendChild(el("div","empty","Chargement…"));return;}
-  if(ventes.length===0){m.appendChild(el("div","empty","Aucune vente pour l'instant.<br>Créez la première avec le bouton ci-dessus."));return;}
+  const autres=ventes.filter(v=>!v.permanente);
+  if(!autres.length&&!ventes.length){m.appendChild(el("div","empty","Aucune vente pour l'instant.<br>Créez la première avec le bouton ci-dessus."));return;}
   renderRoadmap(m);
   renderDashboard(m);
   m.appendChild(txt("h2","dash-titre","Toutes les ventes"));
-  const list=[...ventes].sort((a,b)=>(a.cloturee-b.cloturee)||(b.dateDebut||"").localeCompare(a.dateDebut||""));
+  const list=[...autres].sort((a,b)=>(a.cloturee-b.cloturee)||(b.dateDebut||"").localeCompare(a.dateDebut||""));
   list.forEach(v=>{
     const t=txsOf(v.id);const ca=t.reduce((s,x)=>s+montant(x),0);
     const c=el("button","card vente",`<div class="row" style="align-items:flex-start">
@@ -723,6 +744,60 @@ function renderHome(m){
     c.onclick=()=>go("vente",v.id);
     m.appendChild(c);
   });
+}
+// ventes permanentes en tête de page : 🌐 site web, 🏰 domaine
+const ICONE_PERMANENTE=v=>v.id==="site-web"?"🌐":"🏰";
+function renderPermanentes(m){
+  const perm=ventes.filter(v=>v.permanente).sort((a,b)=>(a.id==="site-web"?0:1)-(b.id==="site-web"?0:1));
+  if(!perm.length)return;
+  const z=el("div","permanentes");
+  const annee=String(new Date().getFullYear());
+  perm.forEach(v=>{
+    const t=txsOf(v.id),ta=t.filter(x=>String(x.date||"").startsWith(annee));
+    const ca=ta.reduce((s,x)=>s+montant(x),0),tot=t.reduce((s,x)=>s+montant(x),0);
+    const der=t.reduce((d,x)=>String(x.date||"")>d?String(x.date):d,"");
+    const b=el("button","perm-carte",`<span class="perm-ico" aria-hidden="true">${ICONE_PERMANENTE(v)}</span>
+      <span class="perm-info"><b>${esc(v.id==="site-web"?"Site web":v.nom)}</b><small class="muted">${esc(v.id==="site-web"?"armagnac-ravignan.com":v.lieu||"Vente au domaine")}</small>
+      <span class="perm-chiffres num"><b>${fmt(ca)}</b> <small class="muted">en ${annee} · ${ta.length} vente${ta.length>1?"s":""}</small></span>
+      <small class="muted num">${t.length} au total · ${fmt(tot)}${der?" · dernière le "+frDate(der.slice(0,10)):""}</small></span>`);
+    b.onclick=()=>go("vente",v.id);z.appendChild(b);
+  });
+  m.appendChild(z);
+}
+// frise chronologique horizontale : du début du mois dernier à la fin du 3e mois à venir, ventes cliquables
+function renderFrise(m){
+  const auj=jourDe(today());
+  const debut=new Date(auj.getFullYear(),auj.getMonth()-1,1),fin=new Date(auj.getFullYear(),auj.getMonth()+4,0);
+  const J=864e5,nbJ=Math.round((fin-debut)/J)+1,PX=20,MINJ=7; // une vente occupe au moins 7 jours à l'écran, pour lire son nom
+  const dans=ventes.filter(v=>!v.permanente&&v.dateDebut&&jourDe(v.dateFin||v.dateDebut)>=debut&&jourDe(v.dateDebut)<=fin)
+    .sort((a,b)=>a.dateDebut.localeCompare(b.dateDebut)||(b.dateFin||"").localeCompare(a.dateFin||""));
+  const c=el("div","card frise-carte");
+  c.appendChild(el("div","row",`<h2 style="margin:0">🗓️ Frise des ventes</h2><span class="muted">${esc(MOIS_COURTS[debut.getMonth()])} → ${esc(MOIS_COURTS[fin.getMonth()])} ${fin.getFullYear()}</span>`));
+  if(!dans.length){c.appendChild(txt("p","muted","Aucune vente sur cette période."));m.appendChild(c);return;}
+  // pistes : une vente par piste tant qu'elles se chevauchent
+  const pistes=[];const pos=new Map();
+  dans.forEach(v=>{const d=Math.max(0,Math.round((jourDe(v.dateDebut)-debut)/J)),f=Math.min(nbJ-1,Math.round((jourDe(v.dateFin||v.dateDebut)-debut)/J));
+    const fv=Math.max(f,d+MINJ-1);let p=pistes.findIndex(x=>x<=d);if(p<0){p=pistes.length;pistes.push(-1);}pistes[p]=fv+1;pos.set(v.id,{d,f,p});});
+  const H=34,haut=44,larg=nbJ*PX;
+  const sc=el("div","frise-defile");const fr=el("div","frise");fr.style.width=larg+"px";fr.style.height=(haut+pistes.length*H+8)+"px";
+  // mois, jours, week-ends
+  for(let i=0;i<nbJ;i++){const d=new Date(debut.getTime()+i*J);
+    if(d.getDate()===1||i===0){const mo=el("div","frise-mois");mo.style.left=i*PX+"px";mo.textContent=MOIS_COURTS[d.getMonth()]+" "+d.getFullYear();fr.appendChild(mo);}
+    if(d.getDay()===0||d.getDay()===6){const w=el("div","frise-we");w.style.left=i*PX+"px";w.style.width=PX+"px";fr.appendChild(w);}
+    if(d.getDay()===1||d.getDate()===1){const j=el("div","frise-jour");j.style.left=i*PX+"px";j.textContent=d.getDate();fr.appendChild(j);}}
+  // aujourd'hui
+  const ia=Math.round((auj-debut)/J);const ligne=el("div","frise-auj");ligne.style.left=(ia*PX+PX/2)+"px";ligne.title="Aujourd'hui";fr.appendChild(ligne);
+  // les ventes
+  dans.forEach(v=>{const {d,f,p}=pos.get(v.id);const [cls]=statutVente(v);
+    const passee=!v.cloturee&&(v.dateFin||v.dateDebut)<today()?" passee":v.cloturee?" passee":"";
+    const b=el("button","frise-vente "+cls+passee+(!(v.refs||[]).length&&cls==="prevue"?" apreparer":""));
+    b.style.left=(d*PX+1)+"px";b.style.width=(PX*Math.max(f-d+1,MINJ)-2)+"px";if(f-d+1<MINJ)b.classList.add("courte");b.style.top=(haut+p*H)+"px";
+    b.title=`${v.nom} · ${v.lieu||""} · ${periode(v)}`;b.textContent=v.nom;b.onclick=()=>go("vente",v.id);fr.appendChild(b);});
+  sc.appendChild(fr);c.appendChild(sc);
+  c.appendChild(el("p","muted frise-legende",`<span class="pastille open"></span>en cours <span class="pastille prevue"></span>prévue <span class="pastille apreparer"></span>à préparer <span class="pastille passee"></span>passée · faites glisser pour voir les mois suivants`));
+  m.appendChild(c);
+  // la frise s'ouvre une semaine avant aujourd'hui
+  requestAnimationFrame(()=>{sc.scrollLeft=Math.max(0,(ia-7)*PX);});
 }
 
 /* ---------- tableau de bord de toutes les ventes ---------- */
@@ -1084,7 +1159,7 @@ async function createVente(){
               ...nv.extras.map(x=>({id:x.id,nom:x.nom,format:x.format,stock:Math.max(0,x.stock||0),prix:x.prix}))];
   const ancienne=nv.editId?ventes.find(x=>x.id===nv.editId):null;
   const id=ancienne?ancienne.id:"v"+uid();
-  const v={...(ancienne&&ancienne.planning?{planning:ancienne.planning}:{}),nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:ancienne?.createdAt||new Date().toISOString()};
+  const v={...(ancienne&&ancienne.planning?{planning:ancienne.planning}:{}),...(ancienne&&ancienne.permanente?{permanente:true,dateFin:""}:{}),nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:ancienne?.createdAt||new Date().toISOString()};
   busy=true;qs("#btn-create").disabled=true;
   try{
     await db.collection("ventes").doc(id).set(v);
@@ -1098,7 +1173,7 @@ async function createVente(){
 
 /* ---------- roadmap des ventes prévues (pré-créées depuis le planning) ---------- */
 // statut d'une vente : prévue (pas encore commencée), en cours, clôturée
-const statutVente=v=>v.permanente?["open","En ligne"]:v.cloturee?["closed","Clôturée"]:(v.dateDebut&&v.dateDebut>today()?["prevue","Prévue"]:["open","En cours"]);
+const statutVente=v=>v.permanente?["open",v.id==="site-web"?"En ligne":"Permanente"]:v.cloturee?["closed","Clôturée"]:(v.dateDebut&&v.dateDebut>today()?["prevue","Prévue"]:["open","En cours"]);
 const MOIS_COURTS=["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 const JOURS_COURTS=["dim.","lun.","mar.","mer.","jeu.","ven.","sam."];
 const jourDe=s=>{const [a,m,j]=String(s||"").split("-").map(Number);return new Date(a,(m||1)-1,j||1);};
@@ -1108,7 +1183,7 @@ function dansCombien(v){
   return j===0?"aujourd'hui":j===1?"demain":"dans "+j+" jours";
 }
 function renderRoadmap(m){
-  const a_venir=ventes.filter(v=>!v.cloturee&&(v.dateFin||v.dateDebut||"")>=today()).sort((a,b)=>(a.dateDebut||"").localeCompare(b.dateDebut||"")||(a.nom||"").localeCompare(b.nom||""));
+  const a_venir=ventes.filter(v=>!v.permanente&&!v.cloturee&&(v.dateFin||v.dateDebut||"")>=today()).sort((a,b)=>(a.dateDebut||"").localeCompare(b.dateDebut||"")||(a.nom||"").localeCompare(b.nom||""));
   if(!a_venir.length)return;
   const c=el("div","card roadmap");
   const aPreparer=a_venir.filter(v=>!(v.refs||[]).length).length;
@@ -1218,7 +1293,7 @@ function renderVente(m){
   const btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
   m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span>`));
   // vente pré-créée depuis le planning : il reste les vendeurs et le stock
-  if(!(v.refs||[]).length&&!v.cloturee&&!v.permanente){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
+  if(!(v.refs||[]).length&&!v.cloturee&&v.id!=="site-web"){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
     if(canWrite){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
   renderPlanningVente(m,v);
   const k=el("div","grid3");
@@ -1238,9 +1313,10 @@ function renderVente(m){
   if(parP.length)m.appendChild(el("p","muted num",parP.map(([l,s])=>`${l} ${fmt(s)}`).join(" · ")));
   const offerts=t.filter(x=>estGratuit(x.paiement));
   if(offerts.length)m.appendChild(el("p","muted num",GRATUITS.map(g=>{const q=offerts.filter(x=>x.paiement===g).reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+l.qte,0),0);return q?`${g} : ${q} bouteille${q>1?"s":""}`:"";}).filter(Boolean).join(" · ")));
-  if(v.permanente){renderVenteSite(m,v);}
+  if(v.id==="site-web")renderVenteSite(m,v);
+  else if(v.permanente)m.appendChild(el("div","msg info","🏰 Vente permanente du domaine : saisissez ici les ventes faites au château, toute l'année. Ajoutez du stock avec le réassort."));
   const actions=el("div","grid2");
-  if(!v.cloturee&&canWrite&&!v.permanente){
+  if(!v.cloturee&&canWrite&&v.id!=="site-web"){
     const b=el("button","btn go full","+ Transaction");
     b.onclick=()=>{sv=blankSv();horsOpen=false;go("saisie",v.id);};actions.appendChild(b);
   }
