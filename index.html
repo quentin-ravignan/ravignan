@@ -285,6 +285,10 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .badge.open{background:var(--ok-soft);color:var(--ok)}
+.plan-sous{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.plan-creneau{display:grid;grid-template-columns:140px 110px 1fr 32px;gap:6px;margin-bottom:6px}
+.plan-creneau input{border:1px solid var(--line);border-radius:10px;padding:7px 8px;font:inherit;background:var(--surface);color:var(--fg);min-width:0}
+@media (max-width:560px){.plan-creneau{grid-template-columns:1fr 1fr 32px}.plan-creneau input:nth-child(3){grid-column:1/3}}
 .renommer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}.renommer .link{font-size:13px}
 .renommer input{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
 .permanentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:12px}
@@ -693,9 +697,10 @@ function dessinerPage(){
   back.hidden=TOP_PAGES.includes(page);
   back.onclick=()=>{
     if(page==="saisie")go("vente",venteId);
+    else if(page==="new-vente"&&nv.editId){const id=nv.editId;nv=blankNv();go("vente",id);}
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":nv.editId?"Préparer la vente":"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Plan du Château",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
+  const titles={home:"Ventes privées","new-vente":nv.editId?((ventes.find(x=>x.id===nv.editId)?.refs||[]).length||nv.editId==="site-web"?"Modifier la vente":"Préparer la vente"):"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Plan du Château",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
@@ -1027,11 +1032,30 @@ function renderNewVente(m){
     remplir();pan.appendChild(q);pan.appendChild(opts);combo.appendChild(btn);combo.appendChild(pan);cv.appendChild(combo);
     cv.appendChild(txt("p","muted","La liste se gère dans Administration. Le premier vendeur choisi (★) est le vendeur principal."));
     if(comboOuvert)setTimeout(()=>{const nq=cv.querySelector(".combo-q");if(nq&&document.activeElement!==nq)nq.focus();},0);};
-  dessinerVendeurs();
-  const cp=el("div","card");m.appendChild(cp);renderProdPicker(cp);
-  const b=el("button","btn primary full",nv.editId?"Enregistrer la vente →":"Créer la vente →");b.id="btn-create";b.onclick=createVente;m.appendChild(b);
+  if(nv.permanente){const f=qs("#nv-fin");if(f)f.closest(".field").hidden=true;}
+  if(nv.editId==="site-web"){cv.hidden=true;const a=qs("#nv-asso");if(a)a.closest("label").hidden=true;}
+  else{dessinerVendeurs();const cp=el("div","card");m.appendChild(cp);renderProdPicker(cp);}
+  if(nv.editId&&nv.editId!=="site-web")renderPlanningForm(m);
+  const b=el("button","btn primary full",nv.editId?"Enregistrer les modifications":"Créer la vente →");b.id="btn-create";b.onclick=createVente;m.appendChild(b);
+  if(nv.editId){const a=el("button","btn ghost full","Annuler");a.onclick=()=>{const id=nv.editId;nv=blankNv();go("vente",id);};m.appendChild(a);}
 }
 
+// planning de la vente (modifiable) : adresse, installation, créneaux et équipe, logistique, contact, facturation
+function renderPlanningForm(m){
+  const p=nv.planning||(nv.planning={creneaux:[]});if(!p.creneaux)p.creneaux=[];
+  const c=el("div","card");m.appendChild(c);
+  const champs=[["adresse","Adresse",1],["installation","Installation",1],["logistique","Stock et matériel",3],["retour","Retour du stock",2],["contact","Contact sur place",2],["facturation","Facturation",2],["note","Note",2]];
+  const dessiner=()=>{c.innerHTML="<h2>🗓️ Planning</h2>";
+    champs.slice(0,2).forEach(([k,l])=>{const f=el("div","field",`<label for="pl-${k}">${l}</label><input id="pl-${k}">`);const i=f.querySelector("input");i.value=p[k]||"";i.oninput=e=>{p[k]=e.target.value;};c.appendChild(f);});
+    c.appendChild(txt("p","plan-sous","Créneaux et équipe"));
+    p.creneaux.forEach((x,k)=>{const r=el("div","plan-creneau",`<input type="date" aria-label="Date" value="${esc(x.date||"")}"><input aria-label="Horaire" placeholder="10h-18h" value="${esc(x.horaire||"")}"><input aria-label="Équipe" placeholder="Qui est là ?" value="${esc(x.equipe||"")}"><button type="button" class="x" aria-label="Retirer ce créneau">×</button>`);
+      const [d,h,e]=r.querySelectorAll("input");d.oninput=ev=>{x.date=ev.target.value;};h.oninput=ev=>{x.horaire=ev.target.value;};e.oninput=ev=>{x.equipe=ev.target.value;};
+      r.querySelector(".x").onclick=()=>{p.creneaux.splice(k,1);dessiner();};c.appendChild(r);});
+    const aj=el("button","btn ghost sm","+ Ajouter un créneau");aj.type="button";
+    aj.onclick=()=>{const der=p.creneaux[p.creneaux.length-1];p.creneaux.push({date:der?.date||nv.dateDebut||today(),horaire:der?.horaire||"",equipe:""});dessiner();};c.appendChild(aj);
+    champs.slice(2).forEach(([k,l,n])=>{const f=el("div","field",`<label for="pl-${k}">${l}</label><textarea id="pl-${k}" rows="${n}"></textarea>`);const i=f.querySelector("textarea");i.value=p[k]||"";i.oninput=e=>{p[k]=e.target.value;};c.appendChild(f);});};
+  dessiner();
+}
 function renderProdPicker(c){
   c.innerHTML=`<h2>Produits <span style="color:var(--accent)">(${nv.refs.length+nv.extras.length})</span></h2>`;
   const box=el("div","card soft",`<p style="font-size:12px;font-weight:700;color:var(--accent-ink)">Ajouter un millésime</p>
@@ -1148,8 +1172,15 @@ async function createVente(){
   if(busy)return;
   preparerSonVente();
   if(!nv.nom.trim()||!nv.lieu.trim())return flash("Indiquez le nom et le lieu de la vente.");
-  if(!(nv.vendeurs||[]).length)return flash("Choisissez au moins un vendeur.");
-  if(!nv.refs.length&&!nv.extras.length)return flash("Ajoutez au moins un produit.");
+  const siteWeb=nv.editId==="site-web";
+  if(!siteWeb&&!(nv.vendeurs||[]).length)return flash("Choisissez au moins un vendeur.");
+  if(!siteWeb&&!nv.refs.length&&!nv.extras.length)return flash("Ajoutez au moins un produit.");
+  // en modification : un produit déjà vendu ne peut ni disparaître, ni descendre sous ce qui est déjà vendu
+  if(nv.editId){const vid=nv.editId,anc=ventes.find(x=>x.id===vid);
+    for(const r of (anc?.refs||[])){const vendu=venduDe(vid,r.id);if(!vendu)continue;
+      const n=nv.refs.find(x=>x.id===r.id);
+      if(!n)return flash(`${r.nom} (${r.format}) a déjà été vendu (${vendu}) : il ne peut pas être retiré de la vente.`);
+      if(String(n.stock).trim()!==""&&+n.stock>0&&parseInt(n.stock)<vendu)return flash(`Stock de ${r.nom} (${r.format}) : au moins ${vendu}, déjà vendus.`);}}
   if(nv.dateFin&&nv.dateFin<nv.dateDebut)return flash("La date de fin est avant la date de début.");
   const sansStock=nv.refs.filter(r=>estAutre(r)&&!(parseInt(r.stock)>0));
   if(sansStock.length){
@@ -1162,13 +1193,25 @@ async function createVente(){
   const ancienne=nv.editId?ventes.find(x=>x.id===nv.editId):null;
   const id=ancienne?ancienne.id:"v"+uid();
   const v={...(ancienne&&ancienne.planning?{planning:ancienne.planning}:{}),...(ancienne&&ancienne.permanente?{permanente:true,dateFin:""}:{}),nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:ancienne?.createdAt||new Date().toISOString()};
+  // modification : on garde tout l'existant (clôture, remerciements, réassorts…) et on remplace les champs du formulaire
+  if(ancienne){const garde=stripId(ancienne);
+    v.refs=v.refs.map(r=>{const o=(ancienne.refs||[]).find(x=>x.id===r.id);return o?{...o,...r}:r;});
+    Object.assign(garde,v,{cloturee:!!ancienne.cloturee,createdAt:ancienne.createdAt||v.createdAt});
+    if(!nv.association)delete garde.association;
+    if(ancienne.permanente){garde.permanente=true;garde.dateFin="";}
+    if(siteWeb){garde.vendeurs=ancienne.vendeurs;garde.vendeurPrincipal=ancienne.vendeurPrincipal;garde.refs=ancienne.refs||[];}
+    if(nv.planning){const p={...nv.planning,creneaux:(nv.planning.creneaux||[]).filter(x=>x.date)};
+      Object.keys(p).forEach(k=>{if(typeof p[k]==="string")p[k]=p[k].trim();if(p[k]===""||(Array.isArray(p[k])&&!p[k].length))delete p[k];});
+      if(Object.keys(p).length)garde.planning=p;else delete garde.planning;}
+    if((garde.refs||[]).length)delete garde.prevue;
+    Object.keys(v).forEach(k=>delete v[k]);Object.assign(v,garde);}
   busy=true;qs("#btn-create").disabled=true;
   try{
     await db.collection("ventes").doc(id).set(v);
-    store.set(VENDEUR_KEY,nv.vendeurs[0]);
+    if(v.vendeurs?.[0])store.set(VENDEUR_KEY,v.vendeurs[0]);
     nv=blankNv();
     const i=ventes.findIndex(x=>x.id===id);if(i<0)ventes.push({id,...v});else ventes[i]={id,...v};
-    go("vente",id);flash(ancienne?"Vente prête.":"Vente créée.","ok");jouerSonVente();
+    go("vente",id);flash(ancienne?"Vente enregistrée.":"Vente créée.","ok");if(!ancienne)jouerSonVente();
   }catch(e){flash(dbMessage(e));const b=qs("#btn-create");if(b)b.disabled=false;}
   finally{busy=false;}
 }
@@ -1223,7 +1266,9 @@ function renderPlanningVente(m,v){
 function preparerVente(v){
   nv={nom:v.nom||"",lieu:v.lieu||"",dateDebut:v.dateDebut||today(),dateFin:v.dateFin||v.dateDebut||today(),vendeur:monPrenom,
     vendeurs:(v.vendeurs||[]).length?[...v.vendeurs]:[monPrenom].filter(Boolean),refs:(v.refs||[]).map(r=>({...r,stock:String(r.stock??"")})),extras:[],
-    ...(v.association?{association:true}:{}),editId:v.id};
+    ...(v.association?{association:true}:{}),editId:v.id,permanente:!!v.permanente,
+    planning:JSON.parse(JSON.stringify(v.planning||{}))};
+  if(!nv.planning.creneaux)nv.planning.creneaux=[];
   go("new-vente");
 }
 
@@ -1294,16 +1339,8 @@ function renderVente(m){
   const ca=t.reduce((s,x)=>s+montant(x),0);
   const btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
   m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span>`));
-  // renommer la vente (le nom interne ; les emails aux clients utilisent le lieu)
-  if(canWrite){const zr=el("div","renommer");const lien=el("button","link","✏️ Renommer la vente");zr.appendChild(lien);m.appendChild(zr);
-    lien.onclick=()=>{zr.innerHTML="";const i=el("input");i.id="vente-nom";i.value=v.nom||"";i.maxLength=80;i.setAttribute("aria-label","Nom de la vente");
-      const ok=el("button","btn primary sm","Enregistrer"),an=el("button","btn ghost sm","Annuler");
-      const enregistrer=async()=>{const nom=i.value.trim();if(!nom){i.classList.add("invalide");return flash("Indiquez un nom.");}
-        if(nom===v.nom){render();return;}ok.disabled=true;
-        try{await db.collection("ventes").doc(v.id).update({nom});v.nom=nom;flash("Vente renommée.","ok");render();}
-        catch(e){ok.disabled=false;flash(dbMessage(e));}};
-      ok.onclick=enregistrer;an.onclick=()=>render();i.onkeydown=e=>{if(e.key==="Enter")enregistrer();if(e.key==="Escape")render();};
-      zr.appendChild(i);zr.appendChild(ok);zr.appendChild(an);i.focus();i.select();};}
+  // modifier tous les détails de la vente : nom, lieu, dates, encaissement, vendeurs, produits (stock, prix), planning
+  if(canWrite){const zr=el("div","renommer");const lien=el("button","link","✏️ Modifier la vente");lien.onclick=()=>preparerVente(v);zr.appendChild(lien);m.appendChild(zr);}
   // vente pré-créée depuis le planning : il reste les vendeurs et le stock
   if(!(v.refs||[]).length&&!v.cloturee&&v.id!=="site-web"){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
     if(canWrite){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
