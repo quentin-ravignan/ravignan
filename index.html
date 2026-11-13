@@ -289,9 +289,12 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .plan-creneau{display:grid;grid-template-columns:140px 110px 1fr 32px;gap:6px;margin-bottom:6px}
 .plan-creneau input{border:1px solid var(--line);border-radius:10px;padding:7px 8px;font:inherit;background:var(--surface);color:var(--fg);min-width:0}
 @media (max-width:560px){.plan-creneau{grid-template-columns:1fr 1fr 32px}.plan-creneau input:nth-child(3){grid-column:1/3}}
+.responsable{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--accent-soft);border-radius:12px;padding:8px 12px;margin-bottom:8px;font-size:14px}
+.responsable b{color:var(--accent-ink)}
 .renommer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}.renommer .link{font-size:13px}
 .renommer input{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
-.permanentes{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:12px}
+.permanentes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+@media (max-width:520px){.perm-carte{flex-direction:column;align-items:flex-start;gap:6px;padding:10px}.perm-ico{font-size:28px}.perm-chiffres b{font-size:15px}}
 .perm-carte{display:flex;gap:12px;align-items:center;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:12px;cursor:pointer;box-shadow:var(--shadow)}
 .perm-carte:hover{background:var(--accent-soft)}.perm-ico{font-size:34px;line-height:1;flex:0 0 auto}
 .perm-info{display:flex;flex-direction:column;gap:2px;min-width:0}.perm-info b{font-size:15px}.perm-chiffres b{color:var(--accent-ink);font-size:17px}
@@ -729,7 +732,7 @@ function dessinerPage(){
 function renderHome(m){
   if(!loaded.ventes){m.appendChild(el("div","empty","Chargement…"));return;}
   // 1. ventes permanentes : le site web et le domaine
-  renderPermanentes(m);
+  if(isAdmin())renderPermanentes(m);
   // 2. frise des ventes : le mois passé et les 3 prochains mois
   renderFrise(m);
   // 3. nouvelle vente, puis le reste
@@ -737,7 +740,6 @@ function renderHome(m){
   else m.appendChild(el("div","msg info","Lecture seule : demandez au propriétaire de vous inviter comme Éditeur pour saisir des ventes."));
   const autres=ventes.filter(v=>!v.permanente);
   if(!autres.length&&!ventes.length){m.appendChild(el("div","empty","Aucune vente pour l'instant.<br>Créez la première avec le bouton ci-dessus."));return;}
-  renderRoadmap(m);
   renderDashboard(m);
   m.appendChild(txt("h2","dash-titre","Toutes les ventes"));
   const list=[...autres].sort((a,b)=>(a.cloturee-b.cloturee)||(b.dateDebut||"").localeCompare(a.dateDebut||""));
@@ -764,7 +766,7 @@ function renderPermanentes(m){
     const ca=ta.reduce((s,x)=>s+montant(x),0),tot=t.reduce((s,x)=>s+montant(x),0);
     const der=t.reduce((d,x)=>String(x.date||"")>d?String(x.date):d,"");
     const b=el("button","perm-carte",`<span class="perm-ico" aria-hidden="true">${ICONE_PERMANENTE(v)}</span>
-      <span class="perm-info"><b>${esc(v.id==="site-web"?"Site web":v.nom)}</b><small class="muted">${esc(v.id==="site-web"?"armagnac-ravignan.com":v.lieu||"Vente au domaine")}</small>
+      <span class="perm-info"><b>${esc(v.id==="site-web"?"Site web":v.nom)} <span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></b><small class="muted">${esc(v.id==="site-web"?"armagnac-ravignan.com":v.lieu||"Vente au domaine")}</small>
       <span class="perm-chiffres num"><b>${fmt(ca)}</b> <small class="muted">en ${annee} · ${ta.length} vente${ta.length>1?"s":""}</small></span>
       <small class="muted num">${t.length} au total · ${fmt(tot)}${der?" · dernière le "+frDate(der.slice(0,10)):""}</small></span>`);
     b.onclick=()=>go("vente",v.id);z.appendChild(b);
@@ -967,6 +969,7 @@ function confirmer({titre,texte,bouton="Confirmer",danger=true,saisie=""}){
   });
 }
 async function demanderCloture(v){
+  if(!peutGerer(v))return flash("Seul le vendeur responsable ou un administrateur peut clôturer cette vente.");
   const t=txsOf(v.id),att=t.filter(enAttente),nonEnv=t.filter(x=>facturable(x)&&!(x.facture_envois||[]).length);
   const ca=t.reduce((s,x)=>s+montant(x),0);
   const ok=await confirmer({titre:`Clôturer « ${v.nom} » ?`,bouton:"Clôturer la vente",
@@ -1264,6 +1267,7 @@ function renderPlanningVente(m,v){
 }
 // ouvre le formulaire de vente sur une vente pré-créée, pour y ajouter vendeurs et stock
 function preparerVente(v){
+  if(!peutGerer(v))return flash("Seul le vendeur responsable ou un administrateur peut modifier cette vente.");
   nv={nom:v.nom||"",lieu:v.lieu||"",dateDebut:v.dateDebut||today(),dateFin:v.dateFin||v.dateDebut||today(),vendeur:monPrenom,
     vendeurs:(v.vendeurs||[]).length?[...v.vendeurs]:[monPrenom].filter(Boolean),refs:(v.refs||[]).map(r=>({...r,stock:String(r.stock??"")})),extras:[],
     ...(v.association?{association:true}:{}),editId:v.id,permanente:!!v.permanente,
@@ -1334,16 +1338,23 @@ async function importerCommandesSite(fichier,progres){
 }
 
 /* ---------- détail d'une vente ---------- */
+// vendeur responsable : le premier vendeur de la vente (★). Lui seul, ou un administrateur, modifie et clôture la vente.
+// Une vente sans responsable (pré-créée depuis le planning) peut être préparée par tout membre, qui en devient responsable.
+const responsableDe=v=>String(v.vendeurPrincipal||(v.vendeurs||[])[0]||"").trim();
+const peutGerer=v=>canWrite&&(isAdmin()||!responsableDe(v)||normTxt(responsableDe(v))===normTxt(monPrenom));
 function renderVente(m){
   const v=getVente();const t=txsOf(v.id);
   const ca=t.reduce((s,x)=>s+montant(x),0);
   const btl=t.reduce((s,x)=>s+(x.lignes||[]).reduce((a,l)=>a+(l.qte||0),0),0);
+  {const resp=responsableDe(v);const r=el("div","responsable");
+    r.innerHTML=resp?`<span class="muted">Vendeur responsable</span>${avatar(resp,"mini")}<b>${esc(resp)}</b>${normTxt(resp)===normTxt(monPrenom)?' <span class="badge open">vous</span>':""}`:`<span class="muted">Pas encore de vendeur responsable</span>`;
+    m.appendChild(r);}
   m.appendChild(el("div","row",`<p class="muted">${esc(v.lieu)} · ${esc(periode(v))}</p><span class="badge ${statutVente(v)[0]}">${statutVente(v)[1]}</span>`));
   // modifier tous les détails de la vente : nom, lieu, dates, encaissement, vendeurs, produits (stock, prix), planning
-  if(canWrite){const zr=el("div","renommer");const lien=el("button","link","✏️ Modifier la vente");lien.onclick=()=>preparerVente(v);zr.appendChild(lien);m.appendChild(zr);}
+  if(peutGerer(v)){const zr=el("div","renommer");const lien=el("button","link","✏️ Modifier la vente");lien.onclick=()=>preparerVente(v);zr.appendChild(lien);m.appendChild(zr);}
   // vente pré-créée depuis le planning : il reste les vendeurs et le stock
   if(!(v.refs||[]).length&&!v.cloturee&&v.id!=="site-web"){m.appendChild(el("div","msg info","Vente pré-créée depuis le planning : il reste à choisir les vendeurs et le stock emporté."));
-    if(canWrite){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
+    if(peutGerer(v)){const b=el("button","btn primary full","Préparer la vente →");b.onclick=()=>preparerVente(v);m.appendChild(b);}}
   renderPlanningVente(m,v);
   const k=el("div","grid3");
   [[fmt(ca),"Chiffre d'affaires"],[t.length,"Transactions"],[btl,"Articles"]].forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
@@ -1371,7 +1382,7 @@ function renderVente(m){
   }
   if(actions.children.length===1)actions.style.gridTemplateColumns="1fr";
   if(actions.children.length)m.appendChild(actions);
-  if(!v.cloturee&&canWrite&&!v.permanente){
+  if(!v.cloturee&&peutGerer(v)&&!v.permanente){
     const as=el("label","check-papier",`<input type="checkbox"${v.association?" checked":""}> <span>🏛️ Caisse centrale (l'organisateur encaisse)</span>`);
     as.querySelector("input").onchange=async e=>{const val=e.target.checked;try{await db.collection("ventes").doc(v.id).update({association:val});v.association=val;flash(val?"Vente en Caisse centrale : seul ce moyen de paiement est proposé, sans facture du domaine.":"Vente encaissée par le domaine (CB, espèces, chèque).","ok");}catch(err){e.target.checked=!val;flash(dbMessage(err));}};
     m.appendChild(as);
@@ -1386,9 +1397,10 @@ function renderVente(m){
   if(downloads&&isAdmin()){const e=el("button","btn ghost full","📊 Exporter en Excel (récap + détail)");e.onclick=()=>exportCSV(v);m.appendChild(e);}
   // suppression : libre tant qu'aucune transaction n'est saisie, réservée aux administrateurs ensuite
   if(v.permanente){}
-  else if(!t.length||isAdmin()){
+  else if(isAdmin()||(!t.length&&peutGerer(v))){
     const l=el("button","link","Supprimer la vente");l.style.color="var(--bad)";l.onclick=()=>demanderSuppressionVente(v);m.appendChild(l);
-  }else m.appendChild(txt("p","muted","Vente commencée : seul un administrateur peut la supprimer."));
+  }else if(t.length)m.appendChild(txt("p","muted","Vente commencée : seul un administrateur peut la supprimer."));
+  if(!v.cloturee&&!v.permanente&&canWrite&&!peutGerer(v))m.appendChild(txt("p","muted",`Seul ${responsableDe(v)}, vendeur responsable, ou un administrateur peut modifier ou clôturer cette vente.`));
 }
 
 // podium des 3 meilleurs vendeurs de la vente (chiffre d'affaires encaissé)
