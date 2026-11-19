@@ -3851,7 +3851,7 @@ function renderImport(m){
         if(lot.length>=200){await envoyer();etat.textContent=n+" / "+contacts.length+"…";}}
         await envoyer();}
       catch(err){flash("Import interrompu après "+n+" fiches : "+(err.message||err));go.disabled=false;return;}
-      const {data}=await sb.from("docs").select("id,data").eq("collection","crm");crm=(data||[]).map(r=>({id:r.id,...r.data}));
+      const data=[];for(let de=0;;de+=1000){const {data:p}=await sb.from("docs").select("id,data").eq("collection","crm").order("id").range(de,de+999);data.push(...(p||[]));if(!p||p.length<1000)break;}crm=data.map(r=>({id:r.id,...r.data}));
       flash(n+" fiches clients importées ou complétées.","ok");crmImport=null;render();};};
   c.appendChild(an);m.appendChild(c);
   const aide=carte("Où trouver ces fichiers ?");
@@ -3939,9 +3939,13 @@ function makeDb(){
   const snapOf=c=>({docs:[...(cache[c]||new Map())].map(([id,d])=>({id,exists:true,data:()=>d}))});
   const emit=c=>(listeners[c]||[]).forEach(f=>{try{f(snapOf(c))}catch(e){console.error(e)}});
   const err=e=>({code:e&&(e.code==="42501"||/row-level security/i.test(e.message||""))?"invalid_argument":"unavailable",message:e&&e.message||""});
+  // lecture complète d'une collection, par pages de 1000 (Supabase ne renvoie jamais plus de 1000 lignes à la fois)
+  async function toutLire(c){const rows=[];
+    for(let de=0;;de+=1000){const {data,error}=await sb.from("docs").select("id,data").eq("collection",c).order("id").range(de,de+999);
+      if(error)throw err(error);rows.push(...data);if(data.length<1000)break;}
+    return rows;}
   async function load(c){
-    const {data,error}=await sb.from("docs").select("id,data").eq("collection",c);
-    if(error)throw err(error);
+    const data=await toutLire(c);
     cache[c]=new Map(data.map(r=>[r.id,r.data]));emit(c);
   }
   sb.channel("docs-live").on("postgres_changes",{event:"*",schema:"public",table:"docs"},p=>{
