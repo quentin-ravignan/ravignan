@@ -2152,26 +2152,23 @@ async function facturePdf(x,v,cl,num){
   y+=6;const ligneTot=(lab,val,gras)=>{d.setFont("helvetica",gras?"bold":"normal");d.text(lab,172,y,{align:"right"});d.text(val,D-2,y,{align:"right"});y+=6;};
   d.setFontSize(10);ligneTot("Quantité",String(qt));ligneTot("Total HT",eur(tot/(1+TVA)));ligneTot("TVA 20 %",eur(tot-tot/(1+TVA)));
   d.setFontSize(12);ligneTot("Total TTC",eur(tot),true);
-  // règlement
-  y+=6;d.setFontSize(10);d.setFont("helvetica","normal");
-  if(avoir){d.text(net(`${x.partiel?"Avoir partiel sur":"Avoir annulant"} la facture ${x.factureOrigine||""}.`),105,y,{align:"center"});
-    d.text(net(MODES[x.paiement]?`Remboursement par ${MODES[x.paiement]}.`:"Montant à déduire de votre règlement."),105,y+5,{align:"center"});}
-  else{
-    if(x.paiement==="Virement"){
-      if(x.virementRecu){d.text(net(`Facture acquittée le ${new Date(x.virementRecu).toLocaleDateString("fr-FR")} par virement bancaire.`),105,y,{align:"center"});d.text(net(`Remis en main propre le ${jour}.`),105,y+5,{align:"center"});}
-      else{// facture à régler : elle ne vaut facture acquittée qu'à réception du virement
-        d.setDrawColor(90,47,40);d.setLineWidth(.5);d.roundedRect(G+10,y-5,D-G-20,37,2,2);d.setLineWidth(.2);
-        d.setFont("helvetica","bold");d.setFontSize(11);d.text("FACTURE À RÉGLER PAR VIREMENT",105,y+1,{align:"center"});
-        d.setFont("helvetica","normal");d.setFontSize(9);
-        d.text(net("Cette facture n'a valeur de facture acquittée qu'à réception du virement sur le compte ci-dessous."),105,y+7,{align:"center"});
-        d.text(net(`Montant : ${eur(tot)} · Référence à indiquer : ${num}`),105,y+12.5,{align:"center"});
-        d.setFont("helvetica","bold");d.text(net("Titulaire : SCEA du Domaine de Ravignan · Crédit Agricole"),105,y+19,{align:"center"});
-        d.text(net(IBAN),105,y+24.5,{align:"center"});d.setFont("helvetica","normal");
-        d.text(net(`Marchandise remise en main propre le ${jour}.`),105,y+30,{align:"center"});y+=26;}}
-    else{
-    if(MODES[x.paiement])d.text(net(`Facture acquittée le ${jour} par ${MODES[x.paiement]}.`),105,y,{align:"center"});
-    else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+10,{align:"center"});}
-    d.text(net(`Remis en main propre le ${jour}.`),105,y+5,{align:"center"});}}
+  // règlement : sur chaque facture et chaque avoir, un encadré indique le moyen de paiement
+  y+=6;
+  const encadre=(titre,lignes)=>{const h=11+lignes.length*5.5;
+    d.setDrawColor(90,47,40);d.setLineWidth(.5);d.roundedRect(G+10,y-5,D-G-20,h,2,2);d.setLineWidth(.2);
+    d.setFont("helvetica","bold");d.setFontSize(11);d.text(net(titre),105,y+1.5,{align:"center"});
+    let yy=y+8;d.setFontSize(9);lignes.forEach(([t,gras])=>{d.setFont("helvetica",gras?"bold":"normal");d.text(net(t),105,yy,{align:"center"});yy+=5.5;});
+    d.setFont("helvetica","normal");d.setFontSize(10);y+=h-6;};
+  const MODES_TITRE={CB:"CARTE BANCAIRE","Espèces":"ESPÈCES","Chèque":"CHÈQUE","Virement":"VIREMENT"};
+  if(avoir)encadre(x.partiel?"AVOIR PARTIEL":"AVOIR",[[`${x.partiel?"Avoir partiel sur":"Avoir annulant"} la facture ${x.factureOrigine||""}.`],
+    [MODES[x.paiement]?`Remboursement par ${MODES[x.paiement]}.`:"Montant à déduire de votre règlement.",1]]);
+  else if(x.paiement==="Virement"&&!x.virementRecu)// facture à régler : elle ne vaut facture acquittée qu'à réception du virement
+    encadre("FACTURE À RÉGLER PAR VIREMENT",[["Cette facture n'a valeur de facture acquittée qu'à réception du virement sur le compte ci-dessous."],
+      [`Montant : ${eur(tot)} · Référence à indiquer : ${num}`],["Titulaire : SCEA du Domaine de Ravignan · Crédit Agricole",1],[IBAN,1],
+      [`Marchandise remise en main propre le ${jour}.`]]);
+  else if(MODES[x.paiement]){const quand=x.paiement==="Virement"?new Date(x.virementRecu).toLocaleDateString("fr-FR"):jour;
+    encadre("FACTURE ACQUITTÉE · "+MODES_TITRE[x.paiement],[[`Facture acquittée le ${quand} par ${MODES[x.paiement]}.`,1],[`Remis en main propre le ${jour}.`]]);}
+  else encadre("FACTURE À RÉGLER",[["En votre aimable règlement."],[IBAN,1],[`Remis en main propre le ${jour}.`]]);
   {let ym=Math.max(y+16,222);d.setFont("helvetica","normal");d.setFontSize(7.5);d.setTextColor(110);
     [...(cl.pro?MENTIONS_PRO:[]),...MENTIONS_FACTURE].forEach((t,i,a)=>{if(i===a.length-1)d.setFont("helvetica","bold");const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<262){d.text(l,G,ym);ym+=l.length*3.4+1.2;}});d.setFont("helvetica","normal");d.setTextColor(0);}
   // pied de page
