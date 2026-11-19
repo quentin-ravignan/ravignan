@@ -416,7 +416,8 @@ input.invalide{border-color:var(--bad)!important;background:var(--bad-soft)!impo
 .journal-val{font-weight:800;white-space:nowrap}
 /* I Armagnac */
 .ia-btn{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:40;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 6px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent-ink);font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(60,25,20,.18);cursor:pointer}
-.ia-btn img{width:40px;height:40px;border-radius:50%;background:#fff;object-fit:contain;border:1px solid var(--line)}
+.ia-btn{padding:4px!important;gap:0!important}
+.ia-btn img{width:48px;height:48px;border-radius:50%;background:#fff;object-fit:contain;border:1px solid var(--line)}
 .ia-panel{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:41;width:min(380px,calc(100vw - 32px));height:min(540px,calc(100dvh - 120px));display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:0 12px 40px rgba(60,25,20,.22);overflow:hidden}
 .ia-tete{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line)}
 .ia-tete img{border-radius:50%;background:#fff;object-fit:contain}
@@ -558,9 +559,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
   </div>
 </div>
 
-<button class="ia-btn" id="ia-btn" type="button" hidden aria-label="Parler à I Armagnac" aria-controls="ia-panel" aria-expanded="false"><img src="images/blason.jpg" alt="" width="40" height="40"><span>I Armagnac</span></button>
-<section class="ia-panel" id="ia-panel" role="dialog" aria-label="I Armagnac" hidden>
-  <header class="ia-tete"><img src="images/blason.jpg" alt="" width="36" height="36"><div><b>I Armagnac</b><small class="muted">L'assistant du Château de Ravignan</small></div>
+<button class="ia-btn" id="ia-btn" type="button" hidden aria-label="Parler à IArmagnac" title="IArmagnac" aria-controls="ia-panel" aria-expanded="false"><img src="images/blason.jpg" alt="" width="48" height="48"></button>
+<section class="ia-panel" id="ia-panel" role="dialog" aria-label="IArmagnac" hidden>
+  <header class="ia-tete"><img src="images/blason.jpg" alt="" width="36" height="36"><div><b>IArmagnac</b><small class="muted">L'assistant du Château de Ravignan</small></div>
     <button class="ia-ico" id="ia-son" type="button" aria-pressed="true" title="Couper la voix">🔊</button><button class="ia-ico" id="ia-fermer" type="button" aria-label="Fermer">✕</button></header>
   <div class="ia-fil" id="ia-fil" aria-live="polite"></div>
   <form class="ia-saisie" id="ia-form"><button class="ia-micro" id="ia-micro" type="button" aria-label="Parler">🎙️</button>
@@ -594,7 +595,9 @@ const AUTRES=[
 // les « autres produits » se vendent toujours avec un stock emporté
 const estAutre=r=>AUTRES.some(p=>p.id===r.id);
 // moyens de paiement : la Caisse centrale est un réglage de la vente (v.association) ; « Cadeau » et « Dégustation » ne servent plus qu'aux anciennes transactions
-const PMTS=[["CB","💳 CB"],["Espèces","💵 Espèces"],["Chèque","✍️ Chèque"],["Caisse centrale","🏛️ Caisse centrale"]];
+const PMTS=[["CB","💳 CB"],["Espèces","💵 Espèces"],["Chèque","✍️ Chèque"],["Virement","🏦 Virement"],["Caisse centrale","🏛️ Caisse centrale"]];
+// virement : la facture n'est « acquittée » qu'une fois le virement reçu (bouton sur la transaction)
+const virementAttendu=x=>x.paiement==="Virement"&&x.type!=="avoir"&&!x.virementRecu;
 const pmtsVente=v=>v&&v.association?PMTS.filter(([p])=>p==="Caisse centrale"):PMTS.filter(([p])=>p!=="Caisse centrale");
 const GRATUITS=["Cadeau","Dégustation"]; // sortent du stock, à 0 €
 const estGratuit=p=>GRATUITS.includes(p);
@@ -1369,6 +1372,7 @@ function renderVente(m){
   // répartition par paiement
   const parP=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+montant(x),0)]).filter(x=>x[1]>0);
   const att=t.filter(enAttente);
+  {const vir=t.filter(virementAttendu);if(vir.length)m.appendChild(el("p","attente-note num",`🏦 ${vir.length} virement${vir.length>1?"s":""} à recevoir : ${fmt(vir.reduce((s,x)=>s+(x.total||0),0))}`));}
   if(att.length)m.appendChild(el("p","attente-note num",`⏳ ${att.length} paiement${att.length>1?"s":""} par carte en attente : ${fmt(att.reduce((s,x)=>s+(x.total||0),0))}, non compté${att.length>1?"s":""} dans le chiffre d'affaires`));
   if(parP.length)m.appendChild(el("p","muted num",parP.map(([l,s])=>`${l} ${fmt(s)}`).join(" · ")));
   const offerts=t.filter(x=>estGratuit(x.paiement));
@@ -1559,7 +1563,11 @@ function renderTxList(m,t){
     if(enAttente(x)){c.classList.add("tx-attente");
       const ok=el("button","link","✅ Paiement reçu");ok.onclick=()=>reglerPaiement(x,"payee");act.appendChild(ok);
       const ko=el("button","link","❌ Pas payé");ko.style.color="var(--bad)";ko.onclick=()=>paiementNonAbouti(x);act.appendChild(ko);}
-    else if(!estGratuit(x.paiement)){const fb=el("button","link",x.facture?"🧾 "+doc+" "+esc(x.facture):"🧾 "+doc);fb.onclick=()=>ouvrirFacture(x.id);act.appendChild(fb);
+    else if(!estGratuit(x.paiement)){
+      if(virementAttendu(x)){c.classList.add("tx-attente");c.appendChild(txt("p","envoi-etat ko","🏦 Virement à recevoir : la facture envoyée indique le RIB du domaine."));
+        if(canWrite){const vr=el("button","link","✅ Virement reçu");vr.onclick=()=>virementRecu(x);act.appendChild(vr);}}
+      else if(x.paiement==="Virement"&&x.virementRecu)c.appendChild(txt("p","envoi-etat ok",`🏦 Virement reçu le ${new Date(x.virementRecu).toLocaleDateString("fr-FR")}`));
+      const fb=el("button","link",x.facture?"🧾 "+doc+" "+esc(x.facture):"🧾 "+doc);fb.onclick=()=>ouvrirFacture(x.id);act.appendChild(fb);
       const env=x.facture_envois||[],der=env[env.length-1];
       const rl=el("button","link",env.length?"🔁 Renvoyer":"📧 Envoyer");rl.title=env.length?"Renvoyer la "+doc.toLowerCase()+" par email":"Envoyer la "+doc.toLowerCase()+" par email";
       rl.onclick=()=>renvoyerFacture(x);act.appendChild(rl);
@@ -1572,6 +1580,16 @@ function renderTxList(m,t){
   });
 }
 
+async function virementRecu(x){
+  const ok=await confirmer({titre:"Virement reçu ?",texte:`<p>Le virement de <b>${esc(fmt(x.total))}</b> (${esc(nomClient(x))}, facture ${esc(x.facture||"")}) est bien arrivé sur le compte du domaine ?</p><p class="muted">La facture acquittée sera envoyée au client.</p>`,bouton:"Oui, virement reçu"});
+  if(!ok)return;
+  const quand=new Date().toISOString();
+  try{await db.collection("transactions").doc(x.id).update({virementRecu:quand});x.virementRecu=quand;}
+  catch(e){return flash(dbMessage(e));}
+  try{const {blob}=await pdfFacture(x);const a=await envoyerFactureEmail(x,blob);flash("Virement reçu : facture acquittée envoyée à "+a+".","ok");}
+  catch(e){flash("Virement enregistré. Facture acquittée non envoyée : "+(e.message||"échec")+". Bouton « Renvoyer » sur la transaction.");}
+  render();
+}
 async function reassortir(v,refId,qte){
   if(qte<=0||busy)return flash("Indiquez une quantité.");
   busy=true;
@@ -2093,7 +2111,7 @@ function chargerJsPdf(){
     s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";s.onload=ok;s.onerror=()=>{jspdfPromesse=null;ko(new Error("jsPDF"));};document.head.appendChild(s);}));
 }
 const imageEnDataUrl=src=>fetch(src).then(r=>r.blob()).then(b=>new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b);}));
-const MODES={CB:"carte bancaire","Espèces":"espèces","Chèque":"chèque"};
+const MODES={CB:"carte bancaire","Espèces":"espèces","Chèque":"chèque","Virement":"virement bancaire"};
 async function facturePdf(x,v,cl,num){
   await chargerJsPdf();const logo=await imageEnDataUrl("images/logo-facture.jpg");
   const net=s=>String(s??"").replace(/[  ]/g," ").replace(/[^\x20-\x7E -ÿ€’œŒ–—…]/g,"").trim();
@@ -2139,9 +2157,21 @@ async function facturePdf(x,v,cl,num){
   if(avoir){d.text(net(`${x.partiel?"Avoir partiel sur":"Avoir annulant"} la facture ${x.factureOrigine||""}.`),105,y,{align:"center"});
     d.text(net(MODES[x.paiement]?`Remboursement par ${MODES[x.paiement]}.`:"Montant à déduire de votre règlement."),105,y+5,{align:"center"});}
   else{
+    if(x.paiement==="Virement"){
+      if(x.virementRecu){d.text(net(`Facture acquittée le ${new Date(x.virementRecu).toLocaleDateString("fr-FR")} par virement bancaire.`),105,y,{align:"center"});d.text(net(`Remis en main propre le ${jour}.`),105,y+5,{align:"center"});}
+      else{// facture à régler : elle ne vaut facture acquittée qu'à réception du virement
+        d.setDrawColor(90,47,40);d.setLineWidth(.5);d.roundedRect(G+10,y-5,D-G-20,37,2,2);d.setLineWidth(.2);
+        d.setFont("helvetica","bold");d.setFontSize(11);d.text("FACTURE À RÉGLER PAR VIREMENT",105,y+1,{align:"center"});
+        d.setFont("helvetica","normal");d.setFontSize(9);
+        d.text(net("Cette facture n'a valeur de facture acquittée qu'à réception du virement sur le compte ci-dessous."),105,y+7,{align:"center"});
+        d.text(net(`Montant : ${eur(tot)} · Référence à indiquer : ${num}`),105,y+12.5,{align:"center"});
+        d.setFont("helvetica","bold");d.text(net("Titulaire : SCEA du Domaine de Ravignan · Crédit Agricole"),105,y+19,{align:"center"});
+        d.text(net(IBAN),105,y+24.5,{align:"center"});d.setFont("helvetica","normal");
+        d.text(net(`Marchandise remise en main propre le ${jour}.`),105,y+30,{align:"center"});y+=26;}}
+    else{
     if(MODES[x.paiement])d.text(net(`Facture acquittée le ${jour} par ${MODES[x.paiement]}.`),105,y,{align:"center"});
     else{d.text("En votre aimable règlement",105,y,{align:"center"});d.text(IBAN,105,y+10,{align:"center"});}
-    d.text(net(`Remis en main propre le ${jour}.`),105,y+5,{align:"center"});}
+    d.text(net(`Remis en main propre le ${jour}.`),105,y+5,{align:"center"});}}
   {let ym=Math.max(y+16,222);d.setFont("helvetica","normal");d.setFontSize(7.5);d.setTextColor(110);
     [...(cl.pro?MENTIONS_PRO:[]),...MENTIONS_FACTURE].forEach((t,i,a)=>{if(i===a.length-1)d.setFont("helvetica","bold");const l=d.splitTextToSize(net(t),D-G);if(ym+l.length*3.4<262){d.text(l,G,ym);ym+=l.length*3.4+1.2;}});d.setFont("helvetica","normal");d.setTextColor(0);}
   // pied de page
@@ -4140,7 +4170,7 @@ function iaMicro(){
   const m=qs("#ia-micro"),inp=qs("#ia-texte");m.classList.add("ecoute");m.setAttribute("aria-label","Arrêter l'écoute");
   let final="";
   r.onresult=e=>{let t="";for(const x of e.results){t+=x[0].transcript;if(x.isFinal)final=t;}inp.value=t;};
-  r.onerror=e=>{if(e.error==="not-allowed")flash("Autorisez le micro pour parler à I Armagnac.");};
+  r.onerror=e=>{if(e.error==="not-allowed")flash("Autorisez le micro pour parler à IArmagnac.");};
   r.onend=()=>{iaEcoute=null;m.classList.remove("ecoute");m.setAttribute("aria-label","Parler");
     const q=(final||inp.value).trim();if(q){inp.value="";iaDemander(q);}};
   r.start();

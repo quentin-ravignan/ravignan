@@ -168,6 +168,10 @@ Deno.serve(async (req) => {
           `Pour retrouver toutes nos cuvées : armagnac-ravignan.com`]
         : [`Madame, Monsieur,`,
           `Merci pour votre achat lors de ${evenement}, le ${jour}. Vous trouverez ci-joint votre facture n° ${num}.`,
+          // paiement par virement : à régler (RIB sur la facture), puis facture acquittée une fois le virement reçu
+          ...(t.data.paiement === "Virement" ? [t.data.virementRecu
+            ? `Nous avons bien reçu votre virement, merci : cette facture est désormais acquittée.`
+            : `Cette facture est à régler par virement (${total}) : nos coordonnées bancaires figurent sur la facture. Merci d'indiquer « ${num} » en référence du virement. Elle n'aura valeur de facture acquittée qu'à réception du virement.`] : []),
           `Si notre armagnac vous a plu, votre avis compte beaucoup pour un domaine familial comme le nôtre. Une minute suffit pour le partager sur Google : ${AVIS}`,
           `Pour retrouver toutes nos cuvées : armagnac-ravignan.com`];
       await transport.sendMail({
