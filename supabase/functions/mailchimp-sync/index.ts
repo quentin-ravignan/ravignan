@@ -51,7 +51,11 @@ Deno.serve(async (req) => {
     for (let de = 0; ; de += 1000) {
       const { data, error } = await db.from("docs").select("id,data").eq("collection", "crm").range(de, de + 999);
       if (error) throw error;
-      for (const r of data || []) { const e = normEmail(r.data?.email); if (e) parEmail.set(e, r); }
+      for (const r of data || []) {
+        const e = normEmail(r.data?.email); if (e) parEmail.set(e, r);
+        // adresses d'une fiche fusionnée ou modifiée : elles restent rattachées à cette fiche
+        for (const k of (r.data?.autresCles || []) as string[]) if (String(k).startsWith("e:") && !parEmail.has(k.slice(2))) parEmail.set(k.slice(2), r);
+      }
       if (!data || data.length < 1000) break;
     }
 
