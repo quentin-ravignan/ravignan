@@ -102,7 +102,9 @@ Deno.serve(async (req) => {
     // Clients des ventes privées avec un email, sans opposition (en Caisse centrale : avec leur accord), pas désabonnés :
     // ajoutés à l'audience s'ils n'y sont pas (jamais réinscrits s'ils s'y sont désabonnés), et étiquetés avec leurs ventes.
     const { data: lesVentes } = await db.from("docs").select("id,data").eq("collection", "ventes");
-    const nomVente = new Map((lesVentes || []).map((v: any) => [v.id, String(v.data?.nom || "")]));
+    // groupe de clients de chaque vente (même règle que l'app : réglé sur la vente, sinon le nom sans année ni date)
+    const groupeParDefaut = (nom: string) => { const g = String(nom || "").replace(/\b(19|20)\d\d\b/g, "").replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, "").replace(/\s*[-–·,]\s*$/, "").replace(/\s{2,}/g, " ").trim(); return g ? g[0].toUpperCase() + g.slice(1) : "Vente"; };
+    const nomVente = new Map((lesVentes || []).map((v: any) => [v.id, String(v.data?.groupe || "").trim() || groupeParDefaut(v.data?.nom)]));
     const permanentes = new Set((lesVentes || []).filter((v: any) => v.data?.permanente).map((v: any) => v.id));
     const lire = async (col: string) => { const rows: any[] = []; for (let de = 0; ; de += 1000) { const { data, error } = await db.from("docs").select("id,data").eq("collection", col).range(de, de + 999); if (error) throw error; rows.push(...(data || [])); if (!data || data.length < 1000) break; } return rows; };
     const lesTx = await lire("transactions"), lesClients = new Map((await lire("clients")).map((r) => [r.id, r.data]));
@@ -129,13 +131,13 @@ Deno.serve(async (req) => {
       if (!r.ok) throw new Error("Mailchimp (envoi des clients) a répondu " + r.status);
       const res = await r.json(); ajoutes += Number(res.total_created || 0);
     }
-    // 2. étiquettes « Vente : … » (pour n'inviter chaque client qu'aux ventes auxquelles il participe)
+    // 2. étiquettes « Groupe : … » (pour n'inviter chaque client qu'aux ventes auxquelles il participe)
     let etiquetes = 0;
     for (const [email, p] of liste_) {
       if (!p.ventes.size) continue;
       const hash = [...new Uint8Array(await stdCrypto.subtle.digest("MD5", new TextEncoder().encode(email)))].map((b) => b.toString(16).padStart(2, "0")).join("");
       const r = await fetch(`${api}/lists/${liste}/members/${hash}/tags`, { method: "POST", headers: { ...entetes, "Content-Type": "application/json" },
-        body: JSON.stringify({ tags: [...p.ventes].map((v) => ({ name: ("Vente : " + v).slice(0, 100), status: "active" })) }) });
+        body: JSON.stringify({ tags: [...p.ventes].map((v) => ({ name: ("Groupe : " + v).slice(0, 100), status: "active" })) }) });
       if (r.ok || r.status === 204) etiquetes++;
     }
     await marque({ dernier: debut.toISOString(), n, nouveaux, envoyes: liste_.length, ajoutes, etiquetes, encours: null, erreur: null });

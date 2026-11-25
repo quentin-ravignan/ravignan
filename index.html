@@ -296,6 +296,8 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .doublon-ligne{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px}
 .alerte-doublons{margin:6px 0}.degu-liste{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
 .prod-row.commande{border-style:dashed}
+.groupes-mini{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:3px}
+.tag-groupe{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
 .renommer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}.renommer .link{font-size:13px}
 .renommer input{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
 .permanentes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -998,6 +1000,7 @@ async function demanderSuppressionVente(v){
 function renderNewVente(m){
   const c=el("div","card",`<h2>Informations</h2>
     <div class="field"><label for="nv-nom">Nom de la vente</label><input id="nv-nom" placeholder="Marché de Noël 2026" value="${esc(nv.nom)}"></div>
+    <div class="field"><label for="nv-groupe">Groupe de clients <small class="muted">(fichier clients : chaque acheteur y est ajouté automatiquement)</small></label><input id="nv-groupe" list="nv-groupes" placeholder="${esc(groupeParDefaut(nv.nom)||"ex : Paroisse Sainte Croix")}" value="${esc(nv.groupe||"")}"><datalist id="nv-groupes">${[...new Set(ventes.map(groupeDe).filter(Boolean))].sort().map(g=>`<option value="${esc(g)}">`).join("")}</datalist></div>
     <div class="field"><label for="nv-lieu">Lieu</label><input id="nv-lieu" placeholder="Salle des fêtes" value="${esc(nv.lieu)}"></div>
     <div class="grid2">
       <div class="field"><label for="nv-deb">Date début</label><input id="nv-deb" type="date" value="${esc(nv.dateDebut)}"></div>
@@ -1007,7 +1010,7 @@ function renderNewVente(m){
   `);
   m.appendChild(c);
   {const a=c.querySelector("#nv-asso");if(a)a.onchange=e=>{nv.association=e.target.checked;};}
-  const map={"nv-nom":"nom","nv-lieu":"lieu","nv-deb":"dateDebut","nv-fin":"dateFin"};
+  const map={"nv-nom":"nom","nv-lieu":"lieu","nv-deb":"dateDebut","nv-fin":"dateFin","nv-groupe":"groupe"};
   Object.keys(map).forEach(id=>{qs("#"+id).oninput=e=>{nv[map[id]]=e.target.value;};});
   // vendeurs de la vente : choisis dans la liste (Administration), ou soi-même quand on est connecté
   const cv=el("div","card");m.appendChild(cv);
@@ -1203,12 +1206,13 @@ async function createVente(){
               ...nv.extras.map(x=>({id:x.id,nom:x.nom,format:x.format,stock:Math.max(0,x.stock||0),prix:x.prix}))];
   const ancienne=nv.editId?ventes.find(x=>x.id===nv.editId):null;
   const id=ancienne?ancienne.id:"v"+uid();
-  const v={...(ancienne&&ancienne.planning?{planning:ancienne.planning}:{}),...(ancienne&&ancienne.permanente?{permanente:true,dateFin:""}:{}),nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:ancienne?.createdAt||new Date().toISOString()};
+  const v={...(String(nv.groupe||"").trim()?{groupe:String(nv.groupe).trim()}:{}),...(ancienne&&ancienne.planning?{planning:ancienne.planning}:{}),...(ancienne&&ancienne.permanente?{permanente:true,dateFin:""}:{}),nom:nv.nom.trim(),lieu:nv.lieu.trim(),dateDebut:nv.dateDebut,dateFin:nv.dateFin||nv.dateDebut,...(nv.association?{association:true}:{}),vendeurPrincipal:nv.vendeurs[0],vendeurs:nv.vendeurs,refs,cloturee:false,createdAt:ancienne?.createdAt||new Date().toISOString()};
   // modification : on garde tout l'existant (clôture, remerciements, réassorts…) et on remplace les champs du formulaire
   if(ancienne){const garde=stripId(ancienne);
     v.refs=v.refs.map(r=>{const o=(ancienne.refs||[]).find(x=>x.id===r.id);return o?{...o,...r}:r;});
     Object.assign(garde,v,{cloturee:!!ancienne.cloturee,createdAt:ancienne.createdAt||v.createdAt});
     if(!nv.association)delete garde.association;
+    if(!String(nv.groupe||"").trim())delete garde.groupe;
     if(ancienne.permanente){garde.permanente=true;garde.dateFin="";}
     if(siteWeb){garde.vendeurs=ancienne.vendeurs;garde.vendeurPrincipal=ancienne.vendeurPrincipal;garde.refs=ancienne.refs||[];}
     if(nv.planning){const p={...nv.planning,creneaux:(nv.planning.creneaux||[]).filter(x=>x.date)};
@@ -1277,7 +1281,7 @@ function renderPlanningVente(m,v){
 function preparerVente(v){
   if(!peutGerer(v))return flash("Seul le vendeur responsable ou un administrateur peut modifier cette vente.");
   nv={nom:v.nom||"",lieu:v.lieu||"",dateDebut:v.dateDebut||today(),dateFin:v.dateFin||v.dateDebut||today(),vendeur:monPrenom,
-    vendeurs:(v.vendeurs||[]).length?[...v.vendeurs]:[monPrenom].filter(Boolean),refs:(v.refs||[]).map(r=>({...r,stock:String(r.stock??"")})),extras:[],
+    groupe:v.groupe||"",vendeurs:(v.vendeurs||[]).length?[...v.vendeurs]:[monPrenom].filter(Boolean),refs:(v.refs||[]).map(r=>({...r,stock:String(r.stock??"")})),extras:[],
     ...(v.association?{association:true}:{}),editId:v.id,permanente:!!v.permanente,
     planning:JSON.parse(JSON.stringify(v.planning||{}))};
   if(!nv.planning.creneaux)nv.planning.creneaux=[];
@@ -3679,6 +3683,9 @@ function chargerScript(src){return new Promise((ok,ko)=>{if(document.querySelect
     achats:[{date, source, ref, produits:[{nom,qte,prix}], total}]}
    Les ventes saisies dans l'app (collection « clients » + « transactions ») s'ajoutent à l'affichage. */
 let crmVente="";
+// groupe de clients d'une vente (CRM) : réglé sur la vente, sinon son nom sans l'année ni la date ; « Site web » et « Domaine » pour les ventes permanentes
+const groupeParDefaut=nom=>{const g=String(nom||"").replace(/\b(19|20)\d\d\b/g,"").replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g,"").replace(/\s*[-–·,]\s*$/,"").replace(/\s{2,}/g," ").trim();return g?g[0].toUpperCase()+g.slice(1):"Vente";};
+const groupeDe=v=>!v?"":v.id==="site-web"?"Site web":v.id==="domaine"?"Domaine":String(v.groupe||"").trim()||groupeParDefaut(v.nom);
 let crm=[], crmCharge=false, crmAbonne=false, crmQuery="", crmFiltre="tous", crmTri="total", crmSel=null, crmImport=null;
 const normEmail=e=>String(e||"").trim().toLowerCase();
 const normTxt=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
@@ -3706,6 +3713,7 @@ function clientsFusion(){
     if(!f.sources.includes(src))f.sources.push(src);
     const v=ventes.find(x=>x.id===t.venteId);
     // ventes auxquelles le client participe (pour l'inviter seulement à celles-là)
+    {const g=t.source==="site"?"Site web":groupeDe(v);if(g){f.groupes=f.groupes||[];if(!f.groupes.includes(g))f.groupes.push(g);}}
     if(src==="Ventes privées"&&v){f.ventes=f.ventes||[];if(!f.ventes.some(x=>x.id===v.id))f.ventes.push({id:v.id,nom:v.nom});}
     // newsletter : un client de vente privée qui n'a pas coché d'opposition est inscrit (en Caisse centrale, s'il a donné son accord)
     if(src==="Ventes privées"&&emailOk(c.email)&&!c.opposition&&c.consentement!==false&&!(f.tags||[]).some(x=>/désabonn|invalide/i.test(x)))f.newsletter=true;
@@ -3757,7 +3765,9 @@ function renderClients(m){
   tri.onchange=()=>{crmTri=tri.value;dessinerListe();};
   // clients d'une vente : pour n'inviter un client qu'aux ventes auxquelles il participe
   const selV=el("select");selV.setAttribute("aria-label","Clients d'une vente");selV.style.cssText="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface)";
-  [["","Toutes les ventes"],...ventes.filter(v=>!v.permanente&&tous.some(c=>(c.ventes||[]).some(x=>x.id===v.id))).sort((a,b)=>(b.dateDebut||"").localeCompare(a.dateDebut||"")).map(v=>[v.id,"Clients de : "+v.nom])].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;o.selected=crmVente===v;selV.appendChild(o);});
+  {const nb=new Map();tous.forEach(c=>(c.groupes||[]).forEach(g=>nb.set(g,(nb.get(g)||0)+1)));
+    [["","Tous les groupes"],...[...nb].sort((a,b)=>a[0].localeCompare(b[0])).map(([g,n])=>[g,"Groupe : "+g+" ("+n+")"])].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;o.selected=crmVente===v;selV.appendChild(o);});}
+  selV.setAttribute("aria-label","Groupe de clients");
   selV.onchange=()=>{crmVente=selV.value;dessinerListe();};
   const ligne=el("div","row");ligne.style.flexWrap="wrap";ligne.appendChild(chips);ligne.appendChild(selV);ligne.appendChild(tri);m.appendChild(ligne);
   // 12. alerte doublons
@@ -3769,7 +3779,7 @@ function renderClients(m){
       if(crmFiltre==="acheteurs"&&!c.nbAchats)return false;if(crmFiltre==="sans"&&c.nbAchats)return false;
       if(crmFiltre==="newsletter"&&!c.newsletter)return false;
       if(crmFiltre==="doublons"&&!c.doublons.length)return false;
-      if(crmVente&&!(c.ventes||[]).some(x=>x.id===crmVente))return false;
+      if(crmVente&&!(c.groupes||[]).includes(crmVente))return false;
       if(["Ventes privées","Site web","Squarespace","Mailchimp"].includes(crmFiltre)&&!(c.sources||[]).includes(crmFiltre))return false;
       if(!q)return true;
       return normTxt([c.prenom,c.nom,c.email,c.tel,c.ville,c.cp,(c.tags||[]).join(" "),c.notes,...c.achats.flatMap(a=>(a.produits||[]).map(p=>p.nom))].join(" ")).includes(q);
@@ -3784,6 +3794,7 @@ function renderClients(m){
     l.slice(0,500).forEach(c=>{const tr=el("tr","click");
       const td1=el("td");td1.appendChild(txt("b","",[c.prenom,c.nom].filter(Boolean).join(" ")||c.email||"Sans nom"));
       if(c.doublons?.length){const db_=txt("span","badge stock","doublon ?");db_.style.marginLeft="6px";db_.title="Même nom ou même téléphone qu'une autre fiche";td1.appendChild(db_);}if(c.email)td1.appendChild(el("br"));if(c.email)td1.appendChild(txt("span","muted",c.email));
+      if(c.groupes?.length){const gg=el("div","groupes-mini");c.groupes.slice(0,3).forEach(g=>gg.appendChild(txt("span","tag-groupe",g)));if(c.groupes.length>3)gg.appendChild(txt("span","muted","+"+(c.groupes.length-3)));td1.appendChild(gg);}
       tr.appendChild(td1);tr.appendChild(txt("td","",c.ville||""));tr.appendChild(txt("td","r",String(c.nbAchats||"")));tr.appendChild(txt("td","r",c.total?fmt(c.total):""));
       tr.appendChild(txt("td","",c.dernier?frDate(String(c.dernier).slice(0,10)):""));
       const td6=el("td");td6.appendChild(badgesOrigine(c));tr.appendChild(td6);
@@ -3800,6 +3811,7 @@ function ficheClient(c,fermer){
   const h=el("div","row");h.appendChild(txt("h2","sheet-title",nouveau?"Nouveau client":[c.prenom,c.nom].filter(Boolean).join(" ")||c.email));
   const x=el("button","x","×");x.type="button";x.setAttribute("aria-label","Fermer");x.onclick=fermer;h.appendChild(x);f.appendChild(h);
   if(!nouveau)f.appendChild(badgesOrigine(c));
+  if(!nouveau&&c.groupes?.length){const gg=el("div","groupes-mini");gg.appendChild(txt("span","muted","Groupes : "));c.groupes.forEach(g=>gg.appendChild(txt("span","tag-groupe",g)));f.appendChild(gg);}
   if(!nouveau&&c.ventes?.length)f.appendChild(txt("p","muted","🗓️ Ventes : "+c.ventes.map(x=>x.nom).join(", ")));
   if(!nouveau&&c.historique?.length){const hm=c.historique[c.historique.length-1];f.appendChild(txt("p","muted",`✏️ Modifiée le ${new Date(hm.date).toLocaleDateString("fr-FR")} par ${hm.par||"?"} : ${(hm.champs||[]).join(", ")}${c.historique.length>1?` (${c.historique.length} modifications)`:""}`));}
   if(!nouveau&&c.doublons?.length){const bd=el("div","doublons");bd.appendChild(txt("b","","⚠️ Doublons possibles (même nom ou même téléphone)"));
@@ -3884,8 +3896,8 @@ async function fusionnerFiches(A,B){
     crmSel=null;flash("Fiches fusionnées.","ok");render();}catch(e){flash(dbMessage(e));}
 }
 function exporterCrm(liste){
-  const rows=[["Prénom","Nom","Email","Téléphone","Adresse","Code postal","Ville","Pays","Newsletter","Origine","Étiquettes","Nb achats","Total €","Dernier achat","Notes"]];
-  liste.forEach(c=>rows.push([c.prenom,c.nom,c.email,c.tel,c.adresse,c.cp,c.ville,c.pays,c.newsletter?"oui":"non",(c.sources||[]).join(" / "),(c.tags||[]).join(", "),c.nbAchats,(c.total||0).toFixed(2).replace(".",","),c.dernier?String(c.dernier).slice(0,10):"",c.notes]));
+  const rows=[["Prénom","Nom","Email","Téléphone","Adresse","Code postal","Ville","Pays","Newsletter","Origine","Groupes","Étiquettes","Nb achats","Total €","Dernier achat","Notes"]];
+  liste.forEach(c=>rows.push([c.prenom,c.nom,c.email,c.tel,c.adresse,c.cp,c.ville,c.pays,c.newsletter?"oui":"non",(c.sources||[]).join(" / "),(c.groupes||[]).join(", "),(c.tags||[]).join(", "),c.nbAchats,(c.total||0).toFixed(2).replace(".",","),c.dernier?String(c.dernier).slice(0,10):"",c.notes]));
   const csv="﻿"+rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(";")).join("\r\n");
   downloads.save({filename:"ravignan-clients.csv",data:csv});
 }
