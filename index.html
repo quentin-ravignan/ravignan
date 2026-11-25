@@ -1376,7 +1376,7 @@ function renderVente(m){
   // répartition par paiement
   const parP=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+montant(x),0)]).filter(x=>x[1]>0);
   const att=t.filter(enAttente);
-  {const pot=t.filter(x=>x.anonyme&&x.type!=="avoir");if(pot.length)m.appendChild(el("p","muted num",`👥 Pot commun : ${pot.length} vente${pot.length>1?"s":""} sans coordonnées, ${fmt(pot.reduce((s,x)=>s+montant(x),0))}`));}
+  {const an=t.filter(x=>x.anonyme&&x.type!=="avoir");if(an.length)m.appendChild(el("p","muted num",`👤 ${an.length} client${an.length>1?"s":""} anonyme${an.length>1?"s":""} : ${fmt(an.reduce((s,x)=>s+montant(x),0))}`));}
   {const cmd=t.filter(x=>(x.lignes||[]).some(l=>l.commande)&&!x.livree);if(cmd.length)m.appendChild(el("p","attente-note num",`📦 ${cmd.length} commande${cmd.length>1?"s":""} à livrer`));}
   {const vir=t.filter(virementAttendu);if(vir.length)m.appendChild(el("p","attente-note num",`🏦 ${vir.length} virement${vir.length>1?"s":""} à recevoir : ${fmt(vir.reduce((s,x)=>s+(x.total||0),0))}`));}
   if(att.length)m.appendChild(el("p","attente-note num",`⏳ ${att.length} paiement${att.length>1?"s":""} par carte en attente : ${fmt(att.reduce((s,x)=>s+(x.total||0),0))}, non compté${att.length>1?"s":""} dans le chiffre d'affaires`));
@@ -1566,7 +1566,7 @@ function renderTxList(m,t){
     if(x.horsStock)c.appendChild(txt("p","envoi-etat ok","📦 Livraison en main propre, hors stock de la vente"));
     {const cl_=(x.lignes||[]).filter(l=>l.commande);if(cl_.length){const p=txt("p","envoi-etat "+(x.livree?"ok":"ko"),(x.livree?"✅ Commande livrée : ":"📦 Commande à livrer : ")+cl_.map(l=>l.qte+" × "+l.nom+" "+(l.format||"")).join(", "));c.appendChild(p);
       if(!x.livree&&canWrite){const bl=el("button","link","✅ Livrée");bl.onclick=async()=>{try{await db.collection("transactions").doc(x.id).update({livree:new Date().toISOString()});x.livree=true;render();}catch(e){flash(dbMessage(e));}};p.appendChild(document.createTextNode(" "));p.appendChild(bl);}}}
-    if(x.anonyme)c.appendChild(txt("p","muted","👥 Pot commun (client sans coordonnées)"));
+    if(x.anonyme)c.appendChild(txt("p","muted","👤 Client anonyme (sans coordonnées)"));
     const doc=x.type==="avoir"?"Avoir":"Facture";
     if(x.type==="avoir"&&x.annule){const o=txs.find(t=>t.id===x.annule);c.appendChild(txt("p","muted",(x.partiel?"Annule en partie la transaction":"Annule la transaction")+(o&&o.facture?" "+o.facture:"")+"."));}
     const act=el("div","row");act.style.cssText="justify-content:flex-start;gap:14px";
@@ -1811,11 +1811,11 @@ function dessinerClientCaisse(cc){
     cc.appendChild(fc);}cc.appendChild(casePapier(c));return;
   }
   const modes=el("div","tabs");
-  const bR=el("button",!c.nouveau&&!c.anonyme?"active":"","Client existant"),bN=el("button",c.nouveau&&!c.anonyme?"active":"","Nouveau client"),bA=el("button",c.anonyme?"active":"","Pot commun");bA.title="Client qui ne donne pas ses coordonnées";
+  const bR=el("button",!c.nouveau&&!c.anonyme?"active":"","Client existant"),bN=el("button",c.nouveau&&!c.anonyme?"active":"","Nouveau client"),bA=el("button",c.anonyme?"active":"","Client anonyme");bA.title="Client qui ne donne pas ses coordonnées";
   bR.onclick=()=>{c.nouveau=false;c.anonyme=false;dessinerClientCaisse(cc);};bN.onclick=()=>{c.nouveau=true;c.anonyme=false;dessinerClientCaisse(cc);};bA.onclick=()=>{c.anonyme=true;dessinerClientCaisse(cc);};
   modes.appendChild(bR);modes.appendChild(bN);modes.appendChild(bA);cc.appendChild(modes);
   // client qui ne veut pas donner ses coordonnées : vente enregistrée sans nom ni email, sans envoi de facture, hors fichier clients
-  if(c.anonyme){cc.appendChild(txt("p","msg info","👥 Pot commun de la vente : pour un client qui ne donne pas ses coordonnées. La vente est enregistrée sans nom ni email, aucune facture n'est envoyée et il n'entre pas dans le fichier clients. S'il veut une facture, ouvrez-la depuis la transaction pour l'imprimer."));return;}
+  if(c.anonyme){cc.appendChild(txt("p","msg info","👤 Client anonyme : pour un client qui ne donne pas ses coordonnées. Il est enregistré sous un nom du type « SainteCroix_client_anonyme_001 », sans email : aucune facture n'est envoyée. S'il veut une facture, ouvrez-la depuis la transaction pour l'imprimer."));return;}
   if(!c.nouveau){
     if(!estMembre){cc.appendChild(txt("p","muted","La recherche dans le fichier clients est réservée aux membres connectés."));
       const b=el("button","btn ghost sm","Se connecter avec Google");b.onclick=()=>sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});cc.appendChild(b);return;}
@@ -2283,9 +2283,12 @@ async function submitTx(){
   if(!sv.vendeur.trim())return flash("Indiquez votre prénom de vendeur.");
   const gratuit=estGratuit(sv.pmt),centrale=sv.pmt==="Caisse centrale";
   const anonyme=!!sv.client.anonyme;
-  if(anonyme)sv.client={...sv.client,prenom:"Pot",nom:"commun",email:"",tel:"",cp:"",adresse:"",ville:"",pro:false,papier:true,optin:false};
+  const nomAnonyme=()=>{const base=normTxt(v.nom).split(" ").filter(Boolean).map(w=>w[0].toUpperCase()+w.slice(1)).join("").slice(0,30)||"Vente";
+    const pris=new Set(txs.filter(x=>x.venteId===v.id&&x.anonyme).map(x=>clientOf(x).nom));let n=pris.size+1;
+    while(pris.has(`${base}_client_anonyme_${String(n).padStart(3,"0")}`))n++;return `${base}_client_anonyme_${String(n).padStart(3,"0")}`;};
+  if(anonyme)sv.client={...sv.client,prenom:"",nom:nomAnonyme(),email:"",tel:"",cp:"",adresse:"",ville:"",pro:false,papier:true,optin:false};
   if(!gratuit&&sv.client.pro&&!String(sv.client.raisonSociale||"").trim()){qs("#cl-rs")?.classList.add("invalide");return flash("Indiquez la raison sociale du client.");}
-  if(!gratuit&&!sv.client.pro&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
+  if(!gratuit&&!anonyme&&!sv.client.pro&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
   if(!gratuit&&sv.client.email.trim()&&!emailOk(sv.client.email)){qs("#cl-email")?.classList.add("invalide");return flash("L'email du client n'est pas valide.");}
   if(!gratuit&&!centrale&&!sv.client.papier&&!emailOk(sv.client.email)){
     (qs("#cl-email")||qs("#cl-papier"))?.classList.add("invalide");qs("#cl-email")?.focus();
@@ -3692,11 +3695,11 @@ function clientsFusion(){
   // une fiche peut porter d'autres clés (ancienne adresse, fiche fusionnée) : leurs achats lui reviennent
   crm.forEach(c=>{const o={...c,achats:[...(c.achats||[])],sources:[...(c.sources||[])]};map.set(cleClient(c),o);(c.autresCles||[]).forEach(k=>{if(!map.has(k))map.set(k,o);});});
   txs.forEach(t=>{
-    const c=clients.get(t.id);if(!c||c.anonyme)return;
+    const c=clients.get(t.id);if(!c)return;
     const k=cleClient(c);let f=map.get(k);
     // rattache aussi par nom quand l'email manque d'un côté
     if(!f&&!normEmail(c.email)){for(const v of map.values()){if(normTxt(v.prenom+" "+v.nom)===normTxt(c.prenom+" "+c.nom)){f=v;break;}}}
-    if(!f){f={id:null,prenom:c.prenom,nom:c.nom,email:c.email,tel:c.tel,sources:[],achats:[],tags:[]};map.set(k,f);}
+    if(!f){f={id:null,prenom:c.prenom,nom:c.nom,email:c.email,tel:c.tel,sources:[],achats:[],tags:c.anonyme?["Anonyme"]:[],...(c.anonyme?{anonyme:true}:{})};map.set(k,f);}
     if(!f.email&&c.email)f.email=c.email;if(!f.tel&&c.tel)f.tel=c.tel;
     for(const k of ["cp","ville","adresse","raisonSociale","siren","tvaClient"])if(!f[k]&&c[k])f[k]=c[k];if(c.pro)f.pro=true;
     const src=t.source==="site"?"Site web":"Ventes privées";
@@ -3855,7 +3858,7 @@ const nomFiche=c=>[c.prenom,c.nom].filter(Boolean).join(" ")||c.email||"Sans nom
 // doublons possibles : même prénom + nom, ou même numéro de téléphone (9 derniers chiffres), sur des fiches différentes
 function doublonsCrm(liste){const groupes=new Map();
   const ajout=(k,c)=>{if(!k)return;if(!groupes.has(k))groupes.set(k,new Set());groupes.get(k).add(c);};
-  liste.forEach(c=>{if(normTxt(c.prenom)&&normTxt(c.nom))ajout("n:"+normTxt(c.prenom+" "+c.nom),c);
+  liste.forEach(c=>{if(c.anonyme)return;if(normTxt(c.prenom)&&normTxt(c.nom))ajout("n:"+normTxt(c.prenom+" "+c.nom),c);
     const t=String(c.tel||"").replace(/\D/g,"").slice(-9);if(t.length===9&&!/^0+$/.test(t))ajout("t:"+t,c);});
   const res=new Map();
   groupes.forEach(set=>{if(set.size<2||set.size>6)return;set.forEach(c=>{const o=res.get(c)||new Set();set.forEach(x=>{if(x!==c)o.add(x);});res.set(c,o);});});
