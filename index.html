@@ -298,6 +298,13 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .prod-row.commande{border-style:dashed}
 .groupes-mini{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:3px}
 .tag-groupe{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
+.tdb-grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px}
+.tdb-grille .card{margin:0}.tdb-bloc-carte{grid-column:1/-1}
+.tdb-carte{height:420px;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--line);background:var(--sunk)}
+.tdb-graph{position:relative;height:280px;margin-top:6px}
+.tdb-legende{font-size:12px;margin:8px 0 0}.tdb-legende .rond{display:inline-block;width:11px;height:11px;border-radius:50%;margin:0 4px 0 10px;vertical-align:middle;border:2px solid var(--accent)}.tdb-legende .rond.plein{background:var(--accent);border-color:#fff;box-shadow:0 0 0 1px var(--accent)}
+.tdb-popup{font:13px/1.45 var(--font)}.tdb-popup .link{padding:0;margin-top:4px}
+@media (max-width:560px){.tdb-carte{height:320px}.tdb-grille{grid-template-columns:1fr}}
 .renommer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}.renommer .link{font-size:13px}
 .renommer input{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
 .permanentes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -541,6 +548,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="brand"><img class="brand-logo" src="images/blason.jpg" alt="Blason de Ravignan" width="64" height="64"><span class="brand-mark">Armagnac</span><span class="brand-name">Domaine de Ravignan</span></div>
     <button class="nav-item" data-nav="home"><span class="nav-ico" aria-hidden="true">🍷</span>Ventes</button>
     <button class="nav-item" data-nav="clients"><span class="nav-ico" aria-hidden="true">👥</span>Clients</button>
+    <button class="nav-item" data-nav="tdb"><span class="nav-ico" aria-hidden="true">📊</span>Tableau de bord</button>
     <button class="nav-item" data-nav="aide"><span class="nav-ico" aria-hidden="true">💬</span>Aide à la vente</button>
     <button class="nav-item" data-nav="degustation"><span class="nav-ico" aria-hidden="true">🥃</span>Notes de dégustation</button>
     <button class="nav-item" data-nav="benchmark"><span class="nav-ico" aria-hidden="true">📈</span>Benchmark</button>
@@ -644,7 +652,7 @@ const LIVE_PAGES=["home","vente","admin"];
 // pages des administrateurs (cachées aux autres) ; tout le reste est ouvert aux membres connectés par email
 const PAGES_PRIVEES=["chambres","genealogie","admin","b2b"];
 let accesPrive=false;
-const TOP_PAGES=["b2b","home","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"];
+const TOP_PAGES=["tdb","b2b","home","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"];
 let chambres=[], chFilter="all", chQuery="";
 
 /* ---------- menu ---------- */
@@ -714,11 +722,11 @@ function dessinerPage(){
     else if(page==="new-vente"&&nv.editId){const id=nv.editId;nv=blankNv();go("vente",id);}
     else{if(page==="new-vente")nv=blankNv();go("home");}
   };
-  const titles={home:"Ventes privées","new-vente":nv.editId?((ventes.find(x=>x.id===nv.editId)?.refs||[]).length||nv.editId==="site-web"?"Modifier la vente":"Préparer la vente"):"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Plan du Château",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
+  const titles={tdb:"Tableau de bord",home:"Ventes privées","new-vente":nv.editId?((ventes.find(x=>x.id===nv.editId)?.refs||[]).length||nv.editId==="site-web"?"Modifier la vente":"Préparer la vente"):"Nouvelle vente",vente:getVente()?.nom||"Vente",saisie:"Nouvelle transaction",admin:"Administration",chambres:"Plan du Château",aide:"Aide à la vente",degustation:"Notes de dégustation",region:"Région et domaines",benchmark:"Benchmark",genealogie:"Généalogie",clients:"Clients"};
   qs("#hdr-title").textContent=titles[page]||"Domaine de Ravignan";
   updateNav();
   const m=qs("#main");m.innerHTML="";saisieProdCard=null;
-  m.classList.toggle("wide",["b2b","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
+  m.classList.toggle("wide",["tdb","b2b","chambres","admin","aide","degustation","region","benchmark","genealogie","clients"].includes(page));
   if(!db){m.appendChild(el("div","empty","Chargement…"));return;}
   if(page==="vente"&&!getVente()){page="home";}
   // tout le site demande une connexion par email (membres)
@@ -726,6 +734,7 @@ function dessinerPage(){
   // Généalogie, Plan du Château, Administration : administrateurs seulement
   if(PAGES_PRIVEES.includes(page)&&!accesPrive){page="home";render();return;}
   if(page==="clients")renderClients(m);
+  else if(page==="tdb")renderTableauDeBord(m);
   else if(page==="genealogie")renderGenealogie(m);
   else if(page==="aide")renderAide(m);
   else if(page==="degustation")renderDegustation(m);
@@ -818,6 +827,80 @@ function renderFrise(m){
   m.appendChild(c);
   // la frise s'ouvre une semaine avant aujourd'hui
   requestAnimationFrame(()=>{sc.scrollLeft=Math.max(0,(ia-7)*PX);});
+}
+
+/* ---------- page Tableau de bord : chiffres, carte des ventes, graphiques ---------- */
+const CHART_SRC="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js";
+let tdbGraphs=[],tdbCarte=null;
+function renderTableauDeBord(m){
+  if(!loaded.ventes||!loaded.txs){m.appendChild(el("div","empty","Chargement…"));return;}
+  renderDashboard(m);
+  const g=el("div","tdb-grille");m.appendChild(g);
+  const cc=el("div","card tdb-bloc-carte",`<div class="row"><h2 style="margin:0">🗺️ Carte des ventes</h2><span class="muted" id="tdb-carte-etat"></span></div>
+    <div id="tdb-carte" class="tdb-carte" role="img" aria-label="Carte des ventes privées"></div>
+    <p class="muted tdb-legende"><span class="rond plein"></span>vente avec chiffre d'affaires (taille du rond = CA) <span class="rond creux"></span>vente à venir</p>`);
+  g.appendChild(cc);
+  const c1=el("div","card",`<h2>📈 Chiffre d'affaires par mois</h2><p class="muted">12 derniers mois</p><div class="tdb-graph"><canvas id="g-mois" aria-label="Chiffre d'affaires par mois"></canvas></div>`);
+  const nbV=Math.min(10,ventes.filter(v=>!v.permanente&&txsOf(v.id).some(x=>montant(x)>0)).length);
+  const c2=el("div","card",`<h2>🏷️ Chiffre d'affaires par vente</h2><p class="muted">Ventes privées, les ${nbV} meilleures</p><div class="tdb-graph" style="height:${Math.max(160,nbV*34+40)}px"><canvas id="g-ventes" aria-label="Chiffre d'affaires par vente"></canvas></div>`);
+  g.appendChild(c1);g.appendChild(c2);
+  setTimeout(()=>{dessinerGraphiques().catch(e=>console.error(e));dessinerCarteVentes().catch(e=>console.error(e));},0);
+}
+const couleur=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+async function dessinerGraphiques(){
+  if(!window.Chart)await chargerScript(CHART_SRC);
+  tdbGraphs.forEach(c=>c.destroy());tdbGraphs=[];
+  const encaisse=txs.filter(x=>x.statut!=="abandonnee"&&!enAttente(x)&&!estGratuit(x.paiement));
+  const texte=couleur("--muted"),ligne=couleur("--line"),surface=couleur("--surface"),s1=couleur("--s1"),s2=couleur("--s2");
+  const euros=v=>Math.round(v).toLocaleString("fr-FR")+" €";
+  Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;Chart.defaults.color=texte;
+  // 1. CA par mois : ventes privées et site web, empilés
+  const mois=[];const d0=new Date();d0.setDate(1);for(let i=11;i>=0;i--){const d=new Date(d0.getFullYear(),d0.getMonth()-i,1);mois.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));}
+  const parMois=src=>mois.map(k=>encaisse.filter(x=>String(x.date||"").startsWith(k)&&(src==="site"?x.source==="site":x.source!=="site")).reduce((s,x)=>s+montant(x),0));
+  const nomMois=k=>{const [a,mo]=k.split("-");return MOIS_COURTS[+mo-1]+(mo==="01"||k===mois[0]?" "+a.slice(2):"");};
+  const cm=document.getElementById("g-mois");
+  if(cm)tdbGraphs.push(new Chart(cm,{type:"bar",data:{labels:mois.map(nomMois),datasets:[
+      {label:"Ventes privées",data:parMois("vp"),backgroundColor:s1,borderColor:surface,borderWidth:{top:2},borderRadius:4,borderSkipped:"start",maxBarThickness:28},
+      {label:"Site web",data:parMois("site"),backgroundColor:s2,borderColor:surface,borderWidth:{top:2},borderRadius:4,borderSkipped:"start",maxBarThickness:28}]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},
+      plugins:{legend:{position:"top",align:"start",labels:{boxWidth:12,boxHeight:12,useBorderRadius:true,borderRadius:3}},
+        tooltip:{callbacks:{label:c=>` ${c.dataset.label} : ${euros(c.parsed.y)}`,footer:it=>"Total : "+euros(it.reduce((s,c)=>s+c.parsed.y,0))}}},
+      scales:{x:{stacked:true,grid:{display:false},border:{color:ligne}},y:{stacked:true,grid:{color:ligne},border:{display:false},ticks:{callback:v=>v>=1000?(v/1000).toLocaleString("fr-FR")+" k€":v+" €",maxTicksLimit:5}}}}}));
+  // 2. CA par vente (ventes privées), barres horizontales, valeur au bout
+  const vs=ventes.filter(v=>!v.permanente).map(v=>({v,ca:txsOf(v.id).reduce((s,x)=>s+montant(x),0)})).filter(o=>o.ca>0).sort((a,b)=>b.ca-a.ca).slice(0,10);
+  const cv=document.getElementById("g-ventes");
+  if(cv)tdbGraphs.push(new Chart(cv,{type:"bar",data:{labels:vs.map(o=>o.v.nom.length>28?o.v.nom.slice(0,27)+"…":o.v.nom),datasets:[{label:"Chiffre d'affaires",data:vs.map(o=>o.ca),backgroundColor:s1,borderRadius:4,borderSkipped:"start",maxBarThickness:22}]},
+    options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,layout:{padding:{right:70}},onClick:(e,els)=>{if(els[0])go("vente",vs[els[0].index].v.id);},
+      onHover:(e,els)=>{e.native.target.style.cursor=els.length?"pointer":"default";},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:it=>vs[it[0].dataIndex].v.nom,label:c=>` ${euros(c.parsed.x)} · ${txsOf(vs[c.dataIndex].v.id).length} transactions`}}},
+      scales:{x:{grid:{color:ligne},border:{display:false},ticks:{maxTicksLimit:4,callback:v=>v>=1000?(v/1000).toLocaleString("fr-FR")+" k€":v+" €"}},y:{grid:{display:false},border:{color:ligne}}}},
+    plugins:[{id:"valeurs",afterDatasetsDraw(ch){const {ctx}=ch;ctx.save();ctx.fillStyle=couleur("--fg");ctx.font="600 12px "+Chart.defaults.font.family;ctx.textBaseline="middle";
+      ch.getDatasetMeta(0).data.forEach((b,i)=>ctx.fillText(euros(vs[i].ca),b.x+6,b.y));ctx.restore();}}]}));
+}
+// carte des ventes : position trouvée par l'adresse (ou le lieu), gardée en mémoire sur l'appareil
+async function dessinerCarteVentes(){
+  const zone=document.getElementById("tdb-carte");if(!zone)return;
+  await chargerLeaflet();
+  if(tdbCarte){tdbCarte.remove();tdbCarte=null;}
+  tdbCarte=L.map(zone,{scrollWheelZoom:false}).setView([46.6,1.9],5);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",{maxZoom:16,attribution:"Fond © Esri, HERE, Garmin, © contributeurs OpenStreetMap"}).addTo(tdbCarte);
+  L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",{maxZoom:16}).addTo(tdbCarte);
+  let cache={};try{cache=JSON.parse(localStorage.getItem("ravignan-geo")||"{}");}catch(e){}
+  const liste=ventes.filter(v=>!v.permanente).map(v=>({v,ca:txsOf(v.id).reduce((s,x)=>s+montant(x),0),q:String(v.planning?.adresse||v.lieu||"").trim()})).filter(o=>o.q&&!/^en ligne$/i.test(o.q));
+  const max=Math.max(1,...liste.map(o=>o.ca));const pts=[];const etat=document.getElementById("tdb-carte-etat");
+  const placer=(o,ll)=>{const r=o.ca>0?7+17*Math.sqrt(o.ca/max):6;
+    const mk=L.circleMarker(ll,{radius:r,color:"#fff",weight:2,fillColor:couleur("--accent")||"#5a2f28",fillOpacity:o.ca>0?.78:0,opacity:1,...(o.ca>0?{}:{color:couleur("--accent")||"#5a2f28",weight:2.5})}).addTo(tdbCarte);
+    const p=el("div","tdb-popup",`<b>${esc(o.v.nom)}</b><br><span class="muted">${esc(o.v.lieu||"")} · ${esc(periode(o.v))}</span><br>${o.ca>0?`<b>${fmt(o.ca)}</b> · ${txsOf(o.v.id).length} transactions`:"À venir"}<br>`);
+    const b=el("button","link","Ouvrir la vente →");b.onclick=()=>go("vente",o.v.id);p.appendChild(b);mk.bindPopup(p);
+    mk.bindTooltip(o.v.nom+(o.ca>0?" · "+fmt(o.ca):""),{direction:"top"});pts.push(ll);};
+  const cadrer=()=>{if(pts.length&&tdbCarte)tdbCarte.fitBounds(L.latLngBounds(pts).pad(.25),{maxZoom:11});};
+  liste.filter(o=>cache[o.q]).forEach(o=>placer(o,cache[o.q]));cadrer();
+  const aChercher=liste.filter(o=>!cache[o.q]);
+  for(let i=0;i<aChercher.length;i++){const o=aChercher[i];if(etat)etat.textContent=`Localisation des ventes… ${i+1}/${aChercher.length}`;
+    try{const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=fr&q="+encodeURIComponent(o.q)).then(x=>x.json());
+      if(r[0]){cache[o.q]=[+r[0].lat,+r[0].lon];try{localStorage.setItem("ravignan-geo",JSON.stringify(cache));}catch(e){}if(!tdbCarte)return;placer(o,cache[o.q]);cadrer();}}catch(e){}
+    await new Promise(ok=>setTimeout(ok,1100));} // 1 requête par seconde (règle d'OpenStreetMap)
+  if(etat)etat.textContent=pts.length+" vente"+(pts.length>1?"s":"")+" sur la carte";
 }
 
 /* ---------- tableau de bord de toutes les ventes ---------- */
