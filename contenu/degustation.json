@@ -6,31 +6,162 @@
     {
       "id": "souplesse",
       "nom": "Souplesse",
-      "aromes": ["Pruneau", "Vanille", "Miel", "Coing"],
-      "millesimes": ["1992", "2004", "1999", "1983", "1991"]
+      "aromes": [
+        "Pruneau",
+        "Vanille",
+        "Miel",
+        "Coing"
+      ],
+      "millesimes": [
+        "1992",
+        "2004",
+        "1999",
+        "1983",
+        "1991"
+      ]
     },
     {
       "id": "brut",
       "nom": "Brut complexe",
-      "aromes": ["Réglisse", "Cacao", "Cèdre", "Menthe"],
-      "millesimes": ["1987", "1993", "1981", "2010", "2016"]
+      "aromes": [
+        "Réglisse",
+        "Cacao",
+        "Cèdre",
+        "Menthe"
+      ],
+      "millesimes": [
+        "1987",
+        "1993",
+        "1981",
+        "2010",
+        "2016"
+      ]
     }
   ],
   "notes": {
-    "1981": {"robe": "Acajou foncé, brillant", "couleur": "#5e2410", "nez": "Intense et parfumé, arômes de pruneau et de miel.", "bouche": "Beaucoup de finesse, très bien équilibrée, finale longue avec une note de chocolat.", "accord": "Accompagne agréablement un cigare.", "date": "2024"},
-    "1983": {"robe": "Bel acajou", "couleur": "#743214", "nez": "Équilibré, léger, avec une pointe de vanille.", "bouche": "Souple, bonne amplitude, finale agréable et boisée, longue en bouche.", "date": "2024"},
-    "1985": {"robe": "Ambré soutenu", "couleur": "#a2601c", "nez": "Amande grillée, fumée et orange confite.", "bouche": "Ample, sur le rancio, bois fondu avec une note grillée.", "medaille": "Médaille d'or 2016, Concours des eaux-de-vie du Bas-Armagnac landais (plus de 20 ans)", "date": "2020"},
-    "1987": {"robe": "Cuivré avec des reflets roux", "couleur": "#9c4a1c", "nez": "Notes mêlées de miel, de poire et de noix.", "bouche": "Attaque franche, longueur soutenue, arômes de réglisse et de noix.", "date": "2024"},
-    "1991": {"robe": "Ambré vif avec des reflets orangés", "couleur": "#bc6a1c", "nez": "Note dominante de chocolat, arômes de cannelle, de violette et de poivre.", "bouche": "Attaque franche, notes de réglisse et d'agrumes confits, finale soutenue.", "medaille": "Médaille d'or 2019, Concours des eaux-de-vie du Bas-Armagnac landais (plus de 20 ans)", "date": "2024"},
-    "1992": {"robe": "Orangé avec des reflets laiton", "couleur": "#c4832a", "nez": "Notes mêlées de coing et de noix.", "bouche": "Attaque et longueur soutenues, grande finesse, arômes de coing et de pruneau.", "date": "2024"},
-    "1993": {"robe": "Acajou clair", "couleur": "#8e4219", "nez": "Remontant, agréablement parfumé, plus fleuri que fruité, vanille.", "bouche": "Bonne attaque, légèrement sucrée, notes dominantes de réglisse et de bois léger.", "accord": "Accompagne agréablement un cigare.", "date": "2024"},
-    "1998": {"robe": "Ambre avec des reflets acajou", "couleur": "#a45722", "nez": "Souple, notes d'agrumes, d'orange confite et de cèdre.", "bouche": "Attaque souple, présence ample et sucrée, notes de vanille, belle longueur.", "medaille": "Médaille de bronze 2018, Concours des eaux-de-vie du Bas-Armagnac landais (15-20 ans)", "date": "2022"},
-    "1999": {"robe": "Orangé avec des reflets ambrés", "couleur": "#c27a24", "nez": "Beaucoup de rondeur, notes de coing et de noix.", "bouche": "Attaque souple, présence soutenue, parfums légèrement mentholés et chocolatés.", "date": "2024"},
-    "2002": {"robe": "Orangé avec des reflets tuilés", "couleur": "#b4622a", "nez": "Souple, notes réglissées, légèrement poivrées.", "bouche": "Puissante, arômes réglissés et chocolatés.", "date": "2022"},
-    "2003": {"robe": "Tabac avec des reflets orange", "couleur": "#8c5524", "nez": "Souple, notes réglissées, légèrement poivrées.", "bouche": "Attaque souple, vite suivie d'une agréable fougue, finale longue et subtilement réglissée.", "date": "2024"},
-    "2004": {"robe": "Ambrée avec des reflets or", "couleur": "#c99232", "nez": "Coing, notes de miel et de cacao.", "bouche": "Cacao, réglisse et coing, attaque légère, finale moyenne sur le cacao.", "date": "2024"},
-    "2006": {"robe": "Doré aux reflets orange", "couleur": "#d4a03c", "nez": "Reine-claude et abricot frais.", "bouche": "Fraîche et ample, abricot et cannelle ; eau-de-vie légère, bois très léger et fondu. Une eau-de-vie de découverte.", "date": "2020"},
-    "2009": {"robe": "Légèrement ambrée, reflets orangés et laiton", "couleur": "#d3a447", "nez": "Frais et léger, notes de cacao, noisette, chêne et orange confite.", "bouche": "Attaque délicate, chocolat et pruneau, puis une finale fraîche et mentholée.", "date": "2024"},
-    "2012": {"robe": "Ambrée, reflets tuilés acajou", "couleur": "#9a4c20", "nez": "Puissant, notes de poire, noix, poivre et sous-bois.", "bouche": "Attaque puissante et épicée, notes mentholées et de poire, belle longueur, finale soutenue.", "date": "2024"}
+    "1981": {
+      "robe": "Acajou foncé, brillant",
+      "couleur": "#5e2410",
+      "nez": "Intense et parfumé, arômes de pruneau et de miel.",
+      "bouche": "Beaucoup de finesse, très bien équilibrée, finale longue avec une note de chocolat.",
+      "accord": "Accompagne agréablement un cigare.",
+      "date": "2025"
+    },
+    "1983": {
+      "robe": "Bel acajou",
+      "couleur": "#743214",
+      "nez": "Équilibré, léger, avec une pointe de vanille.",
+      "bouche": "Souple, bonne amplitude, finale agréable et boisée, longue en bouche.",
+      "date": "2025"
+    },
+    "1985": {
+      "robe": "Ambré soutenu",
+      "couleur": "#a2601c",
+      "nez": "Amande grillée, fumée et orange confite.",
+      "bouche": "Ample, sur le rancio, bois fondu avec une note grillée.",
+      "medaille": "Médaille d'or 2016, Concours des eaux-de-vie du Bas-Armagnac landais (plus de 20 ans)",
+      "date": "2020"
+    },
+    "1987": {
+      "robe": "Cuivré avec des reflets roux",
+      "couleur": "#9c4a1c",
+      "nez": "Notes mêlées de miel, de poire et de noix.",
+      "bouche": "Attaque franche, longueur soutenue, on retrouve des arômes de réglisse et de noix.",
+      "date": "2025"
+    },
+    "1991": {
+      "robe": "Ambré vif avec des reflets orangés",
+      "couleur": "#bc6a1c",
+      "nez": "Note dominante de chocolat, arômes de cannelle, de violette et de poivre.",
+      "bouche": "Attaque franche, notes de réglisse et d'agrumes confits, finale soutenue.",
+      "medaille": "Médaille d'or 2019, Concours des eaux-de-vie du Bas-Armagnac landais (plus de 20 ans)",
+      "date": "2025"
+    },
+    "1992": {
+      "robe": "Orangé avec des reflets laiton",
+      "couleur": "#c4832a",
+      "nez": "Notes mêlées de coing et de noix.",
+      "bouche": "Attaque et longueur soutenues, grande finesse, arômes de coing et de pruneau.",
+      "date": "2025"
+    },
+    "1993": {
+      "robe": "Acajou clair",
+      "couleur": "#8e4219",
+      "nez": "Remontant, agréablement parfumé, plus fleuri que fruité, vanille.",
+      "bouche": "Bonne attaque, légèrement sucrée, notes dominantes de réglisse et de bois léger.",
+      "accord": "Accompagne agréablement un cigare.",
+      "date": "2025"
+    },
+    "1998": {
+      "robe": "Ambre avec des reflets acajou",
+      "couleur": "#a45722",
+      "nez": "Souple, notes d'agrumes, d'orange confite et de cèdre.",
+      "bouche": "Attaque souple, présence ample et sucrée, notes de vanille, belle longueur.",
+      "medaille": "Médaille de bronze 2018, Concours des eaux-de-vie du Bas-Armagnac landais (15-20 ans)",
+      "date": "2022"
+    },
+    "1999": {
+      "robe": "Orangé avec des reflets ambrés",
+      "couleur": "#c27a24",
+      "nez": "Beaucoup de rondeur, notes de coing et de noix.",
+      "bouche": "Attaque souple, présence soutenue agrémentée de parfums légèrement mentholés et chocolatés.",
+      "date": "2025"
+    },
+    "2002": {
+      "robe": "Orangé avec des reflets tuilés",
+      "couleur": "#b4622a",
+      "nez": "Souple, notes réglissées, légèrement poivrées.",
+      "bouche": "Puissante, arômes réglissés et chocolatés.",
+      "date": "2022"
+    },
+    "2003": {
+      "robe": "Tabac avec des reflets orange",
+      "couleur": "#8c5524",
+      "nez": "Souple, notes réglissées, légèrement poivrées.",
+      "bouche": "Attaque souple, vite suivie d'une agréable fougue, finale longue et subtilement réglissée.",
+      "date": "2024"
+    },
+    "2004": {
+      "robe": "Ambrée avec des reflets or",
+      "couleur": "#c99232",
+      "nez": "Coing, notes de miel et de cacao.",
+      "bouche": "Cacao, réglisse et coing, attaque légère, finale moyenne sur le cacao.",
+      "date": "2025"
+    },
+    "2006": {
+      "robe": "Doré aux reflets orange",
+      "couleur": "#d4a03c",
+      "nez": "Reine-claude et abricot frais.",
+      "bouche": "Fraîche et ample, abricot et cannelle ; eau-de-vie légère, bois très léger et fondu. Une eau-de-vie de découverte.",
+      "date": "2020"
+    },
+    "2009": {
+      "robe": "Légèrement ambrée, reflets orangés et laiton",
+      "couleur": "#d3a447",
+      "nez": "Frais et léger, notes de cacao, noisette, chêne et orange confite.",
+      "bouche": "Attaque délicate, chocolat et pruneau, puis une finale fraîche et mentholée.",
+      "date": "2024"
+    },
+    "2010": {
+      "robe": "Orangée vers le brun, avec de forts reflets acajou",
+      "couleur": "#9a4a1a",
+      "nez": "Beaucoup de rondeur et de souplesse, très peu d'agressivité. Notes de miel et de coing, légers aspects d'agrumes confits, finale de chêne et de cacao.",
+      "bouche": "Attaque souple suivie d'une belle intensité, avec des goûts épicés, de coing et de cacao.",
+      "date": "2025"
+    },
+    "2012": {
+      "robe": "Ambrée, reflets tuilés acajou",
+      "couleur": "#9a4c20",
+      "nez": "Puissant, notes de poire, noix, poivre et sous-bois.",
+      "bouche": "Attaque puissante et épicée, notes mentholées et de poire, belle longueur, finale soutenue.",
+      "date": "2024"
+    },
+    "2016": {
+      "robe": "Légèrement ambrée, avec des reflets orange et fauve",
+      "couleur": "#d08a2e",
+      "nez": "Belle intensité, beaucoup d'expression : notes de fleurs blanches, de miel, d'orange confite, légèrement poivré.",
+      "bouche": "Attaque souple suivie d'une nette franchise et d'une fraîcheur intense. Goûts mentholés avec des reflets vanillés et de coing, finale réglissée, légèrement poivrée.",
+      "date": "2025"
+    }
   }
 }
