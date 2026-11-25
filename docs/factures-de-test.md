@@ -22,3 +22,16 @@ Les lignes supprimées sont gardées dans la table `docs_corbeille` de Supabase,
 
 Après le nettoyage, la seule vente avec des transactions est « Vente toulouse 07/11 » : 82 transactions, 3 477,90 €.
 Deux de ces ventes (factures 2026-11-06-0051, 38 €, et 2026-11-07-0071, 19 €, en espèces) n'ont pas de client identifié : « Client non renseigné ».
+
+## Numéros retirés le 25/11/2026
+
+| Numéro | Raison |
+|---|---|
+| 2026-11-19-0094 | vente de test « Vente Matthieu & Elise test » (supprimée, copie dans `docs_corbeille`) |
+| 2026-11-19-0095 | idem |
+| 2026-11-22-0144 | Sainte Croix, vente en Caisse centrale : numéro attribué par erreur (l'organisateur encaisse, pas de facture du domaine) ; jamais envoyée |
+| 2026-11-22-0157 | idem |
+| 2026-11-23-0189 | idem |
+| 2026-11-23-0190 | idem |
+
+Les numéros retirés de Sainte Croix restent visibles sur la transaction (champ « factureAnnulee »). Depuis le 25/11, l'app n'édite plus jamais de facture pour une vente en Caisse centrale.

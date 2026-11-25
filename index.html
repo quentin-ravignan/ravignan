@@ -294,6 +294,8 @@ details.mill-d p{margin:6px 0 0;line-height:1.5}
 .responsable b{color:var(--accent-ink)}
 .doublons{background:var(--warn-soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .doublon-ligne{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:14px}
+.alerte-doublons{margin:6px 0}.degu-liste{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}
+.prod-row.commande{border-style:dashed}
 .renommer{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:2px 0 10px}.renommer .link{font-size:13px}
 .renommer input{flex:1 1 220px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--surface);color:var(--fg)}
 .permanentes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
@@ -670,7 +672,7 @@ const enAttente=x=>x.statut==="attente";
 const montant=x=>enAttente(x)?0:(x.total||0);
 const txsOf=vid=>txs.filter(t=>t.venteId===vid&&t.statut!=="abandonnee").sort((a,b)=>(a.date||"").localeCompare(b.date||""));
 // les livraisons en main propre (hors stock de la vente) ne sortent pas du stock
-const venduDe=(vid,refId)=>txsOf(vid).filter(t=>!t.horsStock).reduce((s,t)=>s+(t.lignes||[]).filter(l=>l.refId===refId).reduce((a,l)=>a+(l.qte||0),0),0);
+const venduDe=(vid,refId)=>txsOf(vid).filter(t=>!t.horsStock).reduce((s,t)=>s+(t.lignes||[]).filter(l=>l.refId===refId&&!l.commande).reduce((a,l)=>a+(l.qte||0),0),0);
 
 function flash(text,kind="err"){
   const f=qs("#flash");f.innerHTML="";
@@ -857,7 +859,6 @@ function renderDashboard(m){
   const parVente={};t.forEach(x=>{parVente[x.venteId]=(parVente[x.venteId]||0)+montant(x);});
   const top=(o,n=5)=>Object.entries(o).filter(e=>e[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,n);
   const g=el("div","dash-grille");
-  g.appendChild(barres("Meilleurs vendeurs",top(parV),fmt,"",true));
   g.appendChild(barres("Meilleurs clients",[...clientsMap.values()].filter(o=>o.total>0).sort((a,b)=>b.total-a.total).slice(0,5).map(o=>[o.nom,o.total,o.n>1?o.n+" achats":""]),fmt));
   g.appendChild(barres("Produits les plus vendus",top(parP),v=>v+" btl"));
   g.appendChild(barres("Meilleures ventes",top(parVente).map(([id,v])=>[(ventes.find(w=>w.id===id)||{}).nom||"Vente",v]),fmt));
@@ -1366,7 +1367,6 @@ function renderVente(m){
   const k=el("div","grid3");
   [[fmt(ca),"Chiffre d'affaires"],[t.length,"Transactions"],[btl,"Articles"]].forEach(([val,lab])=>k.appendChild(el("div","kpi",`<div class="val num">${val}</div><div class="lab">${lab}</div>`)));
   m.appendChild(k);
-  renderPodium(m,t);
   // factures pas encore envoyées
   const nonEnv=t.filter(x=>facturable(x)&&!(x.facture_envois||[]).length);
   if(nonEnv.length&&canWrite){const n=el("div","envoi-alerte");
@@ -1376,6 +1376,8 @@ function renderVente(m){
   // répartition par paiement
   const parP=PMTS.map(([p,lab])=>[lab,t.filter(x=>x.paiement===p).reduce((s,x)=>s+montant(x),0)]).filter(x=>x[1]>0);
   const att=t.filter(enAttente);
+  {const pot=t.filter(x=>x.anonyme&&x.type!=="avoir");if(pot.length)m.appendChild(el("p","muted num",`👥 Pot commun : ${pot.length} vente${pot.length>1?"s":""} sans coordonnées, ${fmt(pot.reduce((s,x)=>s+montant(x),0))}`));}
+  {const cmd=t.filter(x=>(x.lignes||[]).some(l=>l.commande)&&!x.livree);if(cmd.length)m.appendChild(el("p","attente-note num",`📦 ${cmd.length} commande${cmd.length>1?"s":""} à livrer`));}
   {const vir=t.filter(virementAttendu);if(vir.length)m.appendChild(el("p","attente-note num",`🏦 ${vir.length} virement${vir.length>1?"s":""} à recevoir : ${fmt(vir.reduce((s,x)=>s+(x.total||0),0))}`));}
   if(att.length)m.appendChild(el("p","attente-note num",`⏳ ${att.length} paiement${att.length>1?"s":""} par carte en attente : ${fmt(att.reduce((s,x)=>s+(x.total||0),0))}, non compté${att.length>1?"s":""} dans le chiffre d'affaires`));
   if(parP.length)m.appendChild(el("p","muted num",parP.map(([l,s])=>`${l} ${fmt(s)}`).join(" · ")));
@@ -1562,13 +1564,16 @@ function renderTxList(m,t){
     (x.lignes||[]).forEach(l=>{h+=`<div class="tx-line num"><span>${esc(l.nom)} ${esc(l.format)}</span><span>${l.qte} × ${fmt(l.prix)}</span><b>${fmt(l.qte*l.prix)}</b></div>`;});
     const c=el("div","card",h);
     if(x.horsStock)c.appendChild(txt("p","envoi-etat ok","📦 Livraison en main propre, hors stock de la vente"));
-    if(x.anonyme)c.appendChild(txt("p","muted","👤 Client sans coordonnées"));
+    {const cl_=(x.lignes||[]).filter(l=>l.commande);if(cl_.length){const p=txt("p","envoi-etat "+(x.livree?"ok":"ko"),(x.livree?"✅ Commande livrée : ":"📦 Commande à livrer : ")+cl_.map(l=>l.qte+" × "+l.nom+" "+(l.format||"")).join(", "));c.appendChild(p);
+      if(!x.livree&&canWrite){const bl=el("button","link","✅ Livrée");bl.onclick=async()=>{try{await db.collection("transactions").doc(x.id).update({livree:new Date().toISOString()});x.livree=true;render();}catch(e){flash(dbMessage(e));}};p.appendChild(document.createTextNode(" "));p.appendChild(bl);}}}
+    if(x.anonyme)c.appendChild(txt("p","muted","👥 Pot commun (client sans coordonnées)"));
     const doc=x.type==="avoir"?"Avoir":"Facture";
     if(x.type==="avoir"&&x.annule){const o=txs.find(t=>t.id===x.annule);c.appendChild(txt("p","muted",(x.partiel?"Annule en partie la transaction":"Annule la transaction")+(o&&o.facture?" "+o.facture:"")+"."));}
     const act=el("div","row");act.style.cssText="justify-content:flex-start;gap:14px";
     if(enAttente(x)){c.classList.add("tx-attente");
       const ok=el("button","link","✅ Paiement reçu");ok.onclick=()=>reglerPaiement(x,"payee");act.appendChild(ok);
       const ko=el("button","link","❌ Pas payé");ko.style.color="var(--bad)";ko.onclick=()=>paiementNonAbouti(x);act.appendChild(ko);}
+    else if(x.paiement==="Caisse centrale")c.appendChild(txt("p","muted","🏛️ Caisse centrale : l'organisateur encaisse, pas de facture du domaine."));
     else if(!estGratuit(x.paiement)){
       if(virementAttendu(x)){c.classList.add("tx-attente");c.appendChild(txt("p","envoi-etat ko","🏦 Virement à recevoir : la facture envoyée indique le RIB du domaine."));
         if(canWrite){const vr=el("button","link","✅ Virement reçu");vr.onclick=()=>virementRecu(x);act.appendChild(vr);}}
@@ -1655,6 +1660,14 @@ function renderStock(m,v){
       ${illimite?"":`<div class="bar"><i style="width:${pct*100}%;background:${col}"></i></div>`}
       <p class="muted num">${fmt(r.prix)} / unité${illimite?"":" · "+vendu+" vendu"+(vendu>1?"s":"")}${(r.reassorts||[]).length?" · réassort +"+r.reassorts.reduce((s,x)=>s+x.qte,0):""}${deg?" · "+deg+" en dégustation":""}${(r.corrections||[]).length?" · corrigé le "+new Date(r.corrections.at(-1).date).toLocaleDateString("fr-FR"):""}</p>`);
     c.appendChild(ligneStock);
+    if((r.degustations||[]).length&&!v.cloturee&&canWrite){const dl=el("div","degu-liste");
+      r.degustations.forEach((dg,k)=>{const ch=el("span","chip",`🥃 ${dg.qte} · ${dg.date?new Date(dg.date).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}):""}${dg.par?" · "+esc(dg.par):""}`);
+        const xb=el("button","chip-x","×");xb.type="button";xb.setAttribute("aria-label","Annuler cette sortie de dégustation");
+        xb.onclick=async()=>{if(!await confirmer({titre:"Annuler cette dégustation ?",texte:`<p>${dg.qte} bouteille${dg.qte>1?"s":""} de ${esc(r.nom)} ${esc(r.format)} reviennent dans le stock.</p>`,bouton:"Annuler la dégustation"}))return;
+          const refs=v.refs.map(z=>z.id!==r.id?z:{...z,degustations:(z.degustations||[]).filter((_,i)=>i!==k)});
+          try{await db.collection("ventes").doc(v.id).update({refs});v.refs=refs;flash("Dégustation annulée.","ok");render();}catch(e){flash(dbMessage(e));}};
+        ch.appendChild(xb);dl.appendChild(ch);});
+      c.appendChild(dl);}
     if(!v.cloturee&&canWrite){const f=el("form","row");f.style.cssText="justify-content:flex-start;gap:6px";
       const q=el("input");q.type="number";q.min="1";q.inputMode="numeric";q.placeholder="Qté";q.setAttribute("aria-label","Quantité à réassortir");q.style.cssText="width:80px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;background:var(--surface);color:var(--fg)";
       const b=el("button","btn ghost sm","+ Réassort");b.type="submit";f.appendChild(q);f.appendChild(b);
@@ -1787,7 +1800,7 @@ function dessinerClientCaisse(cc){
     cc.appendChild(r);
     // client connu sans email : on peut le compléter ici
     if(c.sansCoord===undefined)c.sansCoord=!emailOk(c.email);
-    if(c.sansCoord){const g=el("div","grid2",`<div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="pour envoyer la facture"></div>
+    if(c.sansCoord){const g=el("div","stack",`<div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="pour envoyer la facture"></div>
       <div class="field"><label for="cl-tel">Portable</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div>`);
       [["cl-email","email"],["cl-tel","tel"]].forEach(([id,k])=>{const i=g.querySelector("#"+id);i.value=c[k]||"";i.oninput=e=>{c[k]=e.target.value;e.target.classList.remove("invalide");};});
       cc.appendChild(g);}
@@ -1798,11 +1811,11 @@ function dessinerClientCaisse(cc){
     cc.appendChild(fc);}cc.appendChild(casePapier(c));return;
   }
   const modes=el("div","tabs");
-  const bR=el("button",!c.nouveau&&!c.anonyme?"active":"","Client existant"),bN=el("button",c.nouveau&&!c.anonyme?"active":"","Nouveau client"),bA=el("button",c.anonyme?"active":"","Sans coordonnées");
+  const bR=el("button",!c.nouveau&&!c.anonyme?"active":"","Client existant"),bN=el("button",c.nouveau&&!c.anonyme?"active":"","Nouveau client"),bA=el("button",c.anonyme?"active":"","Pot commun");bA.title="Client qui ne donne pas ses coordonnées";
   bR.onclick=()=>{c.nouveau=false;c.anonyme=false;dessinerClientCaisse(cc);};bN.onclick=()=>{c.nouveau=true;c.anonyme=false;dessinerClientCaisse(cc);};bA.onclick=()=>{c.anonyme=true;dessinerClientCaisse(cc);};
   modes.appendChild(bR);modes.appendChild(bN);modes.appendChild(bA);cc.appendChild(modes);
   // client qui ne veut pas donner ses coordonnées : vente enregistrée sans nom ni email, sans envoi de facture, hors fichier clients
-  if(c.anonyme){cc.appendChild(txt("p","msg info","👤 Le client ne donne pas ses coordonnées : la vente est enregistrée sans nom ni email, aucune facture n'est envoyée et il n'entre pas dans le fichier clients. S'il veut une facture, ouvrez-la depuis la transaction pour l'imprimer."));return;}
+  if(c.anonyme){cc.appendChild(txt("p","msg info","👥 Pot commun de la vente : pour un client qui ne donne pas ses coordonnées. La vente est enregistrée sans nom ni email, aucune facture n'est envoyée et il n'entre pas dans le fichier clients. S'il veut une facture, ouvrez-la depuis la transaction pour l'imprimer."));return;}
   if(!c.nouveau){
     if(!estMembre){cc.appendChild(txt("p","muted","La recherche dans le fichier clients est réservée aux membres connectés."));
       const b=el("button","btn ghost sm","Se connecter avec Google");b.onclick=()=>sb.auth.signInWithOAuth({provider:"google",options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:"select_account"}}});cc.appendChild(b);return;}
@@ -1830,8 +1843,8 @@ function dessinerClientCaisse(cc){
     <div class="field"><label for="cl-nom">Nom du contact</label><input id="cl-nom" autocomplete="off" placeholder="facultatif"></div></div>`
     :`<div class="grid2"><div class="field"><label for="cl-pre">Prénom *</label><input id="cl-pre" autocomplete="off"></div>
     <div class="field"><label for="cl-nom">Nom *</label><input id="cl-nom" autocomplete="off"></div></div>`)+`
-    <div class="grid2"><div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
-    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div></div>
+    <div class="field"><label for="cl-email">Email *</label><input id="cl-email" type="email" autocomplete="off" placeholder="prenom@exemple.fr"></div>
+    <div class="field"><label for="cl-tel">Téléphone</label><input id="cl-tel" type="tel" autocomplete="off" placeholder="facultatif"></div>
     <div class="field"><label for="cl-adresse">Adresse</label><input id="cl-adresse" autocomplete="off" placeholder="facultatif, imprimée sur la facture"></div>
     <div class="grid2"><div class="field"><label for="cl-cp">Code postal *</label><input id="cl-cp" autocomplete="off" inputmode="numeric" maxlength="10" placeholder="ex : 40190"></div>
     <div class="field"><label for="cl-ville">Ville</label><input id="cl-ville" autocomplete="off" placeholder="facultatif"></div></div>`);
@@ -1863,17 +1876,24 @@ function renderLignes(){
   const c=saisieProdCard;if(!c)return;const v=getVente();if(!v)return;
   c.innerHTML="<h2>Produits</h2>";
   v.refs.forEach(ref=>{
-    const ligne=sv.lignes.find(l=>l.refId===ref.id);
+    const ligne=sv.lignes.find(l=>l.refId===ref.id&&!l.commande);
     const dispo=resteDispo(v,ref);const dansPanier=ligne?ligne.qte:0;
     const reste=dispo-dansPanier,rupture=!sv.horsStock&&dispo!==Infinity&&reste<=0;
     const info=sv.horsStock?"livraison, hors stock":dispo===Infinity?"sans limite":rupture?(reste<0?"stock insuffisant":"plus de stock"):`${reste} restant${reste>1?"s":""}`;
     const row=el("button","prod-row"+(ligne?" sel":""),`<span class="check">${ligne?ligne.qte:""}</span>
       <span style="flex:1;min-width:0"><span style="display:block;font-size:14px;font-weight:${ligne?700:500}">${esc(ref.nom)} <span class="muted">(${esc(ref.format)})</span></span>
       <span class="num" style="display:block;font-size:12px;color:${rupture?"var(--bad)":"var(--muted)"}">${fmt(ref.prix)} · ${info}</span></span>`);
-    row.onclick=()=>{if(!sv.horsStock&&dispo!==Infinity&&dansPanier>=dispo)return flash(`Plus de stock pour ${ref.nom} (${ref.format}). Faites un réassort, ou cochez « Livraison en main propre ».`);
+    row.onclick=()=>{if(!sv.horsStock&&dispo!==Infinity&&dansPanier>=dispo){
+        const cmd=sv.lignes.find(l=>l.refId===ref.id&&l.commande);if(cmd)cmd.qte++;else sv.lignes.push({refId:ref.id,nom:ref.nom,format:ref.format,qte:1,prix:ref.prix,commande:true});
+        flash(`Plus de stock : ${ref.nom} (${ref.format}) ajouté en commande, à livrer plus tard.`,"ok");renderLignes();updateTotal();return;}
       if(ligne)ligne.qte++;else sv.lignes.push({refId:ref.id,nom:ref.nom,format:ref.format,qte:1,prix:ref.prix});renderLignes();updateTotal();};
     c.appendChild(row);
     if(ligne)c.appendChild(ligneCtrl(ligne,dispo));
+  });
+  // bouteilles en commande (stock épuisé) : livrées plus tard, hors stock de la vente
+  sv.lignes.filter(l=>l.commande).forEach(l=>{
+    c.appendChild(el("div","prod-row sel commande",`<span class="check">📦</span><span style="flex:1;min-width:0;font-size:14px;font-weight:700">${esc(l.nom)} <span class="muted">(${esc(l.format)}) · en commande, à livrer</span></span>`));
+    c.appendChild(ligneCtrl(l,Infinity));
   });
   sv.lignes.filter(l=>l.libre).forEach(l=>{
     c.appendChild(el("div","prod-row sel",`<span class="check">✓</span><span style="flex:1;min-width:0;font-size:14px;font-weight:700">${esc(l.nom)} <span class="muted">(${esc(l.format)}) · hors catalogue</span></span>`));
@@ -1903,7 +1923,10 @@ function ligneCtrl(ligne,dispo){
   minus.onclick=()=>{if(ligne.qte>1)ligne.qte--;else sv.lignes=sv.lignes.filter(l=>l!==ligne);renderLignes();updateTotal();};
   const cnt=el("span","num",String(ligne.qte));
   const plus=el("button","","+");plus.setAttribute("aria-label","Ajouter un");
-  plus.onclick=()=>{if(!sv.horsStock&&dispo!==Infinity&&ligne.qte>=dispo)return flash(`Plus de stock pour ${ligne.nom} (${ligne.format}). Faites un réassort, ou cochez « Livraison en main propre ».`);ligne.qte++;renderLignes();updateTotal();};
+  plus.onclick=()=>{if(!sv.horsStock&&!ligne.commande&&dispo!==Infinity&&ligne.qte>=dispo){
+      const cmd=sv.lignes.find(l=>l.refId===ligne.refId&&l.commande);if(cmd)cmd.qte++;else sv.lignes.push({refId:ligne.refId,nom:ligne.nom,format:ligne.format,qte:1,prix:ligne.prix,commande:true});
+      flash(`Plus de stock : 1 ${ligne.nom} (${ligne.format}) ajouté en commande, à livrer plus tard.`,"ok");renderLignes();updateTotal();return;}
+    ligne.qte++;renderLignes();updateTotal();};
   st.appendChild(minus);st.appendChild(cnt);st.appendChild(plus);
   const px=el("input","prix num");px.type="number";px.min="0";px.step="0.5";px.inputMode="decimal";px.value=ligne.prix;px.setAttribute("aria-label","Prix unitaire");
   const tot=el("span","num",fmt(ligne.qte*prixEff(ligne)));tot.style.cssText="font-weight:700;color:var(--accent-ink);margin-left:auto";
@@ -1944,7 +1967,10 @@ async function ouvrirSumUp(x){
   const q=new URLSearchParams({total:Number(x.total).toFixed(2),amount:Number(x.total).toFixed(2),currency:"EUR",title:titre,"foreign-tx-id":x.id,
     callback:retour,callbacksuccess:retour,callbackfail:retour,"skip-screen-success":"false"});
   if(cle)q.set("affiliate-key",cle);
-  const lienSumUp="sumupmerchant://pay/1.0?"+q.toString();
+  const android=/Android/i.test(navigator.userAgent);
+  const lienSumUp=android
+    ? "intent://pay/1.0?"+q.toString()+"#Intent;scheme=sumupmerchant;package=com.kaching.merchant;S.browser_fallback_url="+encodeURIComponent("https://play.google.com/store/apps/details?id=com.kaching.merchant")+";end"
+    : "sumupmerchant://pay/1.0?"+q.toString();
   qs("#sumup-modal")?.remove();
   const m=el("div","modal");m.id="sumup-modal";
   const sh=el("div","sheet",`<h2 class="sheet-title">Paiement par carte</h2>
@@ -1958,7 +1984,8 @@ async function ouvrirSumUp(x){
   const ferme=el("button","link","Fermer (la vente reste en attente)");ferme.onclick=()=>m.remove();sh.appendChild(ferme);
   m.appendChild(sh);document.body.appendChild(m);
   // sur téléphone, on tente d'ouvrir l'app directement
-  if(mobile)setTimeout(()=>{location.href=lienSumUp;},300);
+  // ouverture automatique sur iPhone ; sur Android, Chrome exige un appui : bouton « Ouvrir SumUp »
+  if(mobile&&!android)setTimeout(()=>{location.href=lienSumUp;},300);
 }
 // résultat lu dans l'adresse au retour de SumUp, puis retiré de l'adresse
 const retourSumUp=(()=>{
@@ -2067,6 +2094,7 @@ async function envoyerFactureAuto(id){
   render();
 }
 async function renvoyerFacture(x){
+  if(x.paiement==="Caisse centrale")return flash("Vente en Caisse centrale : pas de facture du domaine.");
   const cl=clientOf(x);
   qs("#renvoi-modal")?.remove();
   const m=el("div","modal");m.id="renvoi-modal";const sh=el("div","sheet");m.appendChild(sh);
@@ -2151,7 +2179,7 @@ async function facturePdf(x,v,cl,num){
   cols.forEach(c=>d.text(c.t,c.x,y+6,c.r?{align:"right"}:{}));y+=9;
   d.setFont("helvetica","normal");d.setFontSize(10);let tot=0,qt=0;
   (x.lignes||[]).forEach(l=>{const mt=l.qte*l.prix;tot+=mt;qt+=l.qte;
-    const des=d.splitTextToSize(net(l.nom+(l.offert?" (offert)":"")),70);const h=Math.max(7,des.length*4.5+2.5);
+    const des=d.splitTextToSize(net(l.nom+(l.offert?" (offert)":"")+(l.commande?" (commande, à livrer)":"")),70);const h=Math.max(7,des.length*4.5+2.5);
     d.text(des,G+2,y+5);d.text(net(l.format),89,y+5);d.text(String(l.qte),121,y+5,{align:"right"});
     d.text(eur(l.prix/(1+TVA)),145,y+5,{align:"right"});d.text(Math.round(TVA*100)+" %",160,y+5,{align:"right"});d.text(eur(mt),D-2,y+5,{align:"right"});
     y+=h;d.setDrawColor(225);d.line(G,y,D,y);});
@@ -2192,6 +2220,7 @@ async function facturePdf(x,v,cl,num){
 }
 async function ouvrirFacture(id,auto){
   const x=txs.find(t=>t.id===id);if(!x)return flash("Transaction introuvable.");
+  if(x.paiement==="Caisse centrale")return flash("Vente en Caisse centrale : pas de facture du domaine.");
   if(enAttente(x))return flash("La facture sera disponible une fois le paiement par carte confirmé.");
   const v=ventes.find(w=>w.id===x.venteId);
   const cl={...clientOf(x),...(factureEnAttente.get(id)||{})};
@@ -2254,7 +2283,7 @@ async function submitTx(){
   if(!sv.vendeur.trim())return flash("Indiquez votre prénom de vendeur.");
   const gratuit=estGratuit(sv.pmt),centrale=sv.pmt==="Caisse centrale";
   const anonyme=!!sv.client.anonyme;
-  if(anonyme)sv.client={...sv.client,prenom:"Client",nom:"sans coordonnées",email:"",tel:"",cp:"",adresse:"",ville:"",pro:false,papier:true,optin:false};
+  if(anonyme)sv.client={...sv.client,prenom:"Pot",nom:"commun",email:"",tel:"",cp:"",adresse:"",ville:"",pro:false,papier:true,optin:false};
   if(!gratuit&&sv.client.pro&&!String(sv.client.raisonSociale||"").trim()){qs("#cl-rs")?.classList.add("invalide");return flash("Indiquez la raison sociale du client.");}
   if(!gratuit&&!sv.client.pro&&(!sv.client.prenom.trim()||!sv.client.nom.trim()))return flash(sv.client.nouveau||sv.client.existant?"Indiquez le prénom et le nom du client.":"Choisissez un client existant ou « Nouveau client ».");
   if(!gratuit&&sv.client.email.trim()&&!emailOk(sv.client.email)){qs("#cl-email")?.classList.add("invalide");return flash("L'email du client n'est pas valide.");}
@@ -2265,12 +2294,12 @@ async function submitTx(){
   if(!gratuit&&!centrale&&!anonyme&&!/^[A-Za-z0-9][A-Za-z0-9 -]{2,9}$/.test(String(sv.client.cp||"").trim())){qs("#cl-cp")?.classList.add("invalide");qs("#cl-cp")?.focus();return flash("Indiquez le code postal du client.");}
   if(!sv.lignes.length)return flash("Ajoutez au moins un produit.");
   // jamais de stock négatif (sauf livraison en main propre, hors stock de la vente) ; contrôlé sur les ventes à jour
-  if(!sv.horsStock){for(const l of sv.lignes){if(l.libre)continue;const ref=v.refs.find(r=>r.id===l.refId);if(!ref)continue;const dispo=resteDispo(v,ref);
+  if(!sv.horsStock){for(const l of sv.lignes){if(l.libre||l.commande)continue;const ref=v.refs.find(r=>r.id===l.refId);if(!ref)continue;const dispo=resteDispo(v,ref);
     if(dispo!==Infinity&&l.qte>dispo)return flash(`Stock insuffisant : ${ref.nom} (${ref.format}), ${Math.max(0,dispo)} disponible${Math.max(0,dispo)>1?"s":""}. Faites un réassort, ou cochez « Livraison en main propre ».`);}}
   const id="t"+uid();
   const famille=remiseActive();
   const lignes=sv.lignes.map(l=>({refId:l.refId,nom:l.nom,format:l.format,qte:l.qte,prix:gratuit||l.offert?0:famille?prixLigne(l):l.prix,
-    ...(gratuit||l.offert?{valeur:l.prix}:{}),...(l.offert?{offert:true}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{})}));
+    ...(gratuit||l.offert?{valeur:l.prix}:{}),...(l.offert?{offert:true}:{}),...(famille&&!sansRemise(l)?{prixPublic:l.prix}:{}),...(l.libre?{libre:true}:{}),...(l.commande?{commande:true}:{})}));
   if(gratuit&&!sv.client.prenom.trim())sv.client.prenom=sv.pmt;
   const contact={...(anonyme?{anonyme:true}:{}),prenom:sv.client.prenom.trim(),nom:sv.client.nom.trim(),tel:sv.client.tel.trim(),email:sv.client.email.trim(),cp:String(sv.client.cp||"").trim().toUpperCase(),
     ...(String(sv.client.adresse||"").trim()?{adresse:String(sv.client.adresse).trim()}:{}),
@@ -2340,6 +2369,29 @@ async function exportCSV(v){
 
 /* ---------- administration ---------- */
 const anneeDe=v=>(v.dateDebut||"").slice(0,4);
+// export comptable : une ligne par facture ou avoir (toutes les ventes, hors Caisse centrale et site web), et le détail par produit
+async function exportComptable(annee){
+  try{if(!window.XLSX)await chargerScript(XLSX_SRC);}catch(e){return flash("L'export Excel n'a pas pu se charger. Vérifiez la connexion.");}
+  const r2=n=>Math.round((Number(n)||0)*100)/100,ht=n=>r2(n/(1+TVA));
+  const t=txs.filter(x=>x.facture&&x.source!=="site"&&x.paiement!=="Caisse centrale"&&!estGratuit(x.paiement)&&(!annee||String(x.date||"").startsWith(annee)))
+    .sort((a,b)=>String(a.facture).localeCompare(String(b.facture)));
+  const factures=t.map(x=>{const c=clientOf(x),v=ventes.find(w=>w.id===x.venteId)||{},env=(x.facture_envois||[]).slice(-1)[0];
+    return {"N° facture":x.facture,"Type":x.type==="avoir"?"Avoir":"Facture","Date":x.date?new Date(x.date).toLocaleDateString("fr-FR"):"",
+      "Vente":v.nom||"","Lieu":v.lieu||"","Client":c.pro?(c.raisonSociale||""):[c.prenom,c.nom].filter(Boolean).join(" ")||nomClient(x),"Type de client":c.pro?"Professionnel":"Particulier",
+      "SIREN":c.siren||"","N° TVA client":c.tvaClient||"","Code postal":c.cp||"","Moyen de paiement":x.paiement||"",
+      "Statut":x.type==="avoir"?"Avoir":virementAttendu(x)?"À régler (virement)":"Acquittée",
+      "Total HT":ht(x.total),"TVA 20 %":r2(x.total-ht(x.total)),"Total TTC":r2(x.total),
+      "Facture d'origine":x.factureOrigine||"","Vendeur":x.vendeurPrenom||"","Envoi":env?(env.canal==="sms"?"SMS":"Email")+" le "+new Date(env.date).toLocaleDateString("fr-FR"):x.facturePapier?"Papier":"Non envoyée"};});
+  const detail=t.flatMap(x=>(x.lignes||[]).map(l=>({"N° facture":x.facture,"Date":x.date?new Date(x.date).toLocaleDateString("fr-FR"):"","Produit":l.nom,"Format":l.format||"","Quantité":l.qte,
+    "Prix unitaire TTC":r2(l.prix),"Total HT":ht(l.qte*l.prix),"TVA 20 %":r2(l.qte*l.prix-ht(l.qte*l.prix)),"Total TTC":r2(l.qte*l.prix),"Offert":l.offert?"oui":"","Commande":l.commande?"oui":""})));
+  const tot=factures.reduce((s,f)=>({ht:s.ht+f["Total HT"],tva:s.tva+f["TVA 20 %"],ttc:s.ttc+f["Total TTC"]}),{ht:0,tva:0,ttc:0});
+  factures.push({"N° facture":"TOTAL","Total HT":r2(tot.ht),"TVA 20 %":r2(tot.tva),"Total TTC":r2(tot.ttc)});
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(factures),"Factures");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(detail),"Détail");
+  XLSX.writeFile(wb,"ravignan-factures"+(annee?"-"+annee:"")+".xlsx");
+  flash(`Export comptable : ${t.length} factures et avoirs.`,"ok");
+}
 function renderAdmin(m){
   const annees=[...new Set(ventes.map(anneeDe).filter(Boolean))].sort().reverse();
   if(adminYear!=="all"&&!annees.includes(adminYear))adminYear="all";
@@ -2350,6 +2402,8 @@ function renderAdmin(m){
   const lignes=t.flatMap(x=>(x.lignes||[]).map(l=>({...l,tx:x})));
   const ca=t.reduce((s,x)=>s+montant(x),0);
   const art=lignes.reduce((s,l)=>s+(l.qte||0),0);
+  {const ec=el("div","card soft");ec.appendChild(txt("p","","📒 Export comptable : une ligne par facture et par avoir (n°, date, client, paiement, HT, TVA, TTC), plus le détail des produits. Sans les ventes en Caisse centrale ni le site web."));
+    const be=el("button","btn ghost sm","📥 Exporter les factures "+(adminYear==="all"?"(toutes)":adminYear));be.onclick=()=>exportComptable(adminYear==="all"?"":adminYear);ec.appendChild(be);m.appendChild(ec);}
 
   // filtre par année
   const chips=el("div","chips");
@@ -3621,6 +3675,7 @@ function chargerScript(src){return new Promise((ok,ko)=>{if(document.querySelect
    {prenom, nom, email, tel, adresse, cp, ville, pays, sources:[], newsletter, tags:[], notes,
     achats:[{date, source, ref, produits:[{nom,qte,prix}], total}]}
    Les ventes saisies dans l'app (collection « clients » + « transactions ») s'ajoutent à l'affichage. */
+let crmVente="";
 let crm=[], crmCharge=false, crmAbonne=false, crmQuery="", crmFiltre="tous", crmTri="total", crmSel=null, crmImport=null;
 const normEmail=e=>String(e||"").trim().toLowerCase();
 const normTxt=s=>String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
@@ -3647,6 +3702,10 @@ function clientsFusion(){
     const src=t.source==="site"?"Site web":"Ventes privées";
     if(!f.sources.includes(src))f.sources.push(src);
     const v=ventes.find(x=>x.id===t.venteId);
+    // ventes auxquelles le client participe (pour l'inviter seulement à celles-là)
+    if(src==="Ventes privées"&&v){f.ventes=f.ventes||[];if(!f.ventes.some(x=>x.id===v.id))f.ventes.push({id:v.id,nom:v.nom});}
+    // newsletter : un client de vente privée qui n'a pas coché d'opposition est inscrit (en Caisse centrale, s'il a donné son accord)
+    if(src==="Ventes privées"&&emailOk(c.email)&&!c.opposition&&c.consentement!==false&&!(f.tags||[]).some(x=>/désabonn|invalide/i.test(x)))f.newsletter=true;
     if(src==="Site web")f._site=true;
     f.achats.push({date:t.date,source:src,ref:v?v.nom:"",produits:(t.lignes||[]).map(l=>({nom:(l.nom+" "+(l.format||"")).trim(),qte:l.qte,prix:l.prix})),total:montant(t),paiement:t.paiement});
   });
@@ -3693,7 +3752,13 @@ function renderClients(m){
   const tri=el("select");tri.setAttribute("aria-label","Trier");tri.style.cssText="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface);margin-left:auto";
   [["total","Plus gros clients"],["recent","Achat le plus récent"],["nom","Nom (A→Z)"]].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;o.selected=crmTri===v;tri.appendChild(o);});
   tri.onchange=()=>{crmTri=tri.value;dessinerListe();};
-  const ligne=el("div","row");ligne.style.flexWrap="wrap";ligne.appendChild(chips);ligne.appendChild(tri);m.appendChild(ligne);
+  // clients d'une vente : pour n'inviter un client qu'aux ventes auxquelles il participe
+  const selV=el("select");selV.setAttribute("aria-label","Clients d'une vente");selV.style.cssText="border:1px solid var(--line);border-radius:8px;padding:5px 8px;background:var(--surface)";
+  [["","Toutes les ventes"],...ventes.filter(v=>!v.permanente&&tous.some(c=>(c.ventes||[]).some(x=>x.id===v.id))).sort((a,b)=>(b.dateDebut||"").localeCompare(a.dateDebut||"")).map(v=>[v.id,"Clients de : "+v.nom])].forEach(([v,l])=>{const o=el("option");o.value=v;o.textContent=l;o.selected=crmVente===v;selV.appendChild(o);});
+  selV.onchange=()=>{crmVente=selV.value;dessinerListe();};
+  const ligne=el("div","row");ligne.style.flexWrap="wrap";ligne.appendChild(chips);ligne.appendChild(selV);ligne.appendChild(tri);m.appendChild(ligne);
+  // 12. alerte doublons
+  if(doubles.size&&crmFiltre!=="doublons"){const al=el("div","msg info alerte-doublons",`⚠️ <b>${doubles.size} fiches</b> ressemblent à une autre (même nom ou même téléphone). `);const vb=el("button","link","Les voir et les fusionner");vb.onclick=()=>{crmFiltre="doublons";render();};al.appendChild(vb);m.appendChild(al);}
   const zone=el("div","stack");m.appendChild(zone);
   const fiche=el("div","stack");fiche.id="crm-fiche";
   const filtrer=()=>{const q=normTxt(crmQuery);
@@ -3701,6 +3766,7 @@ function renderClients(m){
       if(crmFiltre==="acheteurs"&&!c.nbAchats)return false;if(crmFiltre==="sans"&&c.nbAchats)return false;
       if(crmFiltre==="newsletter"&&!c.newsletter)return false;
       if(crmFiltre==="doublons"&&!c.doublons.length)return false;
+      if(crmVente&&!(c.ventes||[]).some(x=>x.id===crmVente))return false;
       if(["Ventes privées","Site web","Squarespace","Mailchimp"].includes(crmFiltre)&&!(c.sources||[]).includes(crmFiltre))return false;
       if(!q)return true;
       return normTxt([c.prenom,c.nom,c.email,c.tel,c.ville,c.cp,(c.tags||[]).join(" "),c.notes,...c.achats.flatMap(a=>(a.produits||[]).map(p=>p.nom))].join(" ")).includes(q);
@@ -3731,15 +3797,25 @@ function ficheClient(c,fermer){
   const h=el("div","row");h.appendChild(txt("h2","sheet-title",nouveau?"Nouveau client":[c.prenom,c.nom].filter(Boolean).join(" ")||c.email));
   const x=el("button","x","×");x.type="button";x.setAttribute("aria-label","Fermer");x.onclick=fermer;h.appendChild(x);f.appendChild(h);
   if(!nouveau)f.appendChild(badgesOrigine(c));
+  if(!nouveau&&c.ventes?.length)f.appendChild(txt("p","muted","🗓️ Ventes : "+c.ventes.map(x=>x.nom).join(", ")));
   if(!nouveau&&c.historique?.length){const hm=c.historique[c.historique.length-1];f.appendChild(txt("p","muted",`✏️ Modifiée le ${new Date(hm.date).toLocaleDateString("fr-FR")} par ${hm.par||"?"} : ${(hm.champs||[]).join(", ")}${c.historique.length>1?` (${c.historique.length} modifications)`:""}`));}
   if(!nouveau&&c.doublons?.length){const bd=el("div","doublons");bd.appendChild(txt("b","","⚠️ Doublons possibles (même nom ou même téléphone)"));
     c.doublons.forEach(o=>{const r=el("div","doublon-ligne");const t=el("span");t.appendChild(txt("b","",nomFiche(o)));t.appendChild(txt("span","muted"," · "+[o.email,o.tel,o.ville,o.nbAchats?o.nbAchats+" achat"+(o.nbAchats>1?"s":""):""].filter(Boolean).join(" · ")));r.appendChild(t);
-      if(canWrite){const bf=el("button","btn ghost sm","Fusionner dans cette fiche");bf.type="button";bf.onclick=()=>fusionnerFiches(c,o);r.appendChild(bf);}bd.appendChild(r);});
+      if(canWrite){const bf=el("button","btn ghost sm","Fusionner dans cette fiche");bf.type="button";bf.onclick=()=>fusionnerFiches(c,o);r.appendChild(bf);}
+      if(isAdmin()&&o.id){const bs=el("button","btn ghost sm","Supprimer l'autre fiche");bs.type="button";bs.style.color="var(--bad)";
+        bs.onclick=async()=>{if(!await confirmer({titre:`Supprimer la fiche de ${esc(nomFiche(o))} ?`,texte:`<p class="muted">${esc(o.email||"Sans email")} · les achats en vente privée restent dans les ventes.</p>`,bouton:"Supprimer",danger:true}))return;
+          try{await db.collection("crm").doc(o.id).delete();flash("Fiche supprimée.","ok");render();}catch(e){flash(dbMessage(e));}};r.appendChild(bs);}
+      bd.appendChild(r);});
     f.appendChild(bd);}
   if(!nouveau&&c.nbAchats){f.appendChild(txt("p","muted",`${c.nbAchats} achat${c.nbAchats>1?"s":""} · ${fmt(c.total)} au total · dernier le ${frDate(String(c.dernier).slice(0,10))}`));}
   const champ=(id,lab,val,type="text")=>{const d=el("div","field");const l=txt("label","",lab);l.htmlFor="cr-"+id;d.appendChild(l);const i=el("input");i.id="cr-"+id;i.type=type;i.value=val??"";i.autocomplete="off";d.appendChild(i);return d;};
   const g1=el("div","grid2");g1.appendChild(champ("prenom","Prénom",c.prenom));g1.appendChild(champ("nom","Nom",c.nom));f.appendChild(g1);
-  const g2=el("div","grid2");g2.appendChild(champ("email","Email",c.email,"email"));g2.appendChild(champ("tel","Téléphone",c.tel,"tel"));f.appendChild(g2);
+  // email sur sa propre ligne ; « adresse invalide » (retour de mail) : on la retire de la fiche, elle reste rattachée aux achats
+  {const fe=champ("email","Email",c.email,"email");f.appendChild(fe);
+    if(!nouveau&&c.email){const bi=el("button","link","🚫 Adresse invalide (retour de mail)");bi.type="button";bi.style.fontSize="13px";
+      bi.onclick=()=>{f.querySelector("#cr-email").value="";const tg=f.querySelector("#cr-tags");const tags=tg.value.split(",").map(t=>t.trim()).filter(Boolean);if(!tags.includes("Email invalide"))tags.push("Email invalide");tg.value=tags.join(", ");
+        f.querySelector("#cr-newsletter").checked=false;f.querySelector("#cr-notes").value=[f.querySelector("#cr-notes").value.trim(),"Email invalide retiré : "+c.email].filter(Boolean).join(" · ");flash("Email retiré : touchez « Enregistrer » pour valider.","ok");};fe.appendChild(bi);}}
+  f.appendChild(champ("tel","Téléphone",c.tel,"tel"));
   f.appendChild(champ("adresse","Adresse",c.adresse));
   const g3=el("div","grid3");g3.appendChild(champ("cp","Code postal",c.cp));g3.appendChild(champ("ville","Ville",c.ville));g3.appendChild(champ("pays","Pays",c.pays));f.appendChild(g3);
   f.appendChild(champ("tags","Étiquettes (séparées par des virgules)",(c.tags||[]).join(", ")));
