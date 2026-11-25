@@ -1285,11 +1285,11 @@ function preparerVente(v){
 }
 
 /* ---------- vente permanente du site web (commandes Squarespace payées par Stripe) ---------- */
-async function synchroniser(fonction,bouton,nom){
+async function synchroniser(fonction,bouton,nom,corps){
   const lib=bouton.textContent;bouton.disabled=true;bouton.textContent="Synchronisation…";
-  try{const {data,error}=await sb.functions.invoke(fonction,{body:{}});
+  try{const {data,error}=await sb.functions.invoke(fonction,{body:corps||{}});
     let msg=data&&data.erreur;if(error&&!msg){try{msg=(await error.context.json()).erreur;}catch(_){msg=error.message;}}
-    if(msg)flash(nom+" : "+msg);else flash(nom+" : "+(data.n||0)+" élément"+((data.n||0)>1?"s":"")+" synchronisé"+((data.n||0)>1?"s":"")+(data.nouveaux?", dont "+data.nouveaux+" nouveau"+(data.nouveaux>1?"x":""):"")+".","ok");
+    if(msg)flash(nom+" : "+msg);else flash(nom+" : "+(data.n||0)+" élément"+((data.n||0)>1?"s":"")+" synchronisé"+((data.n||0)>1?"s":"")+(data.nouveaux?", dont "+data.nouveaux+" nouveau"+(data.nouveaux>1?"x":""):"")+(data.envoyes!=null?`. Vers Mailchimp : ${data.envoyes} clients des ventes, ${data.ajoutes} ajouté${data.ajoutes>1?"s":""}`:"")+".","ok");
     ["transactions","clients","crm","ventes"].forEach(c=>db.recharger&&db.recharger(c));}
   catch(e){flash(nom+" : "+(e.message||e));}
   finally{bouton.disabled=false;bouton.textContent=lib;}
@@ -3746,7 +3746,7 @@ function renderClients(m){
   const s=el("input","search");s.type="search";s.id="crm-q";s.placeholder="Rechercher un nom, un email, une ville, un produit…";s.value=crmQuery;s.style.flex="1";s.style.minWidth="220px";
   bar.appendChild(s);
   const imp=el("button","btn ghost sm","Importer Mailchimp / Squarespace");imp.onclick=()=>{crmImport={};render();};bar.appendChild(imp);
-  if(isAdmin()){const sy=el("button","btn ghost sm","🔄 Synchroniser Mailchimp");sy.onclick=()=>synchroniser("mailchimp-sync",sy,"Mailchimp");bar.appendChild(sy);}
+  if(isAdmin()){const sy=el("button","btn ghost sm","🔄 Synchroniser Mailchimp");sy.onclick=()=>synchroniser("mailchimp-sync",sy,"Mailchimp",{complet:true});bar.appendChild(sy);}
   const nv=el("button","btn primary sm","+ Nouveau client");nv.onclick=()=>{crmSel={nouveau:true};render();};bar.appendChild(nv);
   m.appendChild(bar);
   const chips=el("div","chips");

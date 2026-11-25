@@ -4,6 +4,7 @@
 // Secrets : MAILCHIMP_API_KEY (Mailchimp → Profil → Extras → Clés API, de la forme xxxxxxxx-us21) ;
 //           MAILCHIMP_LIST_ID facultatif (sinon la première audience du compte).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { crypto as stdCrypto } from "jsr:@std/crypto@1"; // MD5 (identifiant Mailchimp d'un contact)
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -60,7 +61,9 @@ Deno.serve(async (req) => {
     }
 
     // contacts modifiés depuis la dernière synchro (marge d'une heure) ; la 1re fois, toute l'audience
-    const depuis = etat.dernier ? "&since_last_changed=" + encodeURIComponent(new Date(Date.parse(etat.dernier) - 3_600_000).toISOString()) : "";
+    // synchro complète sur demande ({ complet: true }) ; sinon, seulement les contacts modifiés depuis la dernière fois
+    const corps = await req.json().catch(() => ({}));
+    const depuis = !corps?.complet && etat.dernier ? "&since_last_changed=" + encodeURIComponent(new Date(Date.parse(etat.dernier) - 3_600_000).toISOString()) : "";
     const champs = "members.email_address,members.status,members.merge_fields,members.tags,members.last_changed";
     let n = 0, nouveaux = 0;
     for (let offset = 0; offset < 50_000; offset += 1000) {
@@ -95,8 +98,48 @@ Deno.serve(async (req) => {
       }
       if ((page.members || []).length < 1000) break;
     }
-    await marque({ dernier: debut.toISOString(), n, nouveaux, encours: null, erreur: null });
-    return reponse({ ok: true, n, nouveaux });
+    // ---------- sens app → Mailchimp ----------
+    // Clients des ventes privées avec un email, sans opposition (en Caisse centrale : avec leur accord), pas désabonnés :
+    // ajoutés à l'audience s'ils n'y sont pas (jamais réinscrits s'ils s'y sont désabonnés), et étiquetés avec leurs ventes.
+    const { data: lesVentes } = await db.from("docs").select("id,data").eq("collection", "ventes");
+    const nomVente = new Map((lesVentes || []).map((v: any) => [v.id, String(v.data?.nom || "")]));
+    const permanentes = new Set((lesVentes || []).filter((v: any) => v.data?.permanente).map((v: any) => v.id));
+    const lire = async (col: string) => { const rows: any[] = []; for (let de = 0; ; de += 1000) { const { data, error } = await db.from("docs").select("id,data").eq("collection", col).range(de, de + 999); if (error) throw error; rows.push(...(data || [])); if (!data || data.length < 1000) break; } return rows; };
+    const lesTx = await lire("transactions"), lesClients = new Map((await lire("clients")).map((r) => [r.id, r.data]));
+    const { data: des } = await db.from("desabonnes").select("email");
+    const desabonnes = new Set((des || []).map((x: any) => normEmail(x.email)));
+    const aPousser = new Map<string, { prenom: string; nom: string; ventes: Set<string> }>();
+    for (const t of lesTx) {
+      const td = t.data || {};
+      if (td.source === "site" || td.type === "avoir" || td.statut === "abandonnee" || permanentes.has(td.venteId)) continue;
+      const c = lesClients.get(t.id) || {};
+      const email = normEmail(c.email);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || c.anonyme || c.opposition || c.consentement === false || desabonnes.has(email)) continue;
+      const fiche = parEmail.get(email);
+      if (fiche && (fiche.data?.tags || []).some((x: string) => /désabonn|invalide/i.test(x))) continue;
+      const p = aPousser.get(email) || { prenom: String(c.prenom || ""), nom: String(c.nom || ""), ventes: new Set<string>() };
+      const nv = nomVente.get(td.venteId); if (nv) p.ventes.add(nv);
+      aPousser.set(email, p);
+    }
+    // 1. inscription des nouveaux (par lots de 500 ; les contacts existants ne sont pas modifiés)
+    let ajoutes = 0; const liste_ = [...aPousser.entries()];
+    for (let i = 0; i < liste_.length; i += 500) {
+      const membres = liste_.slice(i, i + 500).map(([email, p]) => ({ email_address: email, status: "subscribed", merge_fields: { FNAME: p.prenom, LNAME: p.nom } }));
+      const r = await fetch(`${api}/lists/${liste}`, { method: "POST", headers: { ...entetes, "Content-Type": "application/json" }, body: JSON.stringify({ members: membres, update_existing: false }) });
+      if (!r.ok) throw new Error("Mailchimp (envoi des clients) a répondu " + r.status);
+      const res = await r.json(); ajoutes += Number(res.total_created || 0);
+    }
+    // 2. étiquettes « Vente : … » (pour n'inviter chaque client qu'aux ventes auxquelles il participe)
+    let etiquetes = 0;
+    for (const [email, p] of liste_) {
+      if (!p.ventes.size) continue;
+      const hash = [...new Uint8Array(await stdCrypto.subtle.digest("MD5", new TextEncoder().encode(email)))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const r = await fetch(`${api}/lists/${liste}/members/${hash}/tags`, { method: "POST", headers: { ...entetes, "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: [...p.ventes].map((v) => ({ name: ("Vente : " + v).slice(0, 100), status: "active" })) }) });
+      if (r.ok || r.status === 204) etiquetes++;
+    }
+    await marque({ dernier: debut.toISOString(), n, nouveaux, envoyes: liste_.length, ajoutes, etiquetes, encours: null, erreur: null });
+    return reponse({ ok: true, n, nouveaux, envoyes: liste_.length, ajoutes, etiquetes });
   } catch (e) {
     console.error(e);
     const msg = (e as Error).message || "La synchronisation a échoué";
