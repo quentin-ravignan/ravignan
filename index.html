@@ -752,7 +752,7 @@ function dessinerPage(){
 function renderHome(m){
   if(!loaded.ventes){m.appendChild(el("div","empty","Chargement…"));return;}
   // 1. ventes permanentes : le site web et le domaine
-  if(isAdmin())renderPermanentes(m);
+  renderPermanentes(m); // site web : administrateurs ; Domaine : administrateurs et vendeurs de la vente
   // 2. frise des ventes : le mois passé et les 3 prochains mois
   renderFrise(m);
   // 3. nouvelle vente, puis le reste
@@ -777,7 +777,7 @@ function renderHome(m){
 // ventes permanentes en tête de page : 🌐 site web, 🏰 domaine
 const ICONE_PERMANENTE=v=>v.id==="site-web"?"🌐":"🏰";
 function renderPermanentes(m){
-  const perm=ventes.filter(v=>v.permanente).sort((a,b)=>(a.id==="site-web"?0:1)-(b.id==="site-web"?0:1));
+  const perm=ventes.filter(v=>v.permanente&&(isAdmin()||(v.id!=="site-web"&&estVendeurDe(v)))).sort((a,b)=>(a.id==="site-web"?0:1)-(b.id==="site-web"?0:1));
   if(!perm.length)return;
   const z=el("div","permanentes");
   const annee=String(new Date().getFullYear());
@@ -786,7 +786,7 @@ function renderPermanentes(m){
     const ca=ta.reduce((s,x)=>s+montant(x),0),tot=t.reduce((s,x)=>s+montant(x),0);
     const der=t.reduce((d,x)=>String(x.date||"")>d?String(x.date):d,"");
     const b=el("button","perm-carte",`<span class="perm-ico" aria-hidden="true">${ICONE_PERMANENTE(v)}</span>
-      <span class="perm-info"><b>${esc(v.id==="site-web"?"Site web":v.nom)} <span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span></b><small class="muted">${esc(v.id==="site-web"?"armagnac-ravignan.com":v.lieu||"Vente au domaine")}</small>
+      <span class="perm-info"><b>${esc(v.id==="site-web"?"Site web":v.nom)}${v.id==="site-web"?` <span class="nav-cle" title="Réservé aux administrateurs" aria-label="réservé aux administrateurs">🔑</span>`:""}</b><small class="muted">${esc(v.id==="site-web"?"armagnac-ravignan.com":v.lieu||"Vente au domaine")}</small>
       <span class="perm-chiffres num"><b>${fmt(ca)}</b> <small class="muted">en ${annee} · ${ta.length} vente${ta.length>1?"s":""}</small></span>
       <small class="muted num">${t.length} au total · ${fmt(tot)}${der?" · dernière le "+frDate(der.slice(0,10)):""}</small></span>`);
     b.onclick=()=>go("vente",v.id);z.appendChild(b);
@@ -1436,7 +1436,10 @@ async function importerCommandesSite(fichier,progres){
 // vendeur responsable : le premier vendeur de la vente (★). Lui seul, ou un administrateur, modifie et clôture la vente.
 // Une vente sans responsable (pré-créée depuis le planning) peut être préparée par tout membre, qui en devient responsable.
 const responsableDe=v=>String(v.vendeurPrincipal||(v.vendeurs||[])[0]||"").trim();
-const peutGerer=v=>canWrite&&(isAdmin()||!responsableDe(v)||normTxt(responsableDe(v))===normTxt(monPrenom));
+// vendeur de la vente (liste des vendeurs choisis)
+const estVendeurDe=v=>!!monPrenom&&(v.vendeurs||[]).some(p=>normTxt(p)===normTxt(monPrenom));
+// la vente permanente du Domaine est gérée par tous ses vendeurs ; les autres, par le vendeur responsable (et les administrateurs)
+const peutGerer=v=>canWrite&&(isAdmin()||!responsableDe(v)||normTxt(responsableDe(v))===normTxt(monPrenom)||(v.permanente&&v.id!=="site-web"&&estVendeurDe(v)));
 function renderVente(m){
   const v=getVente();const t=txsOf(v.id);
   const ca=t.reduce((s,x)=>s+montant(x),0);
