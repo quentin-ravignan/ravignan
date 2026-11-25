@@ -751,7 +751,7 @@ function renderHome(m){
   else m.appendChild(el("div","msg info","Lecture seule : demandez au propriétaire de vous inviter comme Éditeur pour saisir des ventes."));
   const autres=ventes.filter(v=>!v.permanente);
   if(!autres.length&&!ventes.length){m.appendChild(el("div","empty","Aucune vente pour l'instant.<br>Créez la première avec le bouton ci-dessus."));return;}
-  renderDashboard(m);
+  // tableau de bord retiré de la page Ventes (le 26/11, pour recentrer l'app sur les ventes)
   m.appendChild(txt("h2","dash-titre","Toutes les ventes"));
   const list=[...autres].sort((a,b)=>(a.cloturee-b.cloturee)||(b.dateDebut||"").localeCompare(a.dateDebut||""));
   list.forEach(v=>{
